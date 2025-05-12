@@ -2,25 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* Removed: body { font-family: Arial, Helvetica, sans-serif; } */
 
 @layer base {
   :root {
-    --background: 180 0% 94%; /* #F0F0F0 */
-    --foreground: 0 0% 20%; /* #333333 */
-    --card: 180 0% 94%;
+    --background: 0 0% 94%; /* Light Gray #F0F0F0 (HSL approximated) */
+    --foreground: 0 0% 20%; /* Dark Gray #333333 */
+    --card: 0 0% 94%;
     --card-foreground: 0 0% 20%;
-    --popover: 180 0% 94%;
+    --popover: 0 0% 94%;
     --popover-foreground: 0 0% 20%;
-    --primary: 0 0% 20%;
-    --primary-foreground: 180 0% 94%;
+    --primary: 0 0% 20%; /* Dark Gray for primary elements */
+    --primary-foreground: 0 0% 94%; /* Light Gray for text on primary */
     --secondary: 0 0% 85%; /* Lighter gray for secondary elements */
     --secondary-foreground: 0 0% 20%;
     --muted: 0 0% 85%;
     --muted-foreground: 0 0% 40%; /* Slightly darker muted text */
-    --accent: 180 100% 25%; /* #008080 */
+    --accent: 180 100% 25%; /* Teal #008080 */
     --accent-foreground: 0 0% 100%; /* White text on accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -33,18 +31,18 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%; /* Default sidebar, can be overridden */
+    --sidebar-background: 0 0% 98%; /* Almost white for sidebar */
     --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 180 100% 25%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 180 100% 30%; /* Slightly lighter accent for sidebar hover */
+    --sidebar-accent: 180 100% 30%; 
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 85%;
     --sidebar-ring: 180 100% 25%;
   }
   .dark {
-    --background: 0 0% 10%; /* Darker background for dark mode */
-    --foreground: 0 0% 95%; /* Light foreground for dark mode */
+    --background: 0 0% 10%; 
+    --foreground: 0 0% 95%; 
     --card: 0 0% 10%;
     --card-foreground: 0 0% 95%;
     --popover: 0 0% 10%;
@@ -84,5 +82,7 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    /* Ensure fonts are applied via Tailwind config and CSS variables */
+    font-family: var(--font-geist-sans), sans-serif;
   }
 }
