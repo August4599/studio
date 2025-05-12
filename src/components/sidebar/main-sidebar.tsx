@@ -31,6 +31,7 @@ const MainSidebar = () => {
           <>
             <MaterialsPanel />
             {selectedObjectId && <ObjectPropertiesPanel />} 
+            <LightingPanel /> {/* Added LightingPanel to texturing mode */}
             <ScenePanel />
           </>
         );
@@ -52,7 +53,7 @@ const MainSidebar = () => {
       case 'modelling':
         return ['item-tools', selectedObjectId ? 'item-object-props' : undefined, 'item-lighting'].filter(Boolean) as string[];
       case 'texturing':
-        return ['item-materials', selectedObjectId ? 'item-object-props' : undefined].filter(Boolean) as string[];
+        return ['item-materials', selectedObjectId ? 'item-object-props' : undefined, 'item-lighting'].filter(Boolean) as string[];
       case 'rendering':
         return ['item-render-settings', 'item-lighting'].filter(Boolean) as string[];
       default:
@@ -62,7 +63,7 @@ const MainSidebar = () => {
 
   return (
     <ScrollArea className="h-full p-1">
-      <Accordion type="multiple" defaultValue={getDefaultOpenItems(appMode)} className="w-full">
+      <Accordion type="multiple" defaultValue={getDefaultOpenItems(appMode)} className="w-full" key={appMode + (selectedObjectId || '')}> {/* Added key to force re-render on mode/selection change for defaultValue */}
         {getPanelsForMode(appMode)}
       </Accordion>
     </ScrollArea>

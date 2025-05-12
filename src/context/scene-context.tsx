@@ -34,9 +34,9 @@ const SceneContext = createContext<SceneContextType | undefined>(undefined);
 const initialDefaultMaterial: MaterialProperties = {
   id: DEFAULT_MATERIAL_ID,
   name: DEFAULT_MATERIAL_NAME,
-  color: '#cccccc',
-  roughness: 0.5,
-  metalness: 0.5,
+  color: '#888888', // Changed from #cccccc for better visibility
+  roughness: 0.6,
+  metalness: 0.3,
 };
 
 const initialSceneData: SceneData = {
@@ -44,11 +44,11 @@ const initialSceneData: SceneData = {
   materials: [initialDefaultMaterial],
   ambientLight: {
     color: '#ffffff',
-    intensity: 0.5,
+    intensity: 0.6, // Slightly increased ambient intensity
   },
   directionalLight: {
     color: '#ffffff',
-    intensity: 1.0,
+    intensity: 1.2, // Slightly increased directional intensity
     position: [5, 10, 7.5],
     castShadow: true,
     shadowBias: -0.0001,
@@ -154,8 +154,18 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loadScene = useCallback((data: SceneData) => {
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
       let materials = data.materials;
+      // Ensure default material exists, if not add it.
       if (!materials.find(m => m.id === DEFAULT_MATERIAL_ID)) {
-        materials = [initialDefaultMaterial, ...materials];
+        // If the loaded scene has a material named "Default Material" but different ID, use that
+        const loadedDefault = materials.find(m => m.name === DEFAULT_MATERIAL_NAME);
+        if (loadedDefault) {
+          // Update its ID to be the canonical default ID
+          loadedDefault.id = DEFAULT_MATERIAL_ID;
+        } else {
+          materials = [initialDefaultMaterial, ...materials];
+        }
+      } else { // If it exists, ensure its properties are our current defaults if it's meant to be the fallback
+        materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
       }
       setSceneData({...initialSceneData, ...data, materials, appMode: data.appMode || 'modelling', activeTool: data.activeTool || 'select'});
     } else {
@@ -164,11 +174,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const clearScene = useCallback(() => {
-    const currentAppMode = sceneData.appMode;
+    const currentAppMode = sceneData.appMode; // Preserve current app mode
     const newInitialData = {
-        ...initialSceneData,
-        appMode: currentAppMode, // Preserve current app mode
-        materials: [initialDefaultMaterial], 
+        ...initialSceneData, // This already contains the updated default material
+        appMode: currentAppMode, 
+        materials: [initialDefaultMaterial], // Ensure it's exactly our default
         objects: [],
         selectedObjectId: null,
         activeTool: 'select',
