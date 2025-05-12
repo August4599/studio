@@ -89,7 +89,7 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
   { id: 'addPlane', label: 'Add Plane'},
 ];
 
-export type AppMode = 'modelling' | 'texturing' | 'rendering';
+export type AppMode = 'modelling' | 'rendering'; // Removed 'texturing'
 
 export interface SceneData {
   objects: SceneObject[];
@@ -103,3 +103,4 @@ export interface SceneData {
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
 export const DEFAULT_MATERIAL_NAME = 'Default Material';
+

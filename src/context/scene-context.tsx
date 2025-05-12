@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -33,7 +34,7 @@ const SceneContext = createContext<SceneContextType | undefined>(undefined);
 const initialDefaultMaterial: MaterialProperties = {
   id: DEFAULT_MATERIAL_ID,
   name: DEFAULT_MATERIAL_NAME,
-  color: '#B0B0B0', // Changed to a lighter gray
+  color: '#B0B0B0', 
   roughness: 0.6,
   metalness: 0.3,
 };
@@ -43,25 +44,31 @@ const initialSceneData: SceneData = {
   materials: [initialDefaultMaterial],
   ambientLight: {
     color: '#ffffff',
-    intensity: 0.7, // Slightly increased ambient intensity
+    intensity: 0.7, 
   },
   directionalLight: {
     color: '#ffffff',
-    intensity: 1.5, // Slightly increased directional intensity
+    intensity: 1.5, 
     position: [5, 10, 7.5],
     castShadow: true,
-    shadowBias: -0.0005, // Adjusted shadow bias
+    shadowBias: -0.0005, 
   },
   selectedObjectId: null,
   activeTool: 'select',
-  appMode: 'modelling',
+  appMode: 'modelling', // Default app mode
 };
 
 export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sceneData, setSceneData] = useState<SceneData>(initialSceneData);
 
   const setAppMode = useCallback((mode: AppMode) => {
-    setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null })); // Reset tool and selection on mode change
+    // Ensure mode is one of the valid AppModes after 'texturing' removal
+    if (mode === 'modelling' || mode === 'rendering') {
+      setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null }));
+    } else {
+      // Fallback to modelling if an invalid mode (like old 'texturing') is somehow passed
+      setSceneData(prev => ({ ...prev, appMode: 'modelling', activeTool: 'select', selectedObjectId: null }));
+    }
   }, []);
 
   const addObject = useCallback((type: PrimitiveType, materialId: string = DEFAULT_MATERIAL_ID): SceneObject => {
@@ -78,19 +85,17 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       materialId: materialId,
     };
     
-    // Adjust Y position for primitives to sit on the ground plane (Y=0)
     if (type === 'cube' || type === 'cylinder') {
       newObject.position[1] = (newObject.dimensions.height || 1) / 2;
     } else if (type === 'plane') {
-      newObject.position = [0,0,0]; // Plane at origin
+      newObject.position = [0,0,0]; 
     }
-
 
     setSceneData(prev => ({
       ...prev,
       objects: [...prev.objects, newObject],
-      selectedObjectId: newObject.id, // Auto-select new object
-      activeTool: 'select', // Switch to select tool
+      selectedObjectId: newObject.id, 
+      activeTool: 'select', 
     }));
     return newObject;
   }, [sceneData.objects]);
@@ -101,7 +106,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       objects: prev.objects.map(obj => {
         if (obj.id === id) {
           const updatedObj = { ...obj, ...updates };
-          // If dimensions affecting height change, adjust Y position for cube/cylinder to stay on ground
           if ((updatedObj.type === 'cube' || updatedObj.type === 'cylinder') && updates.dimensions?.height !== undefined) {
             updatedObj.position[1] = (updatedObj.dimensions.height || 1) / 2;
           }
@@ -127,7 +131,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addMaterial = useCallback((props?: Partial<Omit<MaterialProperties, 'id'>>): MaterialProperties => {
     const newMaterial: MaterialProperties = {
       id: uuidv4(),
-      name: `Material ${sceneData.materials.length}`, // Name will be unique due to length check before this
+      name: `Material ${sceneData.materials.length}`, 
       color: '#ffffff',
       roughness: 0.5,
       metalness: 0.5,
@@ -176,8 +180,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!defaultMaterialExists) {
         const loadedDefaultByName = materials.find(m => m.name === DEFAULT_MATERIAL_NAME);
         if (loadedDefaultByName) {
-          loadedDefaultByName.id = DEFAULT_MATERIAL_ID; // Standardize ID
-           // Ensure our initial default props are base, then override with loaded
+          loadedDefaultByName.id = DEFAULT_MATERIAL_ID; 
           materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
         } else {
           materials = [initialDefaultMaterial, ...materials];
@@ -186,19 +189,21 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
          materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
       }
       
-      // Ensure all objects have valid materialId, fallback to default if not found
       const validMaterialIds = new Set(materials.map(m => m.id));
       const objects = data.objects.map(obj => ({
         ...obj,
         materialId: validMaterialIds.has(obj.materialId) ? obj.materialId : DEFAULT_MATERIAL_ID
       }));
 
+      // Ensure loaded appMode is valid, fallback to 'modelling'
+      const validAppMode = (data.appMode === 'modelling' || data.appMode === 'rendering') ? data.appMode : 'modelling';
+
       setSceneData({
-        ...initialSceneData, // Start with fresh defaults for any missing top-level keys
-        ...data, // Override with loaded data
-        materials, // Use processed materials
-        objects, // Use processed objects
-        appMode: data.appMode || 'modelling', 
+        ...initialSceneData, 
+        ...data, 
+        materials, 
+        objects, 
+        appMode: validAppMode, 
         activeTool: data.activeTool || 'select'
       });
     } else {
@@ -211,7 +216,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSceneData({
         ...initialSceneData, 
         appMode: currentAppMode, 
-        materials: [initialDefaultMaterial], // Ensure it's exactly our current default
+        materials: [initialDefaultMaterial], 
         objects: [],
         selectedObjectId: null,
         activeTool: 'select',

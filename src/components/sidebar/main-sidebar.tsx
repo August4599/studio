@@ -1,9 +1,9 @@
+
 "use client";
 
 import { Accordion } from "@/components/ui/accordion";
 import LightingPanel from "./lighting-panel";
 import ScenePanel from "./scene-panel";
-// import ToolsPanel from "./tools-panel"; // REMOVED
 import ObjectPropertiesPanel from "./object-properties-panel";
 import MaterialsPanel from "./materials-panel";
 import RenderSettingsPanel from "./render-settings-panel";
@@ -20,29 +20,18 @@ const MainSidebar = () => {
     const hasSelection = !!selectedObjectId;
 
     switch (mode) {
-      case 'modelling':
+      case 'modelling': // Combined Modelling & Texturing panels
         return (
           <>
             {hasSelection && <ObjectPropertiesPanel />}
-            {/* ToolsPanel removed from here */}
             <MaterialsPanel />
-            <LightingPanel /> {/* Stays for modelling */}
+            <LightingPanel />
             <CameraSettingsPanel /> 
             <WorldSettingsPanel /> 
             <ScenePanel />
           </>
         );
-      case 'texturing':
-        return (
-          <>
-            {hasSelection && <ObjectPropertiesPanel />}
-            <MaterialsPanel />
-            {/* LightingPanel REMOVED from texturing */}
-            <CameraSettingsPanel />
-            <WorldSettingsPanel />
-            <ScenePanel />
-          </>
-        );
+      // 'texturing' case removed
       case 'rendering':
         return (
           <>
@@ -50,8 +39,8 @@ const MainSidebar = () => {
             <CameraSettingsPanel />
             <WorldSettingsPanel />
             {hasSelection && <ObjectPropertiesPanel />}
-            <MaterialsPanel />
-            {/* LightingPanel REMOVED from rendering */}
+            <MaterialsPanel /> 
+            {/* LightingPanel deliberately not shown in rendering for now, can be added if needed */}
             <ScenePanel />
           </>
         );
@@ -65,15 +54,11 @@ const MainSidebar = () => {
     const objectPropsOpen = selectedObjectId ? ['item-object-props'] : [];
 
     switch (mode) {
-      case 'modelling':
-        items = [...objectPropsOpen, 'item-materials', 'item-lighting']; 
-        if (!selectedObjectId) items.push('item-scene'); // If no selection, Scene, Materials, Lighting, etc.
-        items.push('item-camera-settings', 'item-world-settings');
-        break;
-      case 'texturing':
-        items = [...objectPropsOpen, 'item-materials', 'item-camera-settings', 'item-world-settings'];
+      case 'modelling': // Combined Modelling & Texturing defaults
+        items = [...objectPropsOpen, 'item-materials', 'item-lighting', 'item-camera-settings', 'item-world-settings'];
         if (!selectedObjectId) items.push('item-scene');
         break;
+      // 'texturing' case removed
       case 'rendering':
         items = ['item-render-settings', 'item-camera-settings', 'item-world-settings'];
         if (selectedObjectId) items.push('item-object-props');
@@ -92,7 +77,7 @@ const MainSidebar = () => {
         type="multiple" 
         defaultValue={getDefaultOpenItems(appMode)} 
         className="w-full" 
-        key={`${appMode}-${selectedObjectId || 'no-selection'}`}
+        key={`${appMode}-${selectedObjectId || 'no-selection'}`} // Key helps re-render accordion defaults when mode/selection changes
       >
         {getPanelsForMode(appMode)}
       </Accordion>
