@@ -1,4 +1,6 @@
+"use client";
 
+import React, { useState } from 'react';
 import { SceneProvider } from "@/context/scene-context";
 import SceneViewer from "@/components/scene/viewer";
 import MainSidebar from "@/components/sidebar/main-sidebar";
@@ -12,7 +14,9 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { Workflow } from "lucide-react"; 
+import { Button } from "@/components/ui/button";
+import { Workflow, ChevronDown, ChevronUp } from "lucide-react"; 
+import { cn } from "@/lib/utils";
 
 // Inline SVG for Node Editor Icon (simple placeholder)
 const NodeEditorIcon = () => (
@@ -31,6 +35,8 @@ const NodeEditorIcon = () => (
 
 
 export default function ArchiVisionApp() {
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(true);
+
   return (
     <SceneProvider>
       <SidebarProvider defaultOpen>
@@ -60,17 +66,31 @@ export default function ArchiVisionApp() {
            </div>
           
           <div className="flex-grow flex flex-col overflow-hidden">
-            {/* Node Editor Area - Enhanced Placeholder */}
-            <div className="flex-none h-[40%] min-h-[200px] flex flex-col border-b bg-card shadow-sm overflow-hidden">
-              <div className="p-3 border-b bg-muted/30 dark:bg-muted/10">
+            {/* Node Editor Area - Enhanced and Collapsible */}
+            <div className={cn(
+              "flex-none flex flex-col border-b bg-card shadow-sm overflow-hidden transition-all duration-300 ease-in-out",
+              isNodeEditorOpen ? "h-[40%] min-h-[200px]" : "h-[52px]" // Approx height of header
+            )}>
+              <div className="p-3 border-b bg-muted/30 dark:bg-muted/10 flex justify-between items-center">
                 <h2 className="text-base font-semibold text-foreground flex items-center">
                   <NodeEditorIcon />
                   Node Editor
                 </h2>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7" 
+                  onClick={() => setIsNodeEditorOpen(!isNodeEditorOpen)}
+                  aria-label={isNodeEditorOpen ? "Collapse Node Editor" : "Expand Node Editor"}
+                >
+                  {isNodeEditorOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                </Button>
               </div>
-              <div className="flex-grow p-4 flex items-center justify-center text-muted-foreground">
-                <span className="italic text-sm">Node-based scene construction area (Future Development)</span>
-              </div>
+              {isNodeEditorOpen && (
+                <div className="flex-grow p-4 flex items-center justify-center text-muted-foreground overflow-auto">
+                  <span className="italic text-sm">Node-based scene construction area (Future Development)</span>
+                </div>
+              )}
             </div>
             
             {/* Scene Viewer takes up the remaining space */}
