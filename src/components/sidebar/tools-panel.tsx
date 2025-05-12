@@ -13,37 +13,50 @@ import { useScene } from "@/context/scene-context";
 import type { ToolType } from "@/types";
 import { 
   MousePointer2, 
-  PenTool, // Replaced Minus with PenTool for Line
-  RectangleHorizontal, 
-  Circle, 
-  BoxSelect, // For Push/Pull (SketchUp like extrusion tool)
   Move, 
   RotateCcw, 
-  Maximize2, // Replaced Expand with Maximize2 for Scale
-  Eraser,
-  Construction // Placeholder for Tools section icon
+  Maximize2, // Scale
+  Construction, // Tools section icon
+  PlusSquare, // Add Primitive
+  Cube, // For Add Cube specifically
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
 
 interface ToolConfig {
   id: ToolType;
   label: string;
   icon: React.ElementType;
+  action?: () => void; // Optional action for tools that execute immediately
 }
 
-const toolsConfig: ToolConfig[] = [
-  { id: 'select', label: 'Select', icon: MousePointer2 },
-  { id: 'line', label: 'Line', icon: PenTool },
-  { id: 'rectangle', label: 'Rectangle', icon: RectangleHorizontal },
-  { id: 'circle', label: 'Circle', icon: Circle },
-  { id: 'pushpull', label: 'Push/Pull', icon: BoxSelect },
-  { id: 'move', label: 'Move', icon: Move },
-  { id: 'rotate', label: 'Rotate', icon: RotateCcw },
-  { id: 'scale', label: 'Scale', icon: Maximize2 },
-  { id: 'eraser', label: 'Eraser', icon: Eraser },
-];
-
 const ToolsPanel = () => {
-  const { activeTool, setActiveTool } = useScene();
+  const { activeTool, setActiveTool, addObject } = useScene();
+  const { toast } = useToast();
+
+  const handleAddCube = () => {
+    const newCube = addObject('cube');
+    toast({
+      title: "Object Added",
+      description: `Added ${newCube.name} to the scene.`,
+    });
+    setActiveTool('select'); // Switch to select tool after adding
+  };
+
+  const toolsConfig: ToolConfig[] = [
+    { id: 'select', label: 'Select', icon: MousePointer2 },
+    { id: 'move', label: 'Move', icon: Move },
+    { id: 'rotate', label: 'Rotate', icon: RotateCcw },
+    { id: 'scale', label: 'Scale', icon: Maximize2 },
+    // Placeholder for more direct modeling tools in future
+  ];
+  
+  // Primitive creation tools, separate section or buttons
+  const primitiveToolsConfig: ToolConfig[] = [
+      { id: 'addCube', label: 'Add Cube', icon: Cube, action: handleAddCube },
+      // Future: Add Sphere, Cylinder, Plane buttons here
+  ];
+
 
   return (
     <AccordionItem value="item-tools">
@@ -52,21 +65,50 @@ const ToolsPanel = () => {
           <Construction size={18} /> Modeling Tools
         </div>
       </AccordionTrigger>
-      <AccordionContent className="p-2">
+      <AccordionContent className="p-2 space-y-3">
         <TooltipProvider delayDuration={100}>
-          <div className="grid grid-cols-3 gap-2">
+          <Label className="text-xs font-medium text-muted-foreground px-1">Transform Tools</Label>
+          <div className="grid grid-cols-4 gap-1"> {/* Adjusted grid to 4 for better fit */}
             {toolsConfig.map((tool) => (
               <Tooltip key={tool.id}>
                 <TooltipTrigger asChild>
                   <Button
                     variant={activeTool === tool.id ? "secondary" : "outline"}
                     size="icon"
-                    className="w-full h-16 flex flex-col items-center justify-center gap-1"
-                    onClick={() => setActiveTool(tool.id)}
+                    className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1"
+                    onClick={() => {
+                      setActiveTool(tool.id);
+                      if (tool.action) tool.action();
+                    }}
                     aria-label={tool.label}
                   >
-                    <tool.icon size={24} />
-                    <span className="text-xs">{tool.label}</span>
+                    <tool.icon size={20} />
+                    <span className="text-[10px] leading-tight">{tool.label}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>{tool.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+          
+          <Label className="text-xs font-medium text-muted-foreground px-1 pt-2 block">Add Primitives</Label>
+          <div className="grid grid-cols-4 gap-1">
+             {primitiveToolsConfig.map((tool) => (
+              <Tooltip key={tool.id}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={"outline"} // Always outline for action buttons
+                    size="icon"
+                    className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1"
+                    onClick={() => {
+                      if (tool.action) tool.action();
+                    }}
+                    aria-label={tool.label}
+                  >
+                    <tool.icon size={20} />
+                    <span className="text-[10px] leading-tight">{tool.label}</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
@@ -82,3 +124,5 @@ const ToolsPanel = () => {
 };
 
 export default ToolsPanel;
+
+```

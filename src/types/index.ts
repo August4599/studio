@@ -3,6 +3,7 @@ export type PrimitiveType = 'cube' | 'cylinder' | 'plane';
 
 export interface MaterialProperties {
   id: string;
+  name?: string; // Optional name for material
   color: string;
   roughness: number;
   metalness: number;
@@ -15,7 +16,7 @@ export interface MaterialProperties {
 }
 
 export interface SceneObject {
-  id: string;
+  id:string;
   type: PrimitiveType;
   name: string;
   position: [number, number, number];
@@ -55,20 +56,23 @@ export type ToolType =
   | 'move' 
   | 'rotate' 
   | 'scale' 
-  | 'eraser';
+  | 'eraser'
+  | 'addCube'; // Added for a simple add primitive tool
 
 export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.ElementType }[] = [
   { id: 'select', label: 'Select' },
-  { id: 'line', label: 'Line' },
-  { id: 'rectangle', label: 'Rectangle' },
-  { id: 'circle', label: 'Circle' },
-  { id: 'pushpull', label: 'Push/Pull' },
+  // { id: 'line', label: 'Line' }, // Placeholder tools, will be re-added with actual functionality
+  // { id: 'rectangle', label: 'Rectangle' },
+  // { id: 'circle', label: 'Circle' },
+  // { id: 'pushpull', label: 'Push/Pull' },
   { id: 'move', label: 'Move' },
   { id: 'rotate', label: 'Rotate' },
   { id: 'scale', label: 'Scale' },
-  { id: 'eraser', label: 'Eraser' },
+  // { id: 'eraser', label: 'Eraser' },
+  { id: 'addCube', label: 'Add Cube'},
 ];
 
+export type AppMode = 'modelling' | 'texturing' | 'rendering';
 
 export interface SceneData {
   objects: SceneObject[];
@@ -77,7 +81,9 @@ export interface SceneData {
   directionalLight: DirectionalLightProps;
   selectedObjectId?: string | null;
   activeTool?: ToolType;
+  appMode?: AppMode; // Added appMode
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
-
+export const DEFAULT_MATERIAL_NAME = 'Default Material';
+```
