@@ -6,18 +6,21 @@ import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, Dir
 import { DEFAULT_MATERIAL_ID } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
-interface SceneContextType extends SceneData {
-  addObject: (type: PrimitiveType) => void;
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials'> {
+  objects: SceneObject[]; // Keep for viewer consumption
+  materials: MaterialProperties[]; // Keep for viewer consumption
+  // addObject: (type: PrimitiveType) => void; // Removed
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
-  addMaterial: (material: Partial<Omit<MaterialProperties, 'id'>>) => string;
-  updateMaterial: (id: string, updates: Partial<MaterialProperties>) => void;
+  // addMaterial: (material: Partial<Omit<MaterialProperties, 'id'>>) => string; // Removed
+  updateMaterial: (id: string, updates: Partial<MaterialProperties>) => void; // Retained for potential use with node-selected materials
   getMaterialById: (id: string) => MaterialProperties | undefined;
   updateAmbientLight: (updates: Partial<AmbientLightProps>) => void;
   updateDirectionalLight: (updates: Partial<DirectionalLightProps>) => void;
   loadScene: (data: SceneData) => void;
   clearScene: () => void;
+  selectedObjectId: string | null | undefined;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -49,35 +52,8 @@ const initialSceneData: SceneData = {
 export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sceneData, setSceneData] = useState<SceneData>(initialSceneData);
 
-  const addObject = useCallback((type: PrimitiveType) => {
-    const newObjectId = uuidv4();
-    let newObject: SceneObject;
-    const baseProperties = {
-      id: newObjectId,
-      name: `${type}-${sceneData.objects.length + 1}`,
-      position: [0, 0, 0] as [number, number, number],
-      rotation: [0, 0, 0] as [number, number, number],
-      scale: [1, 1, 1] as [number, number, number],
-      materialId: DEFAULT_MATERIAL_ID,
-    };
-
-    switch (type) {
-      case 'cube':
-        newObject = { ...baseProperties, type, dimensions: { width: 1, height: 1, depth: 1 } };
-        break;
-      case 'cylinder':
-        newObject = { ...baseProperties, type, dimensions: { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 } };
-        break;
-      case 'plane':
-        newObject = { ...baseProperties, type, dimensions: { width: 10, height: 10 } }; // Plane is often used as ground
-        // Adjust default position for plane to be ground
-        newObject.position = [0, -0.5, 0]; // Assuming objects are 1 unit high by default
-        break;
-      default:
-        throw new Error(`Unsupported object type: ${type}`);
-    }
-    setSceneData(prev => ({ ...prev, objects: [...prev.objects, newObject], selectedObjectId: newObjectId }));
-  }, [sceneData.objects.length]);
+  // addObject removed - object creation will be handled by a node system
+  // const addObject = useCallback((type: PrimitiveType) => { ... });
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
     setSceneData(prev => ({
@@ -98,20 +74,13 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSceneData(prev => ({ ...prev, selectedObjectId: id }));
   }, []);
 
-  const addMaterial = useCallback((materialProps: Partial<Omit<MaterialProperties, 'id'>>): string => {
-    const newMaterialId = uuidv4();
-    const newMaterial: MaterialProperties = {
-      id: newMaterialId,
-      color: '#ffffff',
-      roughness: 0.5,
-      metalness: 0.5,
-      ...materialProps,
-    };
-    setSceneData(prev => ({ ...prev, materials: [...prev.materials, newMaterial] }));
-    return newMaterialId;
-  }, []);
+  // addMaterial removed - material creation will be handled by a node system
+  // const addMaterial = useCallback((materialProps: Partial<Omit<MaterialProperties, 'id'>>): string => { ... });
   
   const updateMaterial = useCallback((id: string, updates: Partial<MaterialProperties>) => {
+    // If updating the default material, a new material should ideally be created and assigned to objects using it.
+    // This logic might need refinement depending on how node-based material assignment works.
+    // For now, allow updating existing materials, including the default one (though UI for this is removed).
     setSceneData(prev => ({
       ...prev,
       materials: prev.materials.map(mat => mat.id === id ? { ...mat, ...updates } : mat),
@@ -131,33 +100,43 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const loadScene = useCallback((data: SceneData) => {
-    // Basic validation, can be expanded
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
-      setSceneData(data);
+      // Ensure default material exists if loaded scene doesn't have it or if materials array is empty
+      let materials = data.materials;
+      if (!materials.find(m => m.id === DEFAULT_MATERIAL_ID)) {
+        materials = [initialDefaultMaterial, ...materials];
+      }
+      setSceneData({...data, materials});
     } else {
       console.error("Invalid scene data format");
-      // Potentially show a toast to the user
     }
   }, []);
 
   const clearScene = useCallback(() => {
-    setSceneData(initialSceneData);
+    // Ensure initialSceneData is truly the initial state with default material
+    const newInitialData = {
+        ...initialSceneData,
+        materials: [initialDefaultMaterial], // Ensure default material is present
+        objects: [],
+        selectedObjectId: null,
+    };
+    setSceneData(newInitialData);
   }, []);
-
+  
   const contextValue = useMemo(() => ({
-    ...sceneData,
-    addObject,
+    ...sceneData, // Includes objects, materials, ambientLight, directionalLight, selectedObjectId
+    // addObject, // Removed
     updateObject,
     removeObject,
     selectObject,
-    addMaterial,
+    // addMaterial, // Removed
     updateMaterial,
     getMaterialById,
     updateAmbientLight,
     updateDirectionalLight,
     loadScene,
     clearScene,
-  }), [sceneData, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene]);
+  }), [sceneData, updateObject, removeObject, selectObject, updateMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene]);
 
   return (
     <SceneContext.Provider value={contextValue}>

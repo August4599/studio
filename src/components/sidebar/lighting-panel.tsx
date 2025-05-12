@@ -1,29 +1,28 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useCallback } from "react";
 import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button"; // No longer needed for AI button
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { Textarea } from "@/components/ui/textarea";
+// import { Textarea } from "@/components/ui/textarea"; // No longer needed for AI description
 import { Checkbox } from "@/components/ui/checkbox";
 import { useScene } from "@/context/scene-context";
 import type { AmbientLightProps, DirectionalLightProps } from "@/types";
-import { Lightbulb, Sparkles } from "lucide-react";
-import { adjustLightingFromDescription, type AdjustLightingFromDescriptionOutput } from "@/ai/flows/adjust-lighting-from-description";
-import { useToast } from "@/hooks/use-toast";
+import { Lightbulb } from "lucide-react"; // Sparkles icon no longer needed
+// import { useToast } from "@/hooks/use-toast"; // Toast no longer used here
 
 
 const LightingPanel = () => {
   const { ambientLight, directionalLight, updateAmbientLight, updateDirectionalLight } = useScene();
-  const [aiDescription, setAiDescription] = useState("");
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const { toast } = useToast();
+  // const [aiDescription, setAiDescription] = useState(""); // AI state removed
+  // const [isLoadingAi, setIsLoadingAi] = useState(false); // AI state removed
+  // const { toast } = useToast(); // Toast no longer used here
 
   const handleAmbientChange = useCallback((property: keyof AmbientLightProps, value: any) => {
     updateAmbientLight({ [property]: value });
@@ -40,28 +39,7 @@ const LightingPanel = () => {
     }
   }, [directionalLight.position, updateDirectionalLight]);
 
-  const handleApplyAiLighting = async () => {
-    if (!aiDescription.trim()) {
-      toast({ title: "AI Lighting", description: "Please enter a description for the lighting." });
-      return;
-    }
-    setIsLoadingAi(true);
-    try {
-      const result: AdjustLightingFromDescriptionOutput = await adjustLightingFromDescription({ description: aiDescription });
-      updateAmbientLight({ intensity: result.ambientIntensity });
-      updateDirectionalLight({
-        intensity: result.directionalIntensity,
-        position: [result.directionalDirection.x * 10, result.directionalDirection.y * 10, result.directionalDirection.z * 10], // Scale direction to position
-        shadowBias: result.shadowBias,
-      });
-      toast({ title: "AI Lighting Applied", description: "Lighting parameters updated based on your description." });
-    } catch (error) {
-      console.error("AI lighting adjustment failed:", error);
-      toast({ title: "AI Error", description: "Could not apply AI lighting. Please try again.", variant: "destructive" });
-    } finally {
-      setIsLoadingAi(false);
-    }
-  };
+  // handleApplyAiLighting function removed
   
   const VectorInput: React.FC<{label: string; value: [number,number,number]; onChange: (idx: number, val: string) => void; step?: number}> = ({label, value, onChange, step = 0.1}) => (
     <div>
@@ -151,24 +129,10 @@ const LightingPanel = () => {
           </div>
         </div>
 
-        {/* AI Lighting Assistant */}
-        <div className="space-y-2 border-t pt-3 mt-3">
-          <h4 className="font-semibold text-sm flex items-center gap-1"><Sparkles size={16} className="text-accent" /> AI Lighting Assistant</h4>
-          <Textarea
-            placeholder="e.g., 'soft morning light', 'dramatic sunset', 'bright studio lighting'"
-            value={aiDescription}
-            onChange={(e) => setAiDescription(e.target.value)}
-            className="text-xs"
-            rows={3}
-          />
-          <Button onClick={handleApplyAiLighting} disabled={isLoadingAi} className="w-full text-xs" size="sm">
-            {isLoadingAi ? "Applying..." : "Apply AI Lighting"}
-          </Button>
-        </div>
+        {/* AI Lighting Assistant Removed */}
       </AccordionContent>
     </AccordionItem>
   );
 };
 
 export default LightingPanel;
-

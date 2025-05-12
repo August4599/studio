@@ -1,4 +1,4 @@
 import { config } from 'dotenv';
 config();
 
-import '@/ai/flows/adjust-lighting-from-description.ts';
+// Removed: import '@/ai/flows/adjust-lighting-from-description.ts';
