@@ -43,13 +43,14 @@ const SceneViewer: React.FC = () => {
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
 
-  const getMousePositionOnXYPlane = useCallback((event: PointerEvent): THREE.Vector3 | null => {
+  const getMousePositionOnXZPlane = useCallback((event: PointerEvent): THREE.Vector3 | null => {
     if (!mountRef.current || !cameraRef.current) return null;
     const rect = mountRef.current.getBoundingClientRect();
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // XY plane at Z=0, facing +Z
+    // Plane is XZ at Y=0, normal pointing up along +Y
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
     const intersectionPoint = new THREE.Vector3();
     if (raycaster.current.ray.intersectPlane(plane, intersectionPoint)) {
       return intersectionPoint;
@@ -110,7 +111,7 @@ const SceneViewer: React.FC = () => {
     scene.add(transformControls);
     transformControlsRef.current = transformControls;
     
-    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444);
+    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444); // Grid is on XZ plane
     gridHelper.name = 'gridHelper';
     scene.add(gridHelper);
 
@@ -158,7 +159,7 @@ const SceneViewer: React.FC = () => {
     if (transformControlsRef.current?.dragging) return;
 
     if (activeTool === 'rectangle') {
-      const point = getMousePositionOnXYPlane(event);
+      const point = getMousePositionOnXZPlane(event); // Use XZ plane
       if (point && sceneRef.current) {
         setDrawingState({ isActive: true, startPoint: point.toArray() as [number,number,number], currentPoint: point.toArray() as [number,number,number], tool: 'rectangle' });
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
@@ -175,54 +176,56 @@ const SceneViewer: React.FC = () => {
         sceneRef.current.add(tempDrawingMeshRef.current);
       }
     }
-  }, [activeTool, getMousePositionOnXYPlane, setDrawingState]);
+  }, [activeTool, getMousePositionOnXZPlane, setDrawingState]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
     if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current) {
-      const currentMovePoint = getMousePositionOnXYPlane(event);
+      const currentMovePoint = getMousePositionOnXZPlane(event); // Use XZ plane
       if (currentMovePoint) {
         setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
         
-        const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
-        const endVec = currentMovePoint;
+        const startVec = new THREE.Vector3().fromArray(drawingState.startPoint); // e.g. [sx, 0, sz]
+        const endVec = currentMovePoint; // e.g. [ex, 0, ez]
 
+        // Points are on the XZ plane (Y is constant, usually 0)
         const points = [
-            startVec.x, startVec.y, startVec.z, endVec.x, startVec.y, startVec.z,
-            endVec.x, startVec.y, startVec.z, endVec.x, endVec.y, startVec.z,
-            endVec.x, endVec.y, startVec.z, startVec.x, endVec.y, startVec.z,
-            startVec.x, endVec.y, startVec.z, startVec.x, startVec.y, startVec.z,
+            startVec.x, startVec.y, startVec.z,   endVec.x, startVec.y, startVec.z,
+            endVec.x, startVec.y, startVec.z,     endVec.x, endVec.y, endVec.z, // endVec.y is same as startVec.y
+            endVec.x, endVec.y, endVec.z,         startVec.x, endVec.y, endVec.z,
+            startVec.x, endVec.y, endVec.z,       startVec.x, startVec.y, startVec.z,
         ];
         tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
         tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
       }
     }
-  }, [activeTool, drawingState, getMousePositionOnXYPlane, setDrawingState]);
+  }, [activeTool, drawingState, getMousePositionOnXZPlane, setDrawingState]);
 
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
 
     if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && drawingState.currentPoint) {
-      const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
-      const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);
+      const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint); // [x1, yPlane, z1]
+      const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);   // [x2, yPlane, z2]
 
-      const width = Math.abs(endPointVec.x - startPointVec.x);
-      const depth = Math.abs(endPointVec.y - startPointVec.y); 
+      const rectWidth = Math.abs(endPointVec.x - startPointVec.x); // Extent along world X
+      const rectDepth = Math.abs(endPointVec.z - startPointVec.z); // Extent along world Z
       
-      if (width > 0.01 && depth > 0.01) { 
+      if (rectWidth > 0.01 && rectDepth > 0.01) { 
         const centerX = (startPointVec.x + endPointVec.x) / 2;
-        const centerY = (startPointVec.y + endPointVec.y) / 2;
+        const centerZ = (startPointVec.z + endPointVec.z) / 2;
+        const planeYPosition = startPointVec.y; // Y position of the XZ plane, typically 0
         
         const count = objects.filter(o => o.type === 'plane' && o.name.startsWith("Rectangle")).length + 1;
         addObject('plane', {
           name: `Rectangle ${count}`,
-          position: [centerX, centerY, 0], 
-          rotation: [0, 0, 0], 
-          dimensions: { width, height: depth }, 
+          position: [centerX, planeYPosition, centerZ], 
+          rotation: [-Math.PI / 2, 0, 0],      // Rotate default XY plane to lie on XZ
+          dimensions: { width: rectWidth, height: rectDepth }, // PlaneGeometry's width -> world X, height -> world Z
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
       }
-      setDrawingState({ isActive: false, startPoint: null, currentPoint: null });
+      setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
       if (sceneRef.current && tempDrawingMeshRef.current) {
         sceneRef.current.remove(tempDrawingMeshRef.current);
         tempDrawingMeshRef.current.geometry.dispose();
@@ -280,7 +283,7 @@ const SceneViewer: React.FC = () => {
          }
       }
     }
-  }, [activeTool, drawingState, getMousePositionOnXYPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
+  }, [activeTool, drawingState, getMousePositionOnXZPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
 
 
   // Effect for attaching and managing pointer event listeners

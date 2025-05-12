@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import type { SceneObject, MaterialProperties } from '@/types';
 
@@ -20,9 +19,13 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
       );
       break;
     case 'plane':
+      // PlaneGeometry(width, height) creates a plane in its local XY plane.
+      // Rotation is handled by objectData.rotation.
+      // If it's meant to be on XZ, objectData.rotation should be like [-Math.PI / 2, 0, 0].
       geometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
       break;
     case 'text': 
+      // Placeholder geometry for text. Actual text rendering is more complex.
       geometry = new THREE.BoxGeometry(dimensions.width || 2, dimensions.height || 0.5, dimensions.depth || 0.1);
       break;
     default:
@@ -33,7 +36,7 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = objectData.id; 
   mesh.position.set(...objectData.position);
-  mesh.rotation.set(...objectData.rotation); // Rotation is set from objectData
+  mesh.rotation.set(...objectData.rotation); // Rotation is set directly from objectData
 
   mesh.scale.set(
     Math.max(0.001, objectData.scale[0]),
@@ -43,25 +46,6 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   
-  // If it's a default plane added from the panel (which implies it should be on XZ)
-  // and no specific rotation was given in objectData (or it's the default [0,0,0] from initial creation)
-  // then apply the rotation to make it flat. Drawn planes will have explicit [0,0,0] rotation.
-  if (type === 'plane' && 
-      objectData.rotation[0] === 0 && 
-      objectData.rotation[1] === 0 && 
-      objectData.rotation[2] === 0 &&
-      (!objectData.name || !objectData.name.toLowerCase().includes("rectangle")) // Heuristic: don't auto-rotate drawn rectangles
-     ) { 
-    // This check might be too simple. A better way is if `addObject` from panel sets a specific rotation like [-Math.PI/2, 0, 0]
-    // and drawn rectangles are added with [0,0,0].
-    // For now, let's assume if rotation is [0,0,0] it's a drawn plane, otherwise it's a default one.
-    // Or, if its name is "Plane X" (from panel add), rotate it.
-    if (objectData.name && objectData.name.startsWith("Plane")) {
-        mesh.rotation.x = -Math.PI / 2;
-    }
-  }
-
-
   return mesh;
 }
 
@@ -92,6 +76,7 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
                 if(dimensionsChanged) newGeometry = new THREE.CylinderGeometry(dimensions.radiusTop || 0.5, dimensions.radiusBottom || 0.5, dimensions.height || 1, dimensions.radialSegments || 32, dimensions.heightSegments || 1);
                 break;
             case 'plane':
+                 // For PlaneGeometry, parameters are 'width' and 'height'
                 if(oldGeomParams.width !== dimensions.width || oldGeomParams.height !== dimensions.height) dimensionsChanged = true;
                 if(dimensionsChanged) newGeometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
                 break;
@@ -115,10 +100,6 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
         mesh.geometry = newGeometry;
      }
   }
-  // Rotation is now handled by objectData directly via mesh.rotation.set(...) above.
-  // The conditional rotation for default planes should be set in `objectData.rotation`
-  // when the object is initially created by `addObject` from the panel.
-  // For drawn rectangles, their `objectData.rotation` will be `[0,0,0]`.
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -203,7 +184,7 @@ export function createOrUpdateMaterial(
   }
   
   if (material.aoMap && material instanceof THREE.MeshStandardMaterial) {
-    // material.aoMapIntensity = 1.0; 
+    // material.aoMapIntensity = 1.0; // Example: aoMapIntensity could be part of MaterialProperties
   }
   return material;
 }
