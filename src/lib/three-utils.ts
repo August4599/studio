@@ -22,9 +22,7 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
     case 'plane':
       geometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
       break;
-    case 'text': // Placeholder for 3D Text
-      // For now, create a thin box as a placeholder.
-      // Actual TextGeometry requires FontLoader and a font file.
+    case 'text': 
       geometry = new THREE.BoxGeometry(dimensions.width || 2, dimensions.height || 0.5, dimensions.depth || 0.1);
       break;
     default:
@@ -35,8 +33,8 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = objectData.id; 
   mesh.position.set(...objectData.position);
-  mesh.rotation.set(...objectData.rotation);
-  // Ensure initial scale values are positive
+  mesh.rotation.set(...objectData.rotation); // Rotation is set from objectData
+
   mesh.scale.set(
     Math.max(0.001, objectData.scale[0]),
     Math.max(0.001, objectData.scale[1]),
@@ -45,9 +43,24 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   
-  if (type === 'plane') { 
-    mesh.rotation.x = -Math.PI / 2; 
+  // If it's a default plane added from the panel (which implies it should be on XZ)
+  // and no specific rotation was given in objectData (or it's the default [0,0,0] from initial creation)
+  // then apply the rotation to make it flat. Drawn planes will have explicit [0,0,0] rotation.
+  if (type === 'plane' && 
+      objectData.rotation[0] === 0 && 
+      objectData.rotation[1] === 0 && 
+      objectData.rotation[2] === 0 &&
+      (!objectData.name || !objectData.name.toLowerCase().includes("rectangle")) // Heuristic: don't auto-rotate drawn rectangles
+     ) { 
+    // This check might be too simple. A better way is if `addObject` from panel sets a specific rotation like [-Math.PI/2, 0, 0]
+    // and drawn rectangles are added with [0,0,0].
+    // For now, let's assume if rotation is [0,0,0] it's a drawn plane, otherwise it's a default one.
+    // Or, if its name is "Plane X" (from panel add), rotate it.
+    if (objectData.name && objectData.name.startsWith("Plane")) {
+        mesh.rotation.x = -Math.PI / 2;
+    }
   }
+
 
   return mesh;
 }
@@ -55,13 +68,11 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
 export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) {
   mesh.position.set(...objectData.position);
   mesh.rotation.set(...objectData.rotation); 
-  // Ensure scale values are positive
   mesh.scale.set(
     Math.max(0.001, objectData.scale[0]),
     Math.max(0.001, objectData.scale[1]),
     Math.max(0.001, objectData.scale[2])
   );
-
 
   const { type, dimensions } = objectData;
   let newGeometry: THREE.BufferGeometry | undefined;
@@ -84,7 +95,7 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
                 if(oldGeomParams.width !== dimensions.width || oldGeomParams.height !== dimensions.height) dimensionsChanged = true;
                 if(dimensionsChanged) newGeometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
                 break;
-            case 'text': // Placeholder update
+            case 'text': 
                  if(oldGeomParams.width !== dimensions.width || oldGeomParams.height !== dimensions.height || oldGeomParams.depth !== dimensions.depth) dimensionsChanged = true;
                  if(dimensionsChanged) newGeometry = new THREE.BoxGeometry(dimensions.width || 2, dimensions.height || 0.5, dimensions.depth || 0.1);
                 break;
@@ -104,9 +115,10 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
         mesh.geometry = newGeometry;
      }
   }
-   if (type === 'plane' && mesh.rotation.x !== -Math.PI / 2) {
-    mesh.rotation.x = -Math.PI / 2;
-  }
+  // Rotation is now handled by objectData directly via mesh.rotation.set(...) above.
+  // The conditional rotation for default planes should be set in `objectData.rotation`
+  // when the object is initially created by `addObject` from the panel.
+  // For drawn rectangles, their `objectData.rotation` will be `[0,0,0]`.
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -117,11 +129,9 @@ function loadTexture(url: string | undefined): THREE.Texture | null {
 
   if (loadedTexturesCache.has(url)) {
     const cached = loadedTexturesCache.get(url);
-    // If texture failed to load previously (e.g. placeholder error texture), try reloading
-    if (cached && cached.image && cached.image.width > 0) { // Basic check if image data exists
+    if (cached && cached.image && cached.image.width > 0) {
         return cached;
     }
-    // If not a valid texture, remove from cache to allow reload attempt
     loadedTexturesCache.delete(url);
   }
 
@@ -131,21 +141,17 @@ function loadTexture(url: string | undefined): THREE.Texture | null {
         loadedTex.colorSpace = THREE.SRGBColorSpace; 
         loadedTex.wrapS = THREE.RepeatWrapping;
         loadedTex.wrapT = THREE.RepeatWrapping;
-        loadedTex.needsUpdate = true; // Ensure material updates
+        loadedTex.needsUpdate = true; 
         loadedTexturesCache.set(url, loadedTex);
       },
       undefined, 
       (err) => { 
         console.error("Failed to load texture:", url, err);
-        // Optionally, set a placeholder error texture or remove from cache
-        // For now, just remove so a re-attempt might happen if URL becomes valid
-        if(loadedTexturesCache.has(url) && loadedTexturesCache.get(url)?.source.data === undefined){ // if it's the initial (empty) texture object
+        if(loadedTexturesCache.has(url) && loadedTexturesCache.get(url)?.source.data === undefined){
            loadedTexturesCache.delete(url);
         }
       }
     );
-    // Store the initially returned (possibly empty) texture object to prevent multiple load calls for the same URL
-    // before it's fully loaded or errored. The onLoad/onError will update/remove it.
     if (!loadedTexturesCache.has(url)) {
         loadedTexturesCache.set(url, texture);
     }
@@ -197,16 +203,8 @@ export function createOrUpdateMaterial(
   }
   
   if (material.aoMap && material instanceof THREE.MeshStandardMaterial) {
-    // aoMapIntensity might be useful to control here
     // material.aoMapIntensity = 1.0; 
-    // UV2 for aoMap is typically handled by Three.js if geometry has uv2 attribute
   }
-
-  // No explicit material.needsUpdate = true here unless a texture changed, 
-  // as color/roughness/metalness are direct property assignments.
-  // However, if a texture pointer changes, needsUpdate IS required on the material.
-  // Added needsUpdate in texture change blocks.
-
   return material;
 }
 
@@ -218,4 +216,3 @@ export function fileToDataURL(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-

@@ -1,5 +1,4 @@
 
-
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text';
 
 export interface MaterialProperties {
@@ -53,31 +52,39 @@ export interface DirectionalLightProps {
 
 export type ToolType = 
   | 'select' 
-  | 'line' 
-  | 'rectangle' 
-  // | 'circle' // Circle drawing tool
-  | 'arc'
-  // | 'polygon' // Polygon drawing tool
-  | 'pushpull' 
+  | 'line' // Placeholder, will activate tool
+  | 'rectangle' // Will be made functional for drawing
+  | 'arc' // Placeholder, will activate tool
+  | 'pushpull' // Placeholder
   | 'move' 
   | 'rotate' 
   | 'scale' 
-  | 'offset'
-  | 'tape' // Tape measure tool
-  | 'addText' // 3D Text tool - Renamed from 'text' for clarity as an add action
-  | 'paint' // Paint bucket / Material assign
+  | 'offset' // Placeholder
+  | 'tape' // Placeholder
+  | 'addText'
+  | 'paint'
   | 'eraser'
   | 'addCube'
   | 'addCylinder'
   | 'addPlane';
-  // Orbit, Pan, Zoom are typically handled by viewport controls (OrbitControls)
+
+// Specific tool types for drawing actions if needed for state differentiation
+// For now, 'rectangle' tool itself will manage its drawing state internally or via context.
+
+export interface DrawingState {
+  isActive: boolean;
+  tool: 'rectangle' | 'line' | 'arc' | null;
+  startPoint: [number, number, number] | null; // Using array for consistency with SceneObject
+  currentPoint?: [number, number, number] | null; // For live preview
+  // Add other tool-specific drawing properties here
+}
+
 
 export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.ElementType }[] = [
   { id: 'select', label: 'Select' },
-  { id: 'line', label: 'Line' },
-  { id: 'rectangle', label: 'Rectangle' },
-  // { id: 'circle', label: 'Circle Draw' }, // Distinguish from addCylinder primitive
-  { id: 'arc', label: 'Arc' },
+  { id: 'line', label: 'Line' }, // WIP removed
+  { id: 'rectangle', label: 'Rectangle' }, // WIP removed
+  { id: 'arc', label: 'Arc' }, // WIP removed
   { id: 'pushpull', label: 'Push/Pull' },
   { id: 'move', label: 'Move' },
   { id: 'rotate', label: 'Rotate' },
@@ -92,7 +99,7 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
   { id: 'addPlane', label: 'Add Plane'},
 ];
 
-export type AppMode = 'modelling' | 'rendering'; // Removed 'texturing'
+export type AppMode = 'modelling' | 'rendering';
 
 export interface SceneData {
   objects: SceneObject[];
@@ -101,8 +108,9 @@ export interface SceneData {
   directionalLight: DirectionalLightProps;
   selectedObjectId?: string | null;
   activeTool?: ToolType;
-  activePaintMaterialId?: string | null; // For paint tool
-  appMode: AppMode; // Made non-optional as it always has a default
+  activePaintMaterialId?: string | null;
+  appMode: AppMode;
+  drawingState: DrawingState; // Added for managing drawing operations
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';

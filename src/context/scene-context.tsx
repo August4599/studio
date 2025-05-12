@@ -3,17 +3,18 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType, ToolType, AppMode } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType, ToolType, AppMode, DrawingState } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   appMode: AppMode;
   activePaintMaterialId: string | null | undefined;
+  drawingState: DrawingState;
   setAppMode: (mode: AppMode) => void;
-  addObject: (type: PrimitiveType, materialId?: string) => SceneObject;
+  addObject: (type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>) => SceneObject;
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
@@ -29,6 +30,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   activeTool: ToolType | undefined;
   setActiveTool: (tool: ToolType | undefined) => void;
   setActivePaintMaterialId: (materialId: string | null) => void;
+  setDrawingState: (newState: Partial<DrawingState>) => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -39,6 +41,13 @@ const initialDefaultMaterial: MaterialProperties = {
   color: '#B0B0B0', 
   roughness: 0.6,
   metalness: 0.3,
+};
+
+const initialDrawingState: DrawingState = {
+  isActive: false,
+  tool: null,
+  startPoint: null,
+  currentPoint: null,
 };
 
 const initialSceneData: SceneData = {
@@ -58,7 +67,8 @@ const initialSceneData: SceneData = {
   selectedObjectId: null,
   activeTool: 'select',
   activePaintMaterialId: null,
-  appMode: 'modelling', // Default app mode
+  appMode: 'modelling',
+  drawingState: initialDrawingState,
 };
 
 export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -66,62 +76,58 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setAppMode = useCallback((mode: AppMode) => {
     if (mode === 'modelling' || mode === 'rendering') {
-      setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null }));
+      setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null, drawingState: initialDrawingState }));
     } else {
-      setSceneData(prev => ({ ...prev, appMode: 'modelling', activeTool: 'select', selectedObjectId: null }));
+      setSceneData(prev => ({ ...prev, appMode: 'modelling', activeTool: 'select', selectedObjectId: null, drawingState: initialDrawingState }));
     }
   }, []);
 
-  const addObject = useCallback((type: PrimitiveType, materialId: string = DEFAULT_MATERIAL_ID): SceneObject => {
-    let newObject: SceneObject;
+  const addObject = useCallback((type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>): SceneObject => {
     const baseName = type.charAt(0).toUpperCase() + type.slice(1);
-    const count = sceneData.objects.filter(o => o.type === type).length + 1;
+    const count = sceneData.objects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
+
+    let defaultDimensions: SceneObject['dimensions'] = {};
+    let defaultPosition: [number, number, number] = [0, 0.5, 0];
+    let defaultRotation: [number, number, number] = [0, 0, 0];
+    let defaultScale: [number, number, number] = [1, 1, 1];
 
     switch (type) {
-      case 'text':
-        newObject = {
-          id: uuidv4(),
-          type,
-          name: `${baseName} Placeholder ${count}`,
-          position: [0, 0.5, 0],
-          rotation: [0, 0, 0],
-          scale: [1, 1, 1],
-          dimensions: { 
-            text: "3D Text", 
-            fontSize: 1, 
-            depth: 0.2, // Placeholder dimension for depth/extrusion
-            width: 2, height: 0.5, // Placeholder dimensions for bounding box of "text" cube
-          }, 
-          materialId: materialId,
-        };
-        // Position for text placeholder (thin cube)
-        newObject.position[1] = (newObject.dimensions.height || 0.5) / 2;
+      case 'cube':
+        defaultDimensions = { width: 1, height: 1, depth: 1 };
+        defaultPosition = [0, (defaultDimensions.height || 1) / 2, 0];
         break;
-      default: // cube, cylinder, plane
-        newObject = {
-          id: uuidv4(),
-          type,
-          name: `${baseName} ${count}`,
-          position: [0, 0.5, 0], 
-          rotation: [0, 0, 0],
-          scale: [1, 1, 1],
-          dimensions: type === 'cube' ? { width: 1, height: 1, depth: 1 } : 
-                      type === 'cylinder' ? { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 } :
-                      type === 'plane' ? { width: 10, height: 10 } : {},
-          materialId: materialId,
-        };
-        if (type === 'cube' || type === 'cylinder') {
-          newObject.position[1] = (newObject.dimensions.height || 1) / 2;
-        } else if (type === 'plane') {
-          newObject.position = [0,0,0]; 
-        }
+      case 'cylinder':
+        defaultDimensions = { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 };
+        defaultPosition = [0, (defaultDimensions.height || 1) / 2, 0];
+        break;
+      case 'plane':
+        defaultDimensions = { width: 10, height: 10 }; // Default large plane
+        defaultPosition = [0, 0, 0];
+        // defaultRotation = [-Math.PI / 2, 0, 0]; // Rotated to be flat on XZ by default for scene panel add
+        break;
+      case 'text':
+        defaultDimensions = { text: "3D Text", fontSize: 1, depth: 0.2, width: 2, height: 0.5 };
+        defaultPosition = [0, (defaultDimensions.height || 0.5) / 2, 0];
+        break;
     }
+    
+    const newObject: SceneObject = {
+      id: uuidv4(),
+      type,
+      name: initialProps?.name || `${baseName} ${count}`,
+      position: initialProps?.position || defaultPosition,
+      rotation: initialProps?.rotation || defaultRotation,
+      scale: initialProps?.scale || defaultScale,
+      dimensions: { ...defaultDimensions, ...initialProps?.dimensions },
+      materialId: initialProps?.materialId || DEFAULT_MATERIAL_ID,
+    };
     
     setSceneData(prev => ({
       ...prev,
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
-      activeTool: 'select', 
+      activeTool: prev.activeTool === 'addCube' || prev.activeTool === 'addCylinder' || prev.activeTool === 'addPlane' || prev.activeTool === 'addText' ? 'select' : prev.activeTool, // Switch to select after adding primitive
+      drawingState: initialDrawingState, // Reset drawing state
     }));
     return newObject;
   }, [sceneData.objects]);
@@ -132,8 +138,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       objects: prev.objects.map(obj => {
         if (obj.id === id) {
           const updatedObj = { ...obj, ...updates };
-          // Adjust Y position if height changes for relevant types
-          if ((updatedObj.type === 'cube' || updatedObj.type === 'cylinder' || updatedObj.type === 'text') && updates.dimensions?.height !== undefined) {
+          if (updates.dimensions) {
+            updatedObj.dimensions = { ...obj.dimensions, ...updates.dimensions };
+          }
+          if ((updatedObj.type === 'cube' || updatedObj.type === 'cylinder' || updatedObj.type === 'text') && updates.dimensions?.height !== undefined && updates.position === undefined) {
+             // Only adjust Y if position is not being explicitly set in the same update
+            updatedObj.position = [...updatedObj.position]; // Create new array
             updatedObj.position[1] = (updatedObj.dimensions.height || 1) / 2;
           }
           return updatedObj;
@@ -152,7 +162,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const selectObject = useCallback((id: string | null) => {
-    setSceneData(prev => ({ ...prev, selectedObjectId: id }));
+    setSceneData(prev => ({ ...prev, selectedObjectId: id, drawingState: initialDrawingState }));
   }, []);
   
   const addMaterial = useCallback((props?: Partial<Omit<MaterialProperties, 'id'>>): MaterialProperties => {
@@ -232,6 +242,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         appMode: validAppMode, 
         activeTool: data.activeTool || 'select',
         activePaintMaterialId: data.activePaintMaterialId || null,
+        drawingState: data.drawingState || initialDrawingState,
       });
     } else {
       console.error("Invalid scene data format");
@@ -248,20 +259,37 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         objects: [],
         selectedObjectId: null,
         activeTool: 'select',
-        activePaintMaterialId: currentPaintMaterial, // Preserve active paint material
+        activePaintMaterialId: currentPaintMaterial,
+        drawingState: initialDrawingState,
     });
   }, [sceneData.appMode, sceneData.activePaintMaterialId]);
 
   const setActiveTool = useCallback((tool: ToolType | undefined) => {
     setSceneData(prev => {
-      // If switching away from 'paint' tool, clear the activePaintMaterialId
       const newActivePaintMaterialId = tool === 'paint' ? prev.activePaintMaterialId : null;
-      return { ...prev, activeTool: tool, activePaintMaterialId: newActivePaintMaterialId };
+      let newDrawingState = prev.drawingState;
+      if (tool !== 'rectangle' && tool !== 'line' && tool !== 'arc') { // Reset if not a drawing tool
+        newDrawingState = initialDrawingState;
+      } else if (tool && prev.drawingState.tool !== tool) { // Reset if switching between drawing tools
+         newDrawingState = { isActive: false, tool: tool as 'rectangle' | 'line' | 'arc', startPoint: null, currentPoint: null };
+      } else if (tool) { // Tool is a drawing tool, ensure it's marked
+         newDrawingState = { ...prev.drawingState, tool: tool as 'rectangle' | 'line' | 'arc'};
+      }
+
+
+      return { ...prev, activeTool: tool, activePaintMaterialId: newActivePaintMaterialId, drawingState: newDrawingState };
     });
   }, []);
 
   const setActivePaintMaterialId = useCallback((materialId: string | null) => {
     setSceneData(prev => ({ ...prev, activePaintMaterialId: materialId}));
+  }, []);
+
+  const setDrawingState = useCallback((newState: Partial<DrawingState>) => {
+    setSceneData(prev => ({
+      ...prev,
+      drawingState: { ...prev.drawingState, ...newState }
+    }));
   }, []);
   
   const contextValue = useMemo(() => ({
@@ -283,7 +311,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setActiveTool,
     activePaintMaterialId: sceneData.activePaintMaterialId,
     setActivePaintMaterialId,
-  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene, setActiveTool, setActivePaintMaterialId]);
+    setDrawingState,
+  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene, setActiveTool, setActivePaintMaterialId, setDrawingState]);
 
   return (
     <SceneContext.Provider value={contextValue}>
