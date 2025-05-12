@@ -2,9 +2,10 @@
 "use client";
 
 import type React from 'react';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +15,8 @@ const SceneViewer: React.FC = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const controlsRef = useRef<OrbitControls | null>(null);
+  const orbitControlsRef = useRef<OrbitControls | null>(null);
+  const transformControlsRef = useRef<TransformControls | null>(null);
   const { toast } = useToast();
   
   const { 
@@ -56,31 +58,68 @@ const SceneViewer: React.FC = () => {
     rendererRef.current = renderer;
     currentMount.appendChild(renderer.domElement);
 
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.screenSpacePanning = false;
-    controls.minDistance = 1;
-    controls.maxDistance = 200;
-    controlsRef.current = controls;
+    // OrbitControls
+    const orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
+    orbitControls.screenSpacePanning = false;
+    orbitControls.minDistance = 1;
+    orbitControls.maxDistance = 200;
+    orbitControlsRef.current = orbitControls;
+
+    // TransformControls
+    const transformControls = new TransformControls(camera, renderer.domElement);
+    transformControls.addEventListener('dragging-changed', (event) => {
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.enabled = !event.value;
+      }
+    });
+    transformControls.addEventListener('mouseUp', () => {
+      if (transformControls.object) {
+        const obj = transformControls.object as THREE.Mesh;
+        const sceneObj = objects.find(o => o.id === obj.name);
+        if (sceneObj) {
+          const newPosition = obj.position.toArray() as [number, number, number];
+          // Ensure rotation values are within -PI to PI if necessary, or handle full 360 turns.
+          // THREE.Euler stores rotation in radians.
+          const newRotation = [obj.rotation.x, obj.rotation.y, obj.rotation.z] as [number, number, number];
+          const newScale = obj.scale.toArray() as [number, number, number];
+          
+          // Prevent scale from being zero or negative, which can cause issues.
+          const validatedScale: [number, number, number] = [
+            Math.max(0.001, newScale[0]),
+            Math.max(0.001, newScale[1]),
+            Math.max(0.001, newScale[2]),
+          ];
+
+          updateObject(obj.name, {
+            position: newPosition,
+            rotation: newRotation,
+            scale: validatedScale,
+          });
+        }
+      }
+    });
+    transformControls.enabled = false;
+    transformControls.visible = false;
+    scene.add(transformControls);
+    transformControlsRef.current = transformControls;
     
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
     const onMouseClick = (event: MouseEvent) => {
-      if (!mountRef.current || !cameraRef.current || !sceneRef.current) return;
+      if (!mountRef.current || !cameraRef.current || !sceneRef.current || transformControlsRef.current?.dragging) return;
       
       const rect = mountRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, cameraRef.current);
-      const intersects = raycaster.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper'), true);
+      const intersects = raycaster.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls)), true);
 
       if (intersects.length > 0) {
         let firstIntersectedObject = intersects[0].object;
-        // Traverse up to find the named parent mesh (our SceneObject)
         while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
             firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
         }
@@ -96,26 +135,21 @@ const SceneViewer: React.FC = () => {
             } else {
               toast({ title: "Paint Error", description: "Selected paint material not found.", variant: "destructive" });
             }
-            // Keep paint tool active
           } else if (activeTool === 'eraser') {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
-            setActiveTool('select'); // Revert to select tool after erasing
+            setActiveTool('select'); 
           } else {
-            // Default behavior: select the object
             selectObject(clickedObjectId);
           }
         } else {
-          // Clicked on something not in our scene objects list (e.g. part of a complex imported model not managed by our IDs)
-          // Or clicked on a non-selectable part of a managed object.
-          if (activeTool !== 'paint' && activeTool !== 'eraser') {
-            selectObject(null); // Deselect if not in paint or eraser mode
+          if (activeTool !== 'paint' && activeTool !== 'eraser' && activeTool !== 'move' && activeTool !== 'rotate' && activeTool !== 'scale') {
+            selectObject(null); 
           }
         }
       } else {
-        // Clicked on empty space
-        if (activeTool !== 'paint' && activeTool !== 'eraser') {
-            selectObject(null); // Deselect if not in paint or eraser mode
+        if (activeTool !== 'paint' && activeTool !== 'eraser' && activeTool !== 'move' && activeTool !== 'rotate' && activeTool !== 'scale') {
+            selectObject(null); 
         }
       }
     };
@@ -127,7 +161,7 @@ const SceneViewer: React.FC = () => {
 
     const animate = () => {
       requestAnimationFrame(animate);
-      controls.update();
+      orbitControls.update();
       renderer.render(scene, camera);
     };
     animate();
@@ -144,7 +178,8 @@ const SceneViewer: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       currentMount.removeEventListener('click', onMouseClick);
-      controls.dispose();
+      orbitControls.dispose();
+      transformControls.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === currentMount) {
         currentMount.removeChild(renderer.domElement);
@@ -152,8 +187,40 @@ const SceneViewer: React.FC = () => {
       scene.remove(gridHelper);
       gridHelper.geometry.dispose();
       (gridHelper.material as THREE.Material).dispose();
+      scene.remove(transformControls);
     };
   }, [selectObject, objects, activeTool, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool, toast]);
+
+  // Update TransformControls based on activeTool and selectedObjectId
+  useEffect(() => {
+    const tc = transformControlsRef.current;
+    if (!tc || !sceneRef.current) return;
+
+    const selectedMesh = selectedObjectId ? sceneRef.current.getObjectByName(selectedObjectId) as THREE.Mesh : null;
+
+    if (selectedMesh && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale')) {
+      tc.attach(selectedMesh);
+      tc.enabled = true;
+      tc.visible = true;
+      switch (activeTool) {
+        case 'move':
+          tc.mode = 'translate';
+          break;
+        case 'rotate':
+          tc.mode = 'rotate';
+          break;
+        case 'scale':
+          tc.mode = 'scale';
+          break;
+        default:
+          break; 
+      }
+    } else {
+      tc.detach();
+      tc.enabled = false;
+      tc.visible = false;
+    }
+  }, [activeTool, selectedObjectId]);
 
   // Update lights
   useEffect(() => {
@@ -216,15 +283,27 @@ const SceneViewer: React.FC = () => {
       const materialProps = getMaterialById(objData.materialId);
       if (!materialProps) {
         console.warn(`Material ${objData.materialId} not found for object ${objData.id}, using default.`);
+        // Potentially use a fallback/error material or skip rendering this object
         return; 
       }
 
       if (mesh) { 
-        updateMeshProperties(mesh, objData);
-        if(Array.isArray(mesh.material)){
-            createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
+        // If TransformControls are attached to this mesh, don't update its transform from context
+        // as TransformControls is now the source of truth until mouseUp.
+        if (transformControlsRef.current?.object === mesh && transformControlsRef.current?.dragging) {
+            // Skip transform update, only update material
+             if(Array.isArray(mesh.material)){
+                 createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
+             } else {
+                 createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
+             }
         } else {
-            createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
+            updateMeshProperties(mesh, objData);
+            if(Array.isArray(mesh.material)){
+                createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
+            } else {
+                createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
+            }
         }
       } else { 
         const material = createOrUpdateMaterial(materialProps);
@@ -237,6 +316,9 @@ const SceneViewer: React.FC = () => {
       if (!contextObjectIds.includes(id)) {
         const objectToRemove = scene.getObjectByName(id);
         if (objectToRemove) {
+          if (transformControlsRef.current?.object === objectToRemove) {
+            transformControlsRef.current.detach();
+          }
           if (objectToRemove instanceof THREE.Mesh) {
             objectToRemove.geometry.dispose();
             if (Array.isArray(objectToRemove.material)) {
@@ -258,6 +340,8 @@ const SceneViewer: React.FC = () => {
     sceneRef.current.children.forEach(child => {
       if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper') { 
         const isSelected = child.name === selectedObjectId;
+        const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible;
+
         if (Array.isArray(child.material)) {
             // Multi-material highlight needs more specific logic if desired
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
@@ -266,10 +350,8 @@ const SceneViewer: React.FC = () => {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
             }
 
-            if (isSelected) {
-                // Use a theme-consistent highlight color. Teal was okay, but let's use a desaturated primary.
-                // Or a distinct highlight color. For now, let's keep Teal as it provides good contrast.
-                child.material.emissive.setHex(0x00B8D9); // A bright cyan/teal for better visibility
+            if (isSelected && !isTransforming) { // Highlight only if selected AND not being transformed by gizmo
+                child.material.emissive.setHex(0x00B8D9); 
                 child.material.emissiveIntensity = 0.7; 
             } else {
                 child.material.emissive.copy(child.userData.originalEmissive);
@@ -279,10 +361,11 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-  }, [selectedObjectId, objects]);
+  }, [selectedObjectId, objects, activeTool]); // activeTool dependency to re-evaluate highlight when gizmo appears/disappears
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;
 };
 
 export default SceneViewer;
+

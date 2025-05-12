@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import type { SceneObject, MaterialProperties } from '@/types';
 
@@ -35,7 +36,12 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   mesh.name = objectData.id; 
   mesh.position.set(...objectData.position);
   mesh.rotation.set(...objectData.rotation);
-  mesh.scale.set(...objectData.scale);
+  // Ensure initial scale values are positive
+  mesh.scale.set(
+    Math.max(0.001, objectData.scale[0]),
+    Math.max(0.001, objectData.scale[1]),
+    Math.max(0.001, objectData.scale[2])
+  );
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   
@@ -49,7 +55,13 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
 export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) {
   mesh.position.set(...objectData.position);
   mesh.rotation.set(...objectData.rotation); 
-  mesh.scale.set(...objectData.scale);
+  // Ensure scale values are positive
+  mesh.scale.set(
+    Math.max(0.001, objectData.scale[0]),
+    Math.max(0.001, objectData.scale[1]),
+    Math.max(0.001, objectData.scale[2])
+  );
+
 
   const { type, dimensions } = objectData;
   let newGeometry: THREE.BufferGeometry | undefined;
@@ -206,3 +218,4 @@ export function fileToDataURL(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
