@@ -213,4 +213,3 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
-```

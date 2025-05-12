@@ -57,7 +57,16 @@ export type ToolType =
   | 'rotate' 
   | 'scale' 
   | 'eraser'
-  | 'addCube'; // Added for a simple add primitive tool
+  | 'addCube' // Added for a simple add primitive tool
+  | 'arc'
+  | 'polygon'
+  | 'offset'
+  | 'tape'
+  | 'text'
+  | 'paint'
+  | 'orbit'
+  | 'pan'
+  | 'zoom'; 
 
 export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.ElementType }[] = [
   { id: 'select', label: 'Select' },
@@ -86,4 +95,3 @@ export interface SceneData {
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
 export const DEFAULT_MATERIAL_NAME = 'Default Material';
-```
