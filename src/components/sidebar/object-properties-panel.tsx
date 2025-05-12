@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -54,7 +53,11 @@ const VectorInput: React.FC<{
           value={isDegrees ? parseFloat((value[idx] * 180 / Math.PI).toFixed(1)) : value[idx]}
           onChange={(e) => {
             let numValue = parseFloat(e.target.value);
-            if (isNaN(numValue)) numValue = 0; 
+            if (isNaN(numValue)) {
+              // If input is not a number (e.g., cleared or "abc"), default to 0.
+              // The handleVectorChange callback will perform final validation, especially for scale.
+              numValue = 0;
+            }
             onChange(idx, isDegrees ? numValue * Math.PI / 180 : numValue);
           }}
           step={isDegrees ? 1 : step}
@@ -122,8 +125,15 @@ const ObjectPropertiesPanel = () => {
 
   const handleVectorChange = useCallback((field: 'position' | 'rotation' | 'scale', index: number, newValue: number) => {
     if (selectedObject) {
+      let validatedValue = newValue;
+      if (field === 'scale') {
+        const MIN_SCALE = 0.01;
+        if (validatedValue <= 0) {
+          validatedValue = MIN_SCALE;
+        }
+      }
       const currentVector = [...selectedObject[field]] as [number, number, number];
-      currentVector[index] = newValue; 
+      currentVector[index] = validatedValue; 
       updateObject(selectedObject.id, { [field]: currentVector });
     }
   }, [selectedObject, updateObject]);
