@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
 import type { MaterialProperties } from "@/types";
-import { DEFAULT_MATERIAL_ID } from "@/types";
-import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2 } from "lucide-react";
+import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from "@/types";
+import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { fileToDataURL } from "@/lib/three-utils";
+import { cn } from "@/lib/utils";
 
 const TextureInput: React.FC<{
   label: string;
@@ -50,8 +51,6 @@ const TextureInput: React.FC<{
 
   useEffect(() => {
     if (currentUrl) {
-      // Attempt to show a generic name if a URL is already set (e.g., "texture.png")
-      // This won't get the original file name if loaded from scene JSON
       setFileName(currentUrl.substring(currentUrl.lastIndexOf('/') + 1) || "Texture Applied");
     } else {
       setFileName(null);
@@ -67,7 +66,6 @@ const TextureInput: React.FC<{
         setFileName(file.name);
       } catch (error) {
         console.error("Error converting file to data URL:", error);
-        // Optionally, show a toast error
       }
     }
   };
@@ -76,7 +74,7 @@ const TextureInput: React.FC<{
     onTextureClear();
     setFileName(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset file input
+      fileInputRef.current.value = ""; 
     }
   };
 
@@ -224,14 +222,34 @@ const MaterialEditorDialog: React.FC<{
 
 
 const MaterialsPanel = () => {
-  const { materials, addMaterial, updateMaterial, removeMaterial, selectedObjectId, objects, updateObject } = useScene();
+  const { 
+    materials, 
+    addMaterial, 
+    updateMaterial, 
+    removeMaterial, 
+    selectedObjectId, 
+    objects, 
+    updateObject,
+    activeTool,
+    activePaintMaterialId,
+    setActivePaintMaterialId
+  } = useScene();
   const { toast } = useToast();
-  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+  const [selectedMaterialForList, setSelectedMaterialForList] = useState<string | null>(null);
+
+  const handleMaterialClick = (materialId: string) => {
+    setSelectedMaterialForList(materialId);
+    if (activeTool === 'paint') {
+      setActivePaintMaterialId(materialId);
+      const matName = materials.find(m => m.id === materialId)?.name || "Selected Material";
+      toast({ title: "Paint Material Selected", description: `${matName} is now active for painting.` });
+    }
+  };
 
   const handleAddNewMaterial = () => {
     const newMat = addMaterial({ name: `New Material ${materials.length + 1}` });
     toast({ title: "Material Added", description: `${newMat.name} created.` });
-    setSelectedMaterialId(newMat.id);
+    handleMaterialClick(newMat.id); // Select it and set for paint if paint tool is active
   };
 
   const handleRemoveMaterial = (materialId: string) => {
@@ -241,13 +259,16 @@ const MaterialsPanel = () => {
     }
     removeMaterial(materialId);
     toast({ title: "Material Removed", description: `Material removed.` });
-    if (selectedMaterialId === materialId) {
-      setSelectedMaterialId(null);
+    if (selectedMaterialForList === materialId) {
+      setSelectedMaterialForList(null);
+      if (activePaintMaterialId === materialId) {
+        setActivePaintMaterialId(null);
+      }
     }
   };
   
-  const handleAssignToSelected = () => {
-    if (!selectedMaterialId) {
+  const handleAssignToSelectedObject = () => {
+    if (!selectedMaterialForList) {
         toast({ title: "No Material Selected", description: "Please select a material to assign.", variant: "destructive" });
         return;
     }
@@ -255,19 +276,22 @@ const MaterialsPanel = () => {
         toast({ title: "No Object Selected", description: "Please select an object in the scene to assign the material to.", variant: "destructive" });
         return;
     }
-    updateObject(selectedObjectId, { materialId: selectedMaterialId });
-    const materialName = materials.find(m => m.id === selectedMaterialId)?.name || "Selected Material";
+    updateObject(selectedObjectId, { materialId: selectedMaterialForList });
+    const materialName = materials.find(m => m.id === selectedMaterialForList)?.name || "Selected Material";
     const objectName = objects.find(o => o.id === selectedObjectId)?.name || "Selected Object";
     toast({ title: "Material Assigned", description: `${materialName} assigned to ${objectName}.`});
   }
 
-  const selectedMaterialForEditing = materials.find(m => m.id === selectedMaterialId);
+  const materialForEditingDialog = materials.find(m => m.id === selectedMaterialForList);
 
   return (
     <AccordionItem value="item-materials">
       <AccordionTrigger className="hover:no-underline">
         <div className="flex items-center gap-2">
           <Palette size={18} /> Materials
+          {activeTool === 'paint' && activePaintMaterialId && (
+            <Paintbrush size={14} className="text-primary animate-pulse" />
+          )}
         </div>
       </AccordionTrigger>
       <AccordionContent className="space-y-3 p-1">
@@ -281,23 +305,30 @@ const MaterialsPanel = () => {
             {materials.map((material) => (
               <div 
                 key={material.id} 
-                className={`flex items-center justify-between p-2 rounded-md cursor-pointer text-xs hover:bg-muted/50 ${selectedMaterialId === material.id ? 'bg-muted ring-1 ring-accent' : ''}`}
-                onClick={() => setSelectedMaterialId(material.id)}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-md cursor-pointer text-xs hover:bg-muted/50",
+                  selectedMaterialForList === material.id && 'bg-muted ring-1 ring-primary',
+                  activePaintMaterialId === material.id && activeTool === 'paint' && 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                )}
+                onClick={() => handleMaterialClick(material.id)}
               >
                 <div className="flex items-center gap-2 overflow-hidden">
                   <div style={{ backgroundColor: material.color }} className="w-4 h-4 rounded-sm border shrink-0" />
                   <span className="truncate flex-grow" title={material.name || material.id}>{material.name || material.id}</span>
+                   {activePaintMaterialId === material.id && activeTool === 'paint' && (
+                    <Paintbrush size={12} className="text-primary shrink-0" />
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {selectedMaterialForEditing && selectedMaterialForEditing.id === material.id && (
+                  {materialForEditingDialog && materialForEditingDialog.id === material.id && (
                      <MaterialEditorDialog 
-                        material={selectedMaterialForEditing}
+                        material={materialForEditingDialog}
                         onSave={(updatedMat) => {
                             updateMaterial(updatedMat.id, updatedMat);
                             toast({title: "Material Updated", description: `${updatedMat.name} saved.`});
                         }}
                         trigger={
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100" disabled={material.id === DEFAULT_MATERIAL_ID && material.name === "Default Material" /* Allow editing if default is renamed */}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100" disabled={material.id === DEFAULT_MATERIAL_ID && material.name === DEFAULT_MATERIAL_NAME}>
                                 <Edit3 size={12} />
                             </Button>
                         }
@@ -330,13 +361,19 @@ const MaterialsPanel = () => {
           </div>
         </ScrollArea>
         
-        {selectedMaterialId && selectedObjectId && (
-             <Button onClick={handleAssignToSelected} size="sm" variant="outline" className="w-full text-xs">
+        {selectedMaterialForList && selectedObjectId && activeTool !== 'paint' && (
+             <Button onClick={handleAssignToSelectedObject} size="sm" variant="outline" className="w-full text-xs">
                 Assign to Selected Object
              </Button>
         )}
-        {selectedMaterialId && !selectedObjectId && (
+        {selectedMaterialForList && !selectedObjectId && activeTool !== 'paint' && (
             <p className="text-xs text-muted-foreground text-center">Select an object to assign this material.</p>
+        )}
+         {activeTool === 'paint' && !activePaintMaterialId && (
+            <p className="text-xs text-primary text-center">Select a material above to activate for painting.</p>
+        )}
+        {activeTool === 'paint' && activePaintMaterialId && (
+            <p className="text-xs text-primary text-center">Paint mode active. Click objects in scene to apply.</p>
         )}
       </AccordionContent>
     </AccordionItem>

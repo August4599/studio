@@ -20,14 +20,11 @@ import {
   Box, // For Add Cube
   Circle, // For Add Cylinder
   LayoutPanelLeft, // For Add Plane
-  Type as TextIcon, // Text tool
-  // Image as ImageIcon, // Image tool - not used for now
+  Type as TextIcon, // Text tool (Lucide 'Type' icon)
   Square, // Rectangle tool (Shapes was too generic)
   PenTool, // Line/Freehand tool
   Spline, // Arc tool
   Eraser, // Eraser tool
-  // Hand, // Pan tool - handled by OrbitControls
-  // ZoomIn, // Zoom tool - handled by OrbitControls
   ChevronsUpDown, // Push/Pull tool
   PaintBucket, // Paint Bucket tool
   Copy, // Offset tool
@@ -46,7 +43,7 @@ interface ToolConfig {
 }
 
 const ToolsPanel = () => {
-  const { activeTool, setActiveTool, addObject } = useScene();
+  const { activeTool, setActiveTool, addObject, selectedObjectId, removeObject } = useScene();
   const { toast } = useToast();
 
   const handleAddPrimitive = (type: PrimitiveType) => {
@@ -55,7 +52,14 @@ const ToolsPanel = () => {
       title: "Object Added",
       description: `${newObj.name} added and selected.`,
     });
-    // addObject in context now handles selecting and setting tool to 'select'
+  };
+  
+  const handleAddTextPlaceholder = () => {
+    const newObj = addObject('text'); // 'text' type will create a placeholder
+    toast({
+      title: "3D Text Added",
+      description: `${newObj.name} (placeholder) added. Full text geometry is a future feature.`,
+    });
   };
 
   const placeholderToolAction = (toolLabel: string) => {
@@ -66,6 +70,23 @@ const ToolsPanel = () => {
     });
   };
 
+  const handleEraserToolActivate = () => {
+    setActiveTool('eraser');
+    toast({
+      title: "Eraser Tool Active",
+      description: "Click on an object in the scene to delete it.",
+    });
+  };
+  
+  const handlePaintToolActivate = () => {
+    setActiveTool('paint');
+    toast({
+      title: "Paint Tool Active",
+      description: "Select a material from the Materials panel, then click an object to apply it.",
+    });
+  };
+
+
   const primitiveTools: ToolConfig[] = [
     { id: 'addCube', label: 'Cube', icon: Box, action: () => handleAddPrimitive('cube') },
     { id: 'addCylinder', label: 'Cylinder', icon: Circle, action: () => handleAddPrimitive('cylinder')},
@@ -73,25 +94,25 @@ const ToolsPanel = () => {
   ];
 
   const drawingTools: ToolConfig[] = [
-    { id: 'select', label: 'Select', icon: MousePointer2 },
+    { id: 'select', label: 'Select', icon: MousePointer2, action: () => setActiveTool('select') },
     { id: 'line', label: 'Line', icon: PenTool, isPlaceholder: true },
     { id: 'arc', label: 'Arc', icon: Spline, isPlaceholder: true }, 
     { id: 'rectangle', label: 'Rectangle', icon: Square, isPlaceholder: true }, 
   ];
 
   const modificationTools: ToolConfig[] = [
-    { id: 'move', label: 'Move', icon: Move }, 
-    { id: 'rotate', label: 'Rotate', icon: RotateCcw }, 
-    { id: 'scale', label: 'Scale', icon: Maximize2 },   
+    { id: 'move', label: 'Move', icon: Move, action: () => setActiveTool('move') }, 
+    { id: 'rotate', label: 'Rotate', icon: RotateCcw, action: () => setActiveTool('rotate') }, 
+    { id: 'scale', label: 'Scale', icon: Maximize2, action: () => setActiveTool('scale') },   
     { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, isPlaceholder: true },
     { id: 'offset', label: 'Offset', icon: Copy, isPlaceholder: true }, 
   ];
   
   const utilityTools: ToolConfig[] = [
     { id: 'tape', label: 'Measure', icon: Ruler, isPlaceholder: true }, 
-    { id: 'text', label: '3D Text', icon: TextIcon, isPlaceholder: true },
-    { id: 'paint', label: 'Paint', icon: PaintBucket, isPlaceholder: true },
-    { id: 'eraser', label: 'Eraser', icon: Eraser, isPlaceholder: true },
+    { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
+    { id: 'paint', label: 'Paint', icon: PaintBucket, action: handlePaintToolActivate },
+    { id: 'eraser', label: 'Eraser', icon: Eraser, action: handleEraserToolActivate },
   ];
   
   const renderToolSection = (title: string, tools: ToolConfig[]) => (
@@ -104,20 +125,22 @@ const ToolsPanel = () => {
               <Button
                 variant={activeTool === tool.id ? "secondary" : "outline"}
                 size="icon"
-                className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1 border hover:bg-accent/80 focus:ring-accent data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 onClick={() => {
-                  setActiveTool(tool.id);
                   if (tool.action) {
                      tool.action();
-                  } else if (tool.isPlaceholder) {
-                    placeholderToolAction(tool.label);
+                  } else {
+                     setActiveTool(tool.id); // Set active tool even for placeholders
+                     if (tool.isPlaceholder) {
+                       placeholderToolAction(tool.label);
+                     }
                   }
                 }}
                 aria-label={tool.label}
                 data-state={activeTool === tool.id ? 'active' : 'inactive'}
               >
-                <tool.icon size={20} className={activeTool === tool.id ? "text-accent-foreground" : "text-foreground/80"}/>
-                <span className={`text-[10px] leading-tight text-center ${activeTool === tool.id ? "text-accent-foreground font-medium" : "text-muted-foreground"}`}>{tool.label}</span>
+                <tool.icon size={20} className={activeTool === tool.id ? "text-primary-foreground" : "text-foreground/80"}/>
+                <span className={`text-[10px] leading-tight text-center ${activeTool === tool.id ? "text-primary-foreground font-medium" : "text-muted-foreground"}`}>{tool.label}</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">

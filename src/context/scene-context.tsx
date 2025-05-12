@@ -7,10 +7,11 @@ import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, Dir
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   appMode: AppMode;
+  activePaintMaterialId: string | null | undefined;
   setAppMode: (mode: AppMode) => void;
   addObject: (type: PrimitiveType, materialId?: string) => SceneObject;
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
@@ -27,6 +28,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   selectedObjectId: string | null | undefined;
   activeTool: ToolType | undefined;
   setActiveTool: (tool: ToolType | undefined) => void;
+  setActivePaintMaterialId: (materialId: string | null) => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -55,6 +57,7 @@ const initialSceneData: SceneData = {
   },
   selectedObjectId: null,
   activeTool: 'select',
+  activePaintMaterialId: null,
   appMode: 'modelling', // Default app mode
 };
 
@@ -62,35 +65,58 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [sceneData, setSceneData] = useState<SceneData>(initialSceneData);
 
   const setAppMode = useCallback((mode: AppMode) => {
-    // Ensure mode is one of the valid AppModes after 'texturing' removal
     if (mode === 'modelling' || mode === 'rendering') {
       setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null }));
     } else {
-      // Fallback to modelling if an invalid mode (like old 'texturing') is somehow passed
       setSceneData(prev => ({ ...prev, appMode: 'modelling', activeTool: 'select', selectedObjectId: null }));
     }
   }, []);
 
   const addObject = useCallback((type: PrimitiveType, materialId: string = DEFAULT_MATERIAL_ID): SceneObject => {
-    const newObject: SceneObject = {
-      id: uuidv4(),
-      type,
-      name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${sceneData.objects.filter(o => o.type === type).length + 1}`,
-      position: [0, 0.5, 0], 
-      rotation: [0, 0, 0],
-      scale: [1, 1, 1],
-      dimensions: type === 'cube' ? { width: 1, height: 1, depth: 1 } : 
-                  type === 'cylinder' ? { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 } :
-                  type === 'plane' ? { width: 10, height: 10 } : {},
-      materialId: materialId,
-    };
-    
-    if (type === 'cube' || type === 'cylinder') {
-      newObject.position[1] = (newObject.dimensions.height || 1) / 2;
-    } else if (type === 'plane') {
-      newObject.position = [0,0,0]; 
-    }
+    let newObject: SceneObject;
+    const baseName = type.charAt(0).toUpperCase() + type.slice(1);
+    const count = sceneData.objects.filter(o => o.type === type).length + 1;
 
+    switch (type) {
+      case 'text':
+        newObject = {
+          id: uuidv4(),
+          type,
+          name: `${baseName} Placeholder ${count}`,
+          position: [0, 0.5, 0],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          dimensions: { 
+            text: "3D Text", 
+            fontSize: 1, 
+            depth: 0.2, // Placeholder dimension for depth/extrusion
+            width: 2, height: 0.5, // Placeholder dimensions for bounding box of "text" cube
+          }, 
+          materialId: materialId,
+        };
+        // Position for text placeholder (thin cube)
+        newObject.position[1] = (newObject.dimensions.height || 0.5) / 2;
+        break;
+      default: // cube, cylinder, plane
+        newObject = {
+          id: uuidv4(),
+          type,
+          name: `${baseName} ${count}`,
+          position: [0, 0.5, 0], 
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          dimensions: type === 'cube' ? { width: 1, height: 1, depth: 1 } : 
+                      type === 'cylinder' ? { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 } :
+                      type === 'plane' ? { width: 10, height: 10 } : {},
+          materialId: materialId,
+        };
+        if (type === 'cube' || type === 'cylinder') {
+          newObject.position[1] = (newObject.dimensions.height || 1) / 2;
+        } else if (type === 'plane') {
+          newObject.position = [0,0,0]; 
+        }
+    }
+    
     setSceneData(prev => ({
       ...prev,
       objects: [...prev.objects, newObject],
@@ -106,7 +132,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       objects: prev.objects.map(obj => {
         if (obj.id === id) {
           const updatedObj = { ...obj, ...updates };
-          if ((updatedObj.type === 'cube' || updatedObj.type === 'cylinder') && updates.dimensions?.height !== undefined) {
+          // Adjust Y position if height changes for relevant types
+          if ((updatedObj.type === 'cube' || updatedObj.type === 'cylinder' || updatedObj.type === 'text') && updates.dimensions?.height !== undefined) {
             updatedObj.position[1] = (updatedObj.dimensions.height || 1) / 2;
           }
           return updatedObj;
@@ -195,7 +222,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         materialId: validMaterialIds.has(obj.materialId) ? obj.materialId : DEFAULT_MATERIAL_ID
       }));
 
-      // Ensure loaded appMode is valid, fallback to 'modelling'
       const validAppMode = (data.appMode === 'modelling' || data.appMode === 'rendering') ? data.appMode : 'modelling';
 
       setSceneData({
@@ -204,7 +230,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         materials, 
         objects, 
         appMode: validAppMode, 
-        activeTool: data.activeTool || 'select'
+        activeTool: data.activeTool || 'select',
+        activePaintMaterialId: data.activePaintMaterialId || null,
       });
     } else {
       console.error("Invalid scene data format");
@@ -213,6 +240,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const clearScene = useCallback(() => {
     const currentAppMode = sceneData.appMode; 
+    const currentPaintMaterial = sceneData.activePaintMaterialId;
     setSceneData({
         ...initialSceneData, 
         appMode: currentAppMode, 
@@ -220,11 +248,20 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         objects: [],
         selectedObjectId: null,
         activeTool: 'select',
+        activePaintMaterialId: currentPaintMaterial, // Preserve active paint material
     });
-  }, [sceneData.appMode]);
+  }, [sceneData.appMode, sceneData.activePaintMaterialId]);
 
   const setActiveTool = useCallback((tool: ToolType | undefined) => {
-    setSceneData(prev => ({ ...prev, activeTool: tool }));
+    setSceneData(prev => {
+      // If switching away from 'paint' tool, clear the activePaintMaterialId
+      const newActivePaintMaterialId = tool === 'paint' ? prev.activePaintMaterialId : null;
+      return { ...prev, activeTool: tool, activePaintMaterialId: newActivePaintMaterialId };
+    });
+  }, []);
+
+  const setActivePaintMaterialId = useCallback((materialId: string | null) => {
+    setSceneData(prev => ({ ...prev, activePaintMaterialId: materialId}));
   }, []);
   
   const contextValue = useMemo(() => ({
@@ -244,7 +281,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearScene,
     activeTool: sceneData.activeTool,
     setActiveTool,
-  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene, setActiveTool]);
+    activePaintMaterialId: sceneData.activePaintMaterialId,
+    setActivePaintMaterialId,
+  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene, setActiveTool, setActivePaintMaterialId]);
 
   return (
     <SceneContext.Provider value={contextValue}>

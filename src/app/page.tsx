@@ -17,7 +17,7 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Settings, /*Brush,*/ Camera as RenderIcon } from "lucide-react"; // Brush removed
+import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode } from '@/types';
 
@@ -51,13 +51,12 @@ const AppModeSwitcher: React.FC = () => {
 
   return (
     <Tabs value={currentMode} onValueChange={handleModeChange} className="w-full bg-background border-b shadow-sm flex-none">
-      <TabsList className="grid w-full grid-cols-2 h-12 rounded-none border-b-0 p-0"> {/* Changed to grid-cols-2 */}
-        <TabsTrigger value="modelling" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
-          <Settings size={16} /> Modelling & Texturing
+      <TabsList className="grid w-full grid-cols-2 h-12 rounded-none border-b-0 p-0">
+        <TabsTrigger value="modelling" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
+          <Layers3 size={16} /> Shape & Surface
         </TabsTrigger>
-        {/* Texturing TabTrigger removed */}
-        <TabsTrigger value="rendering" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
-          <RenderIcon size={16} /> Rendering
+        <TabsTrigger value="rendering" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
+          <Orbit size={16} /> Visualize & Export
         </TabsTrigger>
       </TabsList>
     </Tabs>
@@ -70,24 +69,16 @@ interface NodeEditorSectionProps {
 }
 
 const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen, setIsNodeEditorOpen }) => {
-  const { appMode } = useScene();
+  // const { appMode } = useScene(); // appMode not directly used in titles anymore
 
   const getNodeEditorTitle = () => {
-    switch(appMode) {
-      case 'modelling': return "Geometry & Shader Nodes"; // Combined
-      // case 'texturing' removed
-      case 'rendering': return "Compositing Nodes";
-      default: return "Node Editor";
-    }
+    // Simplified title as per user feedback (less mode-specific)
+    return "Node Editor"; 
   }
 
   const getNodeEditorPlaceholder = () => {
-     switch(appMode) {
-      case 'modelling': return "Procedural geometry and material node editor. (Future Development)"; // Combined
-      // case 'texturing' removed
-      case 'rendering': return "Post-processing and render pass node editor. (Future Development)";
-      default: return "Node-based editor area. (Future Development)";
-    }
+    // Simplified placeholder
+    return "Node-based operations for geometry, materials, and compositing. (Future Development)";
   }
 
   return (
@@ -136,7 +127,7 @@ const ArchiVisionLayout: React.FC = () => {
             <div className="flex flex-col flex-grow bg-background relative overflow-hidden">
               <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-background z-20 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <Workflow className="w-5 h-5 text-accent" />
+                  <Workflow className="w-5 h-5 text-primary" />
                   <h1 className="text-lg font-semibold">ArchiVision</h1>
                 </div>
                 <SidebarTrigger /> 
@@ -149,7 +140,7 @@ const ArchiVisionLayout: React.FC = () => {
             <Sidebar variant="sidebar" collapsible="icon" side="right" className="border-l shadow-md w-72 md:w-80">
               <SidebarHeader className="p-3 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Workflow className="w-7 h-7 text-accent" />
+                  <Workflow className="w-7 h-7 text-primary" />
                   <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">ArchiVision</h1>
                 </div>
                 <SidebarTrigger /> 

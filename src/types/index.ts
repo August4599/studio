@@ -1,6 +1,6 @@
 
 
-export type PrimitiveType = 'cube' | 'cylinder' | 'plane';
+export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text';
 
 export interface MaterialProperties {
   id: string;
@@ -26,11 +26,14 @@ export interface SceneObject {
   dimensions: {
     width?: number; // For cube, plane
     height?: number; // For cube, cylinder
-    depth?: number; // For cube
+    depth?: number; // For cube, text (extrusion)
     radiusTop?: number; // For cylinder
     radiusBottom?: number; // For cylinder
     radialSegments?: number; // For cylinder
     heightSegments?: number; // For cylinder
+    text?: string; // For text
+    fontSize?: number; // For text
+    // font?: string; // For text (path to font file or name) - Future
   };
   materialId: string;
 }
@@ -61,7 +64,7 @@ export type ToolType =
   | 'scale' 
   | 'offset'
   | 'tape' // Tape measure tool
-  | 'text' // 3D Text tool
+  | 'addText' // 3D Text tool - Renamed from 'text' for clarity as an add action
   | 'paint' // Paint bucket / Material assign
   | 'eraser'
   | 'addCube'
@@ -81,7 +84,7 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
   { id: 'scale', label: 'Scale' },
   { id: 'offset', label: 'Offset' },
   { id: 'tape', label: 'Tape Measure' },
-  { id: 'text', label: '3D Text' },
+  { id: 'addText', label: '3D Text' },
   { id: 'paint', label: 'Paint Bucket' },
   { id: 'eraser', label: 'Eraser' },
   { id: 'addCube', label: 'Add Cube'},
@@ -98,9 +101,9 @@ export interface SceneData {
   directionalLight: DirectionalLightProps;
   selectedObjectId?: string | null;
   activeTool?: ToolType;
+  activePaintMaterialId?: string | null; // For paint tool
   appMode: AppMode; // Made non-optional as it always has a default
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
 export const DEFAULT_MATERIAL_NAME = 'Default Material';
-

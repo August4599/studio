@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -9,9 +10,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-// import { Slider } from "@/components/ui/slider"; // Not used for basic transforms
 import { useScene } from "@/context/scene-context";
-import type { SceneObject } from "@/types"; // Removed PrimitiveType as not directly used
+import type { SceneObject } from "@/types"; 
 import { SquarePen, Trash2 } from "lucide-react";
 import {
   Select,
@@ -32,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea"; // For text content input
 
 const VectorInput: React.FC<{
   label: string;
@@ -40,7 +41,7 @@ const VectorInput: React.FC<{
   step?: number;
   min?: number;
   max?: number;
-  isDegrees?: boolean; // For rotation
+  isDegrees?: boolean; 
 }> = ({ label, value, onChange, step = 0.1, min = -1000, max = 1000, isDegrees = false }) => (
   <div className="space-y-1">
     <Label className="text-xs font-medium">{label} {isDegrees ? '(°)' : ''}</Label>
@@ -53,11 +54,11 @@ const VectorInput: React.FC<{
           value={isDegrees ? parseFloat((value[idx] * 180 / Math.PI).toFixed(1)) : value[idx]}
           onChange={(e) => {
             let numValue = parseFloat(e.target.value);
-            if (isNaN(numValue)) numValue = 0; // Default to 0 if parsing fails
+            if (isNaN(numValue)) numValue = 0; 
             onChange(idx, isDegrees ? numValue * Math.PI / 180 : numValue);
           }}
           step={isDegrees ? 1 : step}
-          min={min} // Min/max apply to the input value (degrees if isDegrees)
+          min={min} 
           max={max}
           className="h-8 text-xs"
         />
@@ -82,8 +83,8 @@ const DimensionInput: React.FC<{
       value={value === undefined || isNaN(value) ? '' : value}
       onChange={(e) => {
         let numValue = parseFloat(e.target.value);
-        if (isNaN(numValue)) numValue = min; // Default to min if parsing fails or empty
-        onChange(Math.max(min, numValue)); // Ensure value is not below min
+        if (isNaN(numValue)) numValue = min; 
+        onChange(Math.max(min, numValue)); 
       }}
       step={step}
       min={min}
@@ -108,16 +109,21 @@ const ObjectPropertiesPanel = () => {
     }
   }, [selectedObjectId, objects]);
 
-  const handleInputChange = useCallback((field: keyof SceneObject, value: any) => {
+  const handleInputChange = useCallback((field: keyof SceneObject | `dimensions.text`, value: any) => {
     if (selectedObject) {
-      updateObject(selectedObject.id, { [field]: value });
+      if (field === 'dimensions.text') {
+        const newDimensions = { ...selectedObject.dimensions, text: value as string };
+        updateObject(selectedObject.id, { dimensions: newDimensions });
+      } else {
+        updateObject(selectedObject.id, { [field as keyof SceneObject]: value });
+      }
     }
   }, [selectedObject, updateObject]);
 
   const handleVectorChange = useCallback((field: 'position' | 'rotation' | 'scale', index: number, newValue: number) => {
     if (selectedObject) {
       const currentVector = [...selectedObject[field]] as [number, number, number];
-      currentVector[index] = newValue; // newValue is already in radians for rotation due to VectorInput
+      currentVector[index] = newValue; 
       updateObject(selectedObject.id, { [field]: currentVector });
     }
   }, [selectedObject, updateObject]);
@@ -125,7 +131,6 @@ const ObjectPropertiesPanel = () => {
   const handleDimensionChange = useCallback((dimField: keyof SceneObject['dimensions'], newValue: number) => {
     if (selectedObject) {
       const newDimensions = { ...selectedObject.dimensions, [dimField]: newValue };
-      // If height changes for cube/cylinder, the context's updateObject will adjust Y position
       updateObject(selectedObject.id, { dimensions: newDimensions });
     }
   }, [selectedObject, updateObject]);
@@ -145,7 +150,6 @@ const ObjectPropertiesPanel = () => {
         title: "Object Removed",
         description: `${selectedObject.name} has been removed from the scene.`,
       });
-      // selectedObject will become null via useEffect due to selectedObjectId change
     }
   };
 
@@ -168,7 +172,7 @@ const ObjectPropertiesPanel = () => {
           <SquarePen size={18} /> Object Properties
         </div>
       </AccordionTrigger>
-      <AccordionContent className="space-y-3 p-2"> {/* Reduced spacing to p-2, space-y-3 */}
+      <AccordionContent className="space-y-3 p-2">
         <div className="space-y-1">
           <Label htmlFor="object-name" className="text-xs font-medium">Name</Label>
           <Input 
@@ -183,7 +187,7 @@ const ObjectPropertiesPanel = () => {
         <VectorInput label="Rotation" value={selectedObject.rotation} onChange={(idx, val) => handleVectorChange('rotation', idx, val)} isDegrees={true} step={1} />
         <VectorInput label="Scale" value={selectedObject.scale} onChange={(idx, val) => handleVectorChange('scale', idx, val)} step={0.05} min={0.01}/>
 
-        <h4 className="font-semibold text-xs pt-2 border-t mt-2 mb-1">Dimensions</h4> {/* Reduced font size and margins */}
+        <h4 className="font-semibold text-xs pt-2 border-t mt-2 mb-1">Dimensions</h4>
         {selectedObject.type === 'cube' && (
           <>
             <DimensionInput label="Width (X)" value={selectedObject.dimensions.width} onChange={val => handleDimensionChange('width', val)} />
@@ -205,6 +209,26 @@ const ObjectPropertiesPanel = () => {
             <DimensionInput label="Height" value={selectedObject.dimensions.height} onChange={val => handleDimensionChange('height', val)} />
           </>
         )}
+        {selectedObject.type === 'text' && (
+          <>
+            <div className="space-y-1">
+              <Label htmlFor="text-content" className="text-xs font-medium">Text Content (Placeholder)</Label>
+              <Textarea 
+                id="text-content" 
+                value={selectedObject.dimensions.text || ""}
+                onChange={(e) => handleInputChange('dimensions.text', e.target.value)}
+                className="h-16 text-xs"
+                placeholder="Enter 3D text (feature in development)"
+              />
+            </div>
+            <DimensionInput label="Font Size (Placeholder)" value={selectedObject.dimensions.fontSize} onChange={val => handleDimensionChange('fontSize', val)} min={0.1} max={10} />
+            <DimensionInput label="Width (Bound)" value={selectedObject.dimensions.width} onChange={val => handleDimensionChange('width', val)} />
+            <DimensionInput label="Height (Bound)" value={selectedObject.dimensions.height} onChange={val => handleDimensionChange('height', val)} />
+            <DimensionInput label="Depth/Extrusion" value={selectedObject.dimensions.depth} onChange={val => handleDimensionChange('depth', val)} min={0.01} max={5} />
+            <p className="text-xs text-muted-foreground italic">Actual TextGeometry rendering is a future feature. Dimensions control the placeholder.</p>
+          </>
+        )}
+
 
         <div className="space-y-1 pt-2 border-t mt-2">
             <Label htmlFor="object-material" className="text-xs font-medium">Material</Label>

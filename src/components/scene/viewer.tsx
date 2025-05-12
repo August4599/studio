@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -6,7 +7,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
-// import type { SceneObject } from '@/types'; // Not directly used here, but through useScene
+import { useToast } from '@/hooks/use-toast';
 
 const SceneViewer: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -14,6 +15,7 @@ const SceneViewer: React.FC = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  const { toast } = useToast();
   
   const { 
     objects, 
@@ -21,7 +23,12 @@ const SceneViewer: React.FC = () => {
     directionalLight: directionalLightProps,
     selectedObjectId,
     selectObject,
-    getMaterialById
+    getMaterialById,
+    activeTool,
+    activePaintMaterialId,
+    updateObject,
+    removeObject,
+    setActiveTool,
   } = useScene();
 
   // Initialize Three.js scene
@@ -32,12 +39,12 @@ const SceneViewer: React.FC = () => {
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1A1A1A); // Dark gray background for dark mode
+    scene.background = new THREE.Color(0x1A1A1A); 
     sceneRef.current = scene;
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(60, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000); // FOV to 60
-    camera.position.set(8, 8, 8); // Slightly further camera
+    const camera = new THREE.PerspectiveCamera(60, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
+    camera.position.set(8, 8, 8); 
     cameraRef.current = camera;
 
     // Renderer
@@ -53,13 +60,11 @@ const SceneViewer: React.FC = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.screenSpacePanning = false; // true can be more intuitive for some
+    controls.screenSpacePanning = false;
     controls.minDistance = 1;
-    controls.maxDistance = 200; // Reduced max distance
-    // controls.maxPolarAngle = Math.PI / 2; // Allow looking from slightly below
+    controls.maxDistance = 200;
     controlsRef.current = controls;
     
-    // Raycaster for object selection
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -73,31 +78,53 @@ const SceneViewer: React.FC = () => {
       raycaster.setFromCamera(mouse, cameraRef.current);
       const intersects = raycaster.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper'), true);
 
-
       if (intersects.length > 0) {
-        const firstIntersectedObject = intersects[0].object;
-        let selectedMesh = firstIntersectedObject;
-        while(selectedMesh.parent && selectedMesh.parent !== sceneRef.current && !selectedMesh.name){
-          selectedMesh = selectedMesh.parent as THREE.Mesh;
+        let firstIntersectedObject = intersects[0].object;
+        // Traverse up to find the named parent mesh (our SceneObject)
+        while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
+            firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
         }
-        
-        if (selectedMesh.name && objects.find(o => o.id === selectedMesh.name)) { // Check if it's one of our SceneObjects
-          selectObject(selectedMesh.name);
+        const clickedObjectId = firstIntersectedObject.name;
+        const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
+
+        if (clickedSceneObject) {
+          if (activeTool === 'paint' && activePaintMaterialId) {
+            const materialToApply = getMaterialById(activePaintMaterialId);
+            if (materialToApply) {
+              updateObject(clickedObjectId, { materialId: activePaintMaterialId });
+              toast({ title: "Material Applied", description: `${materialToApply.name || 'Material'} applied to ${clickedSceneObject.name}.` });
+            } else {
+              toast({ title: "Paint Error", description: "Selected paint material not found.", variant: "destructive" });
+            }
+            // Keep paint tool active
+          } else if (activeTool === 'eraser') {
+            removeObject(clickedObjectId);
+            toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
+            setActiveTool('select'); // Revert to select tool after erasing
+          } else {
+            // Default behavior: select the object
+            selectObject(clickedObjectId);
+          }
         } else {
-          selectObject(null); 
+          // Clicked on something not in our scene objects list (e.g. part of a complex imported model not managed by our IDs)
+          // Or clicked on a non-selectable part of a managed object.
+          if (activeTool !== 'paint' && activeTool !== 'eraser') {
+            selectObject(null); // Deselect if not in paint or eraser mode
+          }
         }
       } else {
-        selectObject(null); 
+        // Clicked on empty space
+        if (activeTool !== 'paint' && activeTool !== 'eraser') {
+            selectObject(null); // Deselect if not in paint or eraser mode
+        }
       }
     };
     currentMount.addEventListener('click', onMouseClick);
 
-    // Grid Helper
-    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444); // Darker grid for dark mode
+    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444);
     gridHelper.name = 'gridHelper';
     scene.add(gridHelper);
 
-    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
@@ -105,7 +132,6 @@ const SceneViewer: React.FC = () => {
     };
     animate();
 
-    // Handle resize
     const handleResize = () => {
       if (currentMount && cameraRef.current && rendererRef.current) {
         cameraRef.current.aspect = currentMount.clientWidth / currentMount.clientHeight;
@@ -127,7 +153,7 @@ const SceneViewer: React.FC = () => {
       gridHelper.geometry.dispose();
       (gridHelper.material as THREE.Material).dispose();
     };
-  }, [selectObject, objects]); // Added objects to dependency array for raycaster scope
+  }, [selectObject, objects, activeTool, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool, toast]);
 
   // Update lights
   useEffect(() => {
@@ -145,18 +171,16 @@ const SceneViewer: React.FC = () => {
     }
 
     let directionalLight = scene.getObjectByName('directionalLight') as THREE.DirectionalLight;
-    // let dLightHelper = scene.getObjectByName('dLightHelper') as THREE.DirectionalLightHelper; // Helper removed for cleaner look
-
     if (!directionalLight) {
       directionalLight = new THREE.DirectionalLight(directionalLightProps.color, directionalLightProps.intensity);
       directionalLight.name = 'directionalLight';
       scene.add(directionalLight);
       
       directionalLight.castShadow = directionalLightProps.castShadow;
-      directionalLight.shadow.mapSize.width = 2048; // Increased shadow map size
+      directionalLight.shadow.mapSize.width = 2048; 
       directionalLight.shadow.mapSize.height = 2048;
       directionalLight.shadow.camera.near = 0.5;
-      directionalLight.shadow.camera.far = 50; // Adjust far plane for shadows
+      directionalLight.shadow.camera.far = 50; 
       directionalLight.shadow.camera.left = -25;
       directionalLight.shadow.camera.right = 25;
       directionalLight.shadow.camera.top = 25;
@@ -166,17 +190,14 @@ const SceneViewer: React.FC = () => {
       directionalLight.color.set(directionalLightProps.color);
       directionalLight.intensity = directionalLightProps.intensity;
       directionalLight.castShadow = directionalLightProps.castShadow;
-      directionalLight.shadow.bias = directionalLightProps.shadowBias; // Ensure bias updates
+      directionalLight.shadow.bias = directionalLightProps.shadowBias; 
     }
     directionalLight.position.set(...directionalLightProps.position);
-    // Ensure target is part of the scene if not already
     if (!directionalLight.target.parent) {
         scene.add(directionalLight.target);
     }
     directionalLight.target.position.set(0, 0, 0); 
     directionalLight.shadow.camera.updateProjectionMatrix();
-
-
   }, [ambientLightProps, directionalLightProps]);
 
   // Manage scene objects based on context
@@ -195,16 +216,12 @@ const SceneViewer: React.FC = () => {
       const materialProps = getMaterialById(objData.materialId);
       if (!materialProps) {
         console.warn(`Material ${objData.materialId} not found for object ${objData.id}, using default.`);
-        // Potentially assign a fallback material if desired, or skip render/update.
-        // For now, let's assume getMaterialById(DEFAULT_MATERIAL_ID) would work.
         return; 
       }
 
       if (mesh) { 
         updateMeshProperties(mesh, objData);
-        // Ensure material is an array or single, then update
         if(Array.isArray(mesh.material)){
-             // Basic: update first material, complex objects might need more logic
             createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
         } else {
             createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
@@ -242,17 +259,18 @@ const SceneViewer: React.FC = () => {
       if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper') { 
         const isSelected = child.name === selectedObjectId;
         if (Array.isArray(child.material)) {
-            // For multi-material objects, this highlight might need to apply to all or be more specific
+            // Multi-material highlight needs more specific logic if desired
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
-            // Store original emissive if not already stored
             if (!child.userData.originalEmissive) {
                 child.userData.originalEmissive = child.material.emissive.clone();
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
             }
 
             if (isSelected) {
-                child.material.emissive.setHex(0x00CED1); // Teal accent (using a slightly brighter teal for dark mode highlight)
-                child.material.emissiveIntensity = 0.6; // Make highlight noticeable
+                // Use a theme-consistent highlight color. Teal was okay, but let's use a desaturated primary.
+                // Or a distinct highlight color. For now, let's keep Teal as it provides good contrast.
+                child.material.emissive.setHex(0x00B8D9); // A bright cyan/teal for better visibility
+                child.material.emissiveIntensity = 0.7; 
             } else {
                 child.material.emissive.copy(child.userData.originalEmissive);
                 child.material.emissiveIntensity = child.userData.originalEmissiveIntensity;
@@ -261,7 +279,7 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-  }, [selectedObjectId, objects]); // Added objects to re-apply highlight if objects change (e.g. material swap)
+  }, [selectedObjectId, objects]);
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;

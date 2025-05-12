@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { SceneObject, MaterialProperties } from '@/types'; // Removed PrimitiveType as not directly used
+import type { SceneObject, MaterialProperties } from '@/types';
 
 export function createPrimitive(objectData: SceneObject, material: THREE.Material): THREE.Mesh {
   let geometry: THREE.BufferGeometry;
@@ -15,17 +15,20 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
         dimensions.radiusBottom || 0.5,
         dimensions.height || 1,
         dimensions.radialSegments || 32,
-        dimensions.heightSegments || 1, // Default to 1 height segment
+        dimensions.heightSegments || 1,
       );
       break;
     case 'plane':
       geometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
       break;
+    case 'text': // Placeholder for 3D Text
+      // For now, create a thin box as a placeholder.
+      // Actual TextGeometry requires FontLoader and a font file.
+      geometry = new THREE.BoxGeometry(dimensions.width || 2, dimensions.height || 0.5, dimensions.depth || 0.1);
+      break;
     default:
-      // It's better to throw an error or return a default placeholder for unhandled types
       console.warn(`Unsupported primitive type: ${type}, creating a default cube.`);
       geometry = new THREE.BoxGeometry(1, 1, 1);
-      // throw new Error(`Unsupported primitive type: ${type}`);
   }
 
   const mesh = new THREE.Mesh(geometry, material);
@@ -37,7 +40,6 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   mesh.receiveShadow = true;
   
   if (type === 'plane') { 
-    // Planes are created in XY by default, rotate to be XZ (horizontal ground)
     mesh.rotation.x = -Math.PI / 2; 
   }
 
@@ -46,17 +48,17 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
 
 export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) {
   mesh.position.set(...objectData.position);
-  mesh.rotation.set(...objectData.rotation); // Rotation applied directly
+  mesh.rotation.set(...objectData.rotation); 
   mesh.scale.set(...objectData.scale);
 
   const { type, dimensions } = objectData;
   let newGeometry: THREE.BufferGeometry | undefined;
 
   if (mesh.geometry) {
-     const oldGeomParams = (mesh.geometry as any).parameters; // Access existing params
+     const oldGeomParams = (mesh.geometry as any).parameters; 
      let dimensionsChanged = false;
      
-     try { // Wrap in try-catch in case parameters are not as expected
+     try { 
         switch (type) {
             case 'cube':
                 if(oldGeomParams.width !== dimensions.width || oldGeomParams.height !== dimensions.height || oldGeomParams.depth !== dimensions.depth) dimensionsChanged = true;
@@ -70,14 +72,18 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
                 if(oldGeomParams.width !== dimensions.width || oldGeomParams.height !== dimensions.height) dimensionsChanged = true;
                 if(dimensionsChanged) newGeometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
                 break;
+            case 'text': // Placeholder update
+                 if(oldGeomParams.width !== dimensions.width || oldGeomParams.height !== dimensions.height || oldGeomParams.depth !== dimensions.depth) dimensionsChanged = true;
+                 if(dimensionsChanged) newGeometry = new THREE.BoxGeometry(dimensions.width || 2, dimensions.height || 0.5, dimensions.depth || 0.1);
+                break;
         }
      } catch (e) {
         console.warn("Could not compare old geometry params, forcing update for:", type, e);
-        // Fallback to creating new geometry if params are not found/compatible
         switch (type) {
             case 'cube': newGeometry = new THREE.BoxGeometry(dimensions.width || 1, dimensions.height || 1, dimensions.depth || 1); break;
             case 'cylinder': newGeometry = new THREE.CylinderGeometry(dimensions.radiusTop || 0.5, dimensions.radiusBottom || 0.5, dimensions.height || 1, dimensions.radialSegments || 32, dimensions.heightSegments || 1); break;
             case 'plane': newGeometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10); break;
+            case 'text': newGeometry = new THREE.BoxGeometry(dimensions.width || 2, dimensions.height || 0.5, dimensions.depth || 0.1); break;
         }
      }
 
@@ -86,8 +92,6 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
         mesh.geometry = newGeometry;
      }
   }
-   // If it's a plane and not already rotated, ensure it's horizontal.
-   // This check is primarily for initial creation if rotation wasn't set there or if type changes.
    if (type === 'plane' && mesh.rotation.x !== -Math.PI / 2) {
     mesh.rotation.x = -Math.PI / 2;
   }
@@ -100,27 +104,39 @@ function loadTexture(url: string | undefined): THREE.Texture | null {
   if (!url) return null;
 
   if (loadedTexturesCache.has(url)) {
-    return loadedTexturesCache.get(url)!;
+    const cached = loadedTexturesCache.get(url);
+    // If texture failed to load previously (e.g. placeholder error texture), try reloading
+    if (cached && cached.image && cached.image.width > 0) { // Basic check if image data exists
+        return cached;
+    }
+    // If not a valid texture, remove from cache to allow reload attempt
+    loadedTexturesCache.delete(url);
   }
 
   try {
     const texture = textureLoader.load(url, 
-      (loadedTex) => { // On load
-        loadedTex.colorSpace = THREE.SRGBColorSpace; // Correct color space for most image textures
+      (loadedTex) => { 
+        loadedTex.colorSpace = THREE.SRGBColorSpace; 
         loadedTex.wrapS = THREE.RepeatWrapping;
         loadedTex.wrapT = THREE.RepeatWrapping;
-        loadedTex.needsUpdate = true;
+        loadedTex.needsUpdate = true; // Ensure material updates
         loadedTexturesCache.set(url, loadedTex);
       },
-      undefined, // onProgress (optional)
-      (err) => { // onError
+      undefined, 
+      (err) => { 
         console.error("Failed to load texture:", url, err);
-        loadedTexturesCache.delete(url); // Remove from cache on error
+        // Optionally, set a placeholder error texture or remove from cache
+        // For now, just remove so a re-attempt might happen if URL becomes valid
+        if(loadedTexturesCache.has(url) && loadedTexturesCache.get(url)?.source.data === undefined){ // if it's the initial (empty) texture object
+           loadedTexturesCache.delete(url);
+        }
       }
     );
-    // Return immediately, texture will update async. Store placeholder in cache?
-    // For simplicity, we assume sync loading or that Three.js handles the async update correctly.
-    // To handle fully async, material update would need to be triggered in loader's onLoad.
+    // Store the initially returned (possibly empty) texture object to prevent multiple load calls for the same URL
+    // before it's fully loaded or errored. The onLoad/onError will update/remove it.
+    if (!loadedTexturesCache.has(url)) {
+        loadedTexturesCache.set(url, texture);
+    }
     return texture; 
   } catch (error) {
     console.error("Error initiating texture load:", url, error);
@@ -139,28 +155,46 @@ export function createOrUpdateMaterial(
   material.metalness = materialData.metalness;
   
   const newMap = loadTexture(materialData.map);
-  if (newMap !== material.map) material.map = newMap;
-
-  const newNormalMap = loadTexture(materialData.normalMap);
-  if (newNormalMap !== material.normalMap) material.normalMap = newNormalMap;
-
-  const newRoughnessMap = loadTexture(materialData.roughnessMap);
-  if (newRoughnessMap !== material.roughnessMap) material.roughnessMap = newRoughnessMap;
-
-  const newMetalnessMap = loadTexture(materialData.metalnessMap);
-  if (newMetalnessMap !== material.metalnessMap) material.metalnessMap = newMetalnessMap;
-  
-  const newAoMap = loadTexture(materialData.aoMap);
-  if (newAoMap !== material.aoMap) material.aoMap = newAoMap;
-  
-  if (material.aoMap && material instanceof THREE.MeshStandardMaterial) {
-    // aoMap requires a second UV set (uv2).
-    // This assumes geometries being used have uv2 attribute.
-    // If not, you might need to add: geometry.setAttribute('uv2', new THREE.BufferAttribute(geometry.attributes.uv.array, 2));
-    // This should be done when geometry is created or updated.
+  if (newMap !== material.map) {
+    material.map = newMap;
+    material.needsUpdate = true;
   }
 
-  material.needsUpdate = true;
+  const newNormalMap = loadTexture(materialData.normalMap);
+  if (newNormalMap !== material.normalMap) {
+     material.normalMap = newNormalMap;
+     material.needsUpdate = true;
+  }
+
+  const newRoughnessMap = loadTexture(materialData.roughnessMap);
+  if (newRoughnessMap !== material.roughnessMap) {
+    material.roughnessMap = newRoughnessMap;
+    material.needsUpdate = true;
+  }
+
+  const newMetalnessMap = loadTexture(materialData.metalnessMap);
+  if (newMetalnessMap !== material.metalnessMap) {
+    material.metalnessMap = newMetalnessMap;
+    material.needsUpdate = true;
+  }
+  
+  const newAoMap = loadTexture(materialData.aoMap);
+  if (newAoMap !== material.aoMap) {
+    material.aoMap = newAoMap;
+    material.needsUpdate = true;
+  }
+  
+  if (material.aoMap && material instanceof THREE.MeshStandardMaterial) {
+    // aoMapIntensity might be useful to control here
+    // material.aoMapIntensity = 1.0; 
+    // UV2 for aoMap is typically handled by Three.js if geometry has uv2 attribute
+  }
+
+  // No explicit material.needsUpdate = true here unless a texture changed, 
+  // as color/roughness/metalness are direct property assignments.
+  // However, if a texture pointer changes, needsUpdate IS required on the material.
+  // Added needsUpdate in texture change blocks.
+
   return material;
 }
 
