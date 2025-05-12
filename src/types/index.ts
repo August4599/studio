@@ -1,4 +1,5 @@
 
+
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane';
 
 export interface MaterialProperties {
@@ -51,34 +52,41 @@ export type ToolType =
   | 'select' 
   | 'line' 
   | 'rectangle' 
-  | 'circle' 
+  // | 'circle' // Circle drawing tool
+  | 'arc'
+  // | 'polygon' // Polygon drawing tool
   | 'pushpull' 
   | 'move' 
   | 'rotate' 
   | 'scale' 
-  | 'eraser'
-  | 'addCube' // Added for a simple add primitive tool
-  | 'arc'
-  | 'polygon'
   | 'offset'
-  | 'tape'
-  | 'text'
-  | 'paint'
-  | 'orbit'
-  | 'pan'
-  | 'zoom'; 
+  | 'tape' // Tape measure tool
+  | 'text' // 3D Text tool
+  | 'paint' // Paint bucket / Material assign
+  | 'eraser'
+  | 'addCube'
+  | 'addCylinder'
+  | 'addPlane';
+  // Orbit, Pan, Zoom are typically handled by viewport controls (OrbitControls)
 
 export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.ElementType }[] = [
   { id: 'select', label: 'Select' },
-  // { id: 'line', label: 'Line' }, // Placeholder tools, will be re-added with actual functionality
-  // { id: 'rectangle', label: 'Rectangle' },
-  // { id: 'circle', label: 'Circle' },
-  // { id: 'pushpull', label: 'Push/Pull' },
+  { id: 'line', label: 'Line' },
+  { id: 'rectangle', label: 'Rectangle' },
+  // { id: 'circle', label: 'Circle Draw' }, // Distinguish from addCylinder primitive
+  { id: 'arc', label: 'Arc' },
+  { id: 'pushpull', label: 'Push/Pull' },
   { id: 'move', label: 'Move' },
   { id: 'rotate', label: 'Rotate' },
   { id: 'scale', label: 'Scale' },
-  // { id: 'eraser', label: 'Eraser' },
+  { id: 'offset', label: 'Offset' },
+  { id: 'tape', label: 'Tape Measure' },
+  { id: 'text', label: '3D Text' },
+  { id: 'paint', label: 'Paint Bucket' },
+  { id: 'eraser', label: 'Eraser' },
   { id: 'addCube', label: 'Add Cube'},
+  { id: 'addCylinder', label: 'Add Cylinder'},
+  { id: 'addPlane', label: 'Add Plane'},
 ];
 
 export type AppMode = 'modelling' | 'texturing' | 'rendering';
@@ -90,7 +98,7 @@ export interface SceneData {
   directionalLight: DirectionalLightProps;
   selectedObjectId?: string | null;
   activeTool?: ToolType;
-  appMode?: AppMode; // Added appMode
+  appMode: AppMode; // Made non-optional as it always has a default
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
