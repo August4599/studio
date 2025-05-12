@@ -32,7 +32,7 @@ const SceneViewer: React.FC = () => {
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0); 
+    scene.background = new THREE.Color(0x1A1A1A); // Dark gray background for dark mode
     sceneRef.current = scene;
 
     // Camera
@@ -93,7 +93,7 @@ const SceneViewer: React.FC = () => {
     currentMount.addEventListener('click', onMouseClick);
 
     // Grid Helper
-    const gridHelper = new THREE.GridHelper(50, 50, 0xcccccc, 0xdddddd); // Larger grid
+    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444); // Darker grid for dark mode
     gridHelper.name = 'gridHelper';
     scene.add(gridHelper);
 
@@ -251,8 +251,8 @@ const SceneViewer: React.FC = () => {
             }
 
             if (isSelected) {
-                child.material.emissive.setHex(0x008080); // Teal accent (same as theme)
-                child.material.emissiveIntensity = 0.5; // Make highlight noticeable
+                child.material.emissive.setHex(0x00CED1); // Teal accent (using a slightly brighter teal for dark mode highlight)
+                child.material.emissiveIntensity = 0.6; // Make highlight noticeable
             } else {
                 child.material.emissive.copy(child.userData.originalEmissive);
                 child.material.emissiveIntensity = child.userData.originalEmissiveIntensity;

@@ -4,45 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%; /* White */
-    --foreground: 0 0% 0%; /* Black */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 0 0% 0%; /* Black */
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 0 0% 0%; /* Black */
-    --primary: 0 0% 0%; /* Black */
-    --primary-foreground: 0 0% 100%; /* White */
-    --secondary: 0 0% 96%; /* Very Light Gray */
-    --secondary-foreground: 0 0% 0%; /* Black */
-    --muted: 0 0% 90%; /* Light Gray */
-    --muted-foreground: 0 0% 25%; /* Dark Gray for muted text */
-    --accent: 0 100% 50%; /* Red */
-    --accent-foreground: 0 0% 100%; /* White */
-    --destructive: 0 85% 45%; /* Slightly desaturated/darker Red */
-    --destructive-foreground: 0 0% 100%; /* White */
-    --border: 0 0% 87%; /* Light Gray for borders */
-    --input: 0 0% 92%; /* Light Gray for input backgrounds */
-    --ring: 0 100% 50%; /* Red */
-    
-    --chart-1: 0 70% 60%; /* Variations of Red/Grays for charts */
-    --chart-2: 0 0% 50%; 
-    --chart-3: 0 60% 50%;
-    --chart-4: 0 0% 30%;
-    --chart-5: 0 80% 55%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%; /* Slightly Off-White */
-    --sidebar-foreground: 0 0% 0%; /* Black */
-    --sidebar-primary: 0 100% 50%; /* Red */
-    --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 0 90% 45%; /* Darker Red for accents */
-    --sidebar-accent-foreground: 0 0% 100%; /* White */
-    --sidebar-border: 0 0% 87%; /* Light Gray */
-    --sidebar-ring: 0 100% 50%; /* Red */
-  }
-
-  .dark {
+    /* Default to Dark Mode Values */
     --background: 0 0% 8%; /* Very Dark Gray / Near Black */
     --foreground: 0 0% 95%; /* Near White */
     --card: 0 0% 10%; /* Slightly lighter than background */
@@ -55,28 +17,106 @@
     --secondary-foreground: 0 0% 95%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 65%; /* Lighter gray for muted text */
-    --accent: 0 100% 60%; /* Brighter Red for dark mode */
+    --accent: 180 100% 25%; /* Teal - HSL values for #008080 */
     --accent-foreground: 0 0% 100%; /* White */
-    --destructive: 0 90% 65%; /* Brighter Red for destructive actions */
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 85% 45%; /* Slightly desaturated/darker Red */
+    --destructive-foreground: 0 0% 100%; /* White */
     --border: 0 0% 20%; /* Dark Gray for borders */
     --input: 0 0% 18%; /* Dark Gray for input backgrounds */
-    --ring: 0 100% 60%; /* Brighter Red */
-
-    --chart-1: 0 70% 70%; /* Variations of Red/Grays for charts - dark mode */
-    --chart-2: 0 0% 60%;
-    --chart-3: 0 60% 60%;
-    --chart-4: 0 0% 40%;
-    --chart-5: 0 80% 65%;
+    --ring: 180 100% 25%; /* Teal for ring */
     
+    --chart-1: 180 70% 70%; 
+    --chart-2: 0 0% 60%;
+    --chart-3: 180 60% 60%;
+    --chart-4: 0 0% 40%;
+    --chart-5: 180 80% 65%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar specific dark theme (matches overall dark theme) */
     --sidebar-background: 0 0% 5%; /* Even Darker for Sidebar */
     --sidebar-foreground: 0 0% 95%; /* White */
-    --sidebar-primary: 0 100% 60%; /* Brighter Red */
+    --sidebar-primary: 180 100% 30%; /* Slightly brighter Teal for sidebar primary */
     --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 0 90% 55%; /* Slightly adjusted Red for accents */
+    --sidebar-accent: 180 90% 35%; /* Slightly adjusted Teal for accents */
     --sidebar-accent-foreground: 0 0% 100%; /* White */
     --sidebar-border: 0 0% 15%; /* Dark Gray */
-    --sidebar-ring: 0 100% 60%; /* Brighter Red */
+    --sidebar-ring: 180 100% 25%; /* Teal */
+  }
+
+  /* Kept for potential future light mode toggle, but root is now dark */
+  .light {
+    --background: 0 0% 94%; /* Light Gray #F0F0F0 */
+    --foreground: 0 0% 20%; /* Dark Gray #333 */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 0 0% 20%; /* Dark Gray */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 0 0% 20%; /* Dark Gray */
+    --primary: 0 0% 20%; /* Dark Gray */
+    --primary-foreground: 0 0% 94%; /* Light Gray */
+    --secondary: 0 0% 85%; /* Slightly darker Light Gray */
+    --secondary-foreground: 0 0% 20%; /* Dark Gray */
+    --muted: 0 0% 90%; /* Light Gray */
+    --muted-foreground: 0 0% 40%; /* Medium Gray for muted text */
+    --accent: 180 100% 25%;  /* Teal #008080 */
+    --accent-foreground: 0 0% 100%; /* White */
+    --destructive: 0 85% 45%; 
+    --destructive-foreground: 0 0% 100%; 
+    --border: 0 0% 80%; /* Lighter Gray for borders */
+    --input: 0 0% 92%; 
+    --ring: 180 100% 25%; /* Teal */
+    
+    --chart-1: 180 70% 60%;
+    --chart-2: 0 0% 50%; 
+    --chart-3: 180 60% 50%;
+    --chart-4: 0 0% 30%;
+    --chart-5: 180 80% 55%;
+
+    --sidebar-background: 0 0% 98%; 
+    --sidebar-foreground: 0 0% 20%; 
+    --sidebar-primary: 180 100% 25%; /* Teal */
+    --sidebar-primary-foreground: 0 0% 100%; 
+    --sidebar-accent: 180 90% 20%; /* Darker Teal */
+    --sidebar-accent-foreground: 0 0% 100%; 
+    --sidebar-border: 0 0% 87%; 
+    --sidebar-ring: 180 100% 25%; /* Teal */
+  }
+
+  .dark { /* This class definition is kept for clarity and potential future toggle */
+    --background: 0 0% 8%; 
+    --foreground: 0 0% 95%; 
+    --card: 0 0% 10%; 
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 95%; 
+    --primary-foreground: 0 0% 10%; 
+    --secondary: 0 0% 15%; 
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%; 
+    --accent: 180 100% 30%; /* Brighter Teal for dark mode */
+    --accent-foreground: 0 0% 100%; 
+    --destructive: 0 90% 65%; 
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 20%; 
+    --input: 0 0% 18%; 
+    --ring: 180 100% 30%; /* Brighter Teal */
+
+    --chart-1: 180 70% 70%; 
+    --chart-2: 0 0% 60%;
+    --chart-3: 180 60% 60%;
+    --chart-4: 0 0% 40%;
+    --chart-5: 180 80% 65%;
+    
+    --sidebar-background: 0 0% 5%; 
+    --sidebar-foreground: 0 0% 95%; 
+    --sidebar-primary: 180 100% 30%; 
+    --sidebar-primary-foreground: 0 0% 100%; 
+    --sidebar-accent: 180 90% 35%; 
+    --sidebar-accent-foreground: 0 0% 100%; 
+    --sidebar-border: 0 0% 15%; 
+    --sidebar-ring: 180 100% 30%; 
   }
 }
 
