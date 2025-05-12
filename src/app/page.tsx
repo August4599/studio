@@ -4,6 +4,7 @@ import React, { useState, useEffect }from 'react';
 import { SceneProvider, useScene } from "@/context/scene-context";
 import SceneViewer from "@/components/scene/viewer";
 import MainSidebar from "@/components/sidebar/main-sidebar";
+import ToolsSidebar from '@/components/sidebar/tools-sidebar'; // New import
 import {
   SidebarProvider,
   Sidebar,
@@ -15,8 +16,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Removed TabsContent as it's not used here
-import { Workflow, ChevronDown, ChevronUp, Settings, Brush, Camera as RenderIcon } from "lucide-react"; 
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Workflow, ChevronDown, ChevronUp, Settings, Brush, Camera as RenderIcon, PanelLeft } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode } from '@/types';
 
@@ -67,7 +68,7 @@ const AppModeSwitcher: React.FC = () => {
 
 const NodeEditorSection: React.FC = () => {
   const { appMode } = useScene();
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(true); // Default to open
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(true);
 
   const getNodeEditorTitle = () => {
     switch(appMode) {
@@ -89,10 +90,10 @@ const NodeEditorSection: React.FC = () => {
 
   return (
     <div className={cn(
-      "flex-none flex flex-col bg-background border-b border-t overflow-hidden transition-all duration-300 ease-in-out", // Added border-t
-      isNodeEditorOpen ? "h-[30%] min-h-[150px]" : "h-12" // Matched collapsed height to AppModeSwitcher
+      "flex-none flex flex-col bg-background border-b border-t overflow-hidden transition-all duration-300 ease-in-out",
+      isNodeEditorOpen ? "h-[30%] min-h-[150px]" : "h-12"
     )}>
-      <div className="p-3 border-b bg-muted/20 dark:bg-muted/10 flex justify-between items-center h-12"> {/* Ensure header is fixed height */}
+      <div className="p-3 border-b bg-muted/20 dark:bg-muted/10 flex justify-between items-center h-12">
         <h2 className="text-base font-semibold text-foreground flex items-center">
           <NodeEditorIcon />
           {getNodeEditorTitle()}
@@ -116,55 +117,78 @@ const NodeEditorSection: React.FC = () => {
   );
 }
 
+// TODO: Add a trigger for the left tools sidebar on mobile if needed.
+// const MobileToolsSidebarTrigger: React.FC = () => {
+//   // Placeholder for mobile tools sidebar trigger
+//   return (
+//     <Button variant="ghost" size="icon" className="md:hidden">
+//       <PanelLeft size={18} />
+//       <span className="sr-only">Toggle Tools</span>
+//     </Button>
+//   );
+// };
+
+
 const ArchiVisionLayout: React.FC = () => {
   return (
-    <SidebarProvider defaultOpen>
-      <Sidebar variant="sidebar" collapsible="icon" className="border-r shadow-md"> {/* Added shadow */}
-        <SidebarHeader className="p-3 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Workflow className="w-7 h-7 text-accent" />
-            <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">ArchiVision</h1>
-          </div>
-          <SidebarTrigger className="md:hidden" />
-        </SidebarHeader>
-        <SidebarContent>
-          <MainSidebar />
-        </SidebarContent>
-        <SidebarFooter className="p-2 group-data-[collapsible=icon]:hidden">
-          <p className="text-xs text-muted-foreground">© 2024 ArchiVision</p>
-        </SidebarFooter>
-      </Sidebar>
+    <div className="flex h-screen w-screen overflow-hidden">
+      {/* Left Tools Sidebar - always visible on desktop */}
+      <div className="w-60 flex-none hidden md:flex flex-col"> {/* Width can be adjusted e.g. w-56, w-64 */}
+        <ToolsSidebar />
+      </div>
 
-      <SidebarInset className="flex flex-col h-screen bg-background"> {/* Ensure bg for inset */}
-        {/* Mobile Header */}
-        <div className="p-2 md:hidden border-b flex items-center justify-start sticky top-0 bg-background z-20 shadow-sm">
-          <SidebarTrigger />
-          <div className="flex items-center gap-2 ml-2">
-            <Workflow className="w-5 h-5 text-accent" />
-            <h1 className="text-lg font-semibold">ArchiVision</h1>
-          </div>
-        </div>
+      {/* Main Content Area (Center) + Right Sidebar (managed by SidebarProvider) */}
+      <SidebarProvider defaultOpen> {/* This provider manages the RIGHT sidebar */}
+        {/* Right Properties Sidebar */}
+        <Sidebar variant="sidebar" collapsible="icon" side="right" className="border-l shadow-md order-last w-72 md:w-80"> {/* side="right" explicit */}
+          <SidebarHeader className="p-3 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Workflow className="w-7 h-7 text-accent" />
+              <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">ArchiVision</h1>
+            </div>
+            {/* This trigger is for the RIGHT sidebar on mobile and for desktop collapse/expand */}
+            <SidebarTrigger /> 
+          </SidebarHeader>
+          <SidebarContent>
+            <MainSidebar /> {/* This will render the right-side panels */}
+          </SidebarContent>
+          <SidebarFooter className="p-2 group-data-[collapsible=icon]:hidden">
+            <p className="text-xs text-muted-foreground">© 2024 ArchiVision</p>
+          </SidebarFooter>
+        </Sidebar>
 
-        {/* App Mode Switcher */}
-        <AppModeSwitcher />
-        
-        <div className="flex-grow flex flex-col overflow-hidden">
-          {/* Scene Viewer takes up most space */}
-          <div className="flex-grow overflow-hidden relative">
-            <SceneViewer />
+        {/* Center Content Area */}
+        <SidebarInset className="flex flex-col flex-grow h-screen bg-background"> {/* flex-grow allows it to take remaining space */}
+          {/* Mobile Header for RIGHT sidebar */}
+          <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-background z-20 shadow-sm">
+            {/* Left side of mobile header - placeholder for app logo/name or eventual tools trigger */}
+            <div className="flex items-center gap-2">
+               {/* <MobileToolsSidebarTrigger /> Placeholder for mobile left sidebar trigger */}
+              <Workflow className="w-5 h-5 text-accent" />
+              <h1 className="text-lg font-semibold">ArchiVision</h1>
+            </div>
+            {/* Right side of mobile header - trigger for the properties sidebar */}
+            <SidebarTrigger /> {/* This trigger is for the RIGHT sidebar */}
           </div>
-          {/* Node Editor Area - positioned at the bottom */}
-          <NodeEditorSection />
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+
+          <AppModeSwitcher />
+          
+          <div className="flex-grow flex flex-col overflow-hidden">
+            <div className="flex-grow overflow-hidden relative">
+              <SceneViewer />
+            </div>
+            <NodeEditorSection />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </div>
   );
-}
+};
 
 
 export default function ArchiVisionAppPage() {
   return (
-    <SceneProvider>
+    <SceneProvider> {/* SceneProvider wraps everything that needs scene context */}
       <ArchiVisionLayout />
       <Toaster />
     </SceneProvider>
