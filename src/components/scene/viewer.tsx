@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -9,7 +8,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid'; // No longer directly used here
 import type { SceneObject } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
@@ -38,7 +37,7 @@ const SceneViewer: React.FC = () => {
     setActiveTool,
     drawingState,
     setDrawingState,
-    addObject, // Added addObject from context
+    addObject,
   } = useScene();
 
   const raycaster = useRef(new THREE.Raycaster());
@@ -50,7 +49,7 @@ const SceneViewer: React.FC = () => {
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // XY plane at Z=0
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // XY plane at Z=0, facing +Z
     const intersectionPoint = new THREE.Vector3();
     if (raycaster.current.ray.intersectPlane(plane, intersectionPoint)) {
       return intersectionPoint;
@@ -59,10 +58,9 @@ const SceneViewer: React.FC = () => {
   }, []);
 
 
-  // Initialize Three.js scene
+  // Initialize Three.js scene, camera, renderer, controls (runs once)
   useEffect(() => {
     if (!mountRef.current) return;
-
     const currentMount = mountRef.current;
 
     const scene = new THREE.Scene();
@@ -92,7 +90,7 @@ const SceneViewer: React.FC = () => {
     transformControls.addEventListener('mouseUp', () => {
       if (transformControls.object) {
         const obj = transformControls.object as THREE.Mesh;
-        const sceneObj = objects.find(o => o.id === obj.name);
+        const sceneObj = objects.find(o => o.id === obj.name); // `objects` in closure
         if (sceneObj) {
           const newPosition = obj.position.toArray() as [number, number, number];
           const newRotation = [obj.rotation.x, obj.rotation.y, obj.rotation.z] as [number, number, number];
@@ -102,6 +100,7 @@ const SceneViewer: React.FC = () => {
             Math.max(0.001, newScale[1]),
             Math.max(0.001, newScale[2]),
           ];
+          // `updateObject` in closure, uses setSceneData(prev => ...) so it's safe
           updateObject(obj.name, { position: newPosition, rotation: newRotation, scale: validatedScale });
         }
       }
@@ -131,20 +130,10 @@ const SceneViewer: React.FC = () => {
     };
     window.addEventListener('resize', handleResize);
     
-    // Cleanup previous click listener if any, then add new pointer listeners
-    // currentMount.removeEventListener('click', oldOnMouseClick); // Assuming oldOnMouseClick was the previous one
-    currentMount.addEventListener('pointerdown', onPointerDown);
-    currentMount.addEventListener('pointermove', onPointerMove);
-    currentMount.addEventListener('pointerup', onPointerUp);
-
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      currentMount.removeEventListener('pointerdown', onPointerDown);
-      currentMount.removeEventListener('pointermove', onPointerMove);
-      currentMount.removeEventListener('pointerup', onPointerUp);
       orbitControls.dispose();
-      transformControls.dispose();
+      transformControls.dispose(); // Listeners on it are also implicitly removed
       renderer.dispose();
       if (renderer.domElement.parentNode === currentMount) {
         currentMount.removeChild(renderer.domElement);
@@ -153,15 +142,16 @@ const SceneViewer: React.FC = () => {
       gridHelper.geometry.dispose();
       (gridHelper.material as THREE.Material).dispose();
       scene.remove(transformControls);
-      if (tempDrawingMeshRef.current) {
-        scene.remove(tempDrawingMeshRef.current);
+      
+      if (tempDrawingMeshRef.current && sceneRef.current) {
+        sceneRef.current.remove(tempDrawingMeshRef.current);
         tempDrawingMeshRef.current.geometry.dispose();
         (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         tempDrawingMeshRef.current = null;
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Initial setup, other dependencies will be in their own effects or handlers
+  }, []); // `objects` and `updateObject` are used in TC listener, but updateObject uses functional update.
 
 
   const onPointerDown = useCallback((event: PointerEvent) => {
@@ -170,23 +160,21 @@ const SceneViewer: React.FC = () => {
     if (activeTool === 'rectangle') {
       const point = getMousePositionOnXYPlane(event);
       if (point && sceneRef.current) {
-        setDrawingState({ isActive: true, startPoint: point.toArray() as [number,number,number], currentPoint: point.toArray() as [number,number,number] });
+        setDrawingState({ isActive: true, startPoint: point.toArray() as [number,number,number], currentPoint: point.toArray() as [number,number,number], tool: 'rectangle' });
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
-        // Initialize temporary drawing mesh
         if (tempDrawingMeshRef.current) {
           sceneRef.current.remove(tempDrawingMeshRef.current);
           tempDrawingMeshRef.current.geometry.dispose();
           (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         }
         const geometry = new THREE.BufferGeometry();
-        const material = new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: false }); // Red, no depth test to be always visible
+        const material = new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.7 });
         tempDrawingMeshRef.current = new THREE.LineSegments(geometry, material);
-        tempDrawingMeshRef.current.renderOrder = 999; // Render on top
+        tempDrawingMeshRef.current.renderOrder = 999; 
         sceneRef.current.add(tempDrawingMeshRef.current);
       }
     }
-    // Other tool pointer down logic (if any) can go here
   }, [activeTool, getMousePositionOnXYPlane, setDrawingState]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
@@ -199,23 +187,15 @@ const SceneViewer: React.FC = () => {
         const endVec = currentMovePoint;
 
         const points = [
-            startVec.x, startVec.y, startVec.z,
-            endVec.x, startVec.y, startVec.z,
-
-            endVec.x, startVec.y, startVec.z,
-            endVec.x, endVec.y, startVec.z,
-
-            endVec.x, endVec.y, startVec.z,
-            startVec.x, endVec.y, startVec.z,
-
-            startVec.x, endVec.y, startVec.z,
-            startVec.x, startVec.y, startVec.z,
+            startVec.x, startVec.y, startVec.z, endVec.x, startVec.y, startVec.z,
+            endVec.x, startVec.y, startVec.z, endVec.x, endVec.y, startVec.z,
+            endVec.x, endVec.y, startVec.z, startVec.x, endVec.y, startVec.z,
+            startVec.x, endVec.y, startVec.z, startVec.x, startVec.y, startVec.z,
         ];
         tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-        tempDrawingMeshRef.current.geometry.computeBoundingSphere(); // Important for visibility
+        tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
       }
     }
-    // Other tool pointer move logic
   }, [activeTool, drawingState, getMousePositionOnXYPlane, setDrawingState]);
 
   const onPointerUp = useCallback((event: PointerEvent) => {
@@ -226,18 +206,18 @@ const SceneViewer: React.FC = () => {
       const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);
 
       const width = Math.abs(endPointVec.x - startPointVec.x);
-      const depth = Math.abs(endPointVec.y - startPointVec.y); // On XY plane, this is the "depth" or "height" of the plane
+      const depth = Math.abs(endPointVec.y - startPointVec.y); 
       
-      if (width > 0.01 && depth > 0.01) { // Ensure some minimal size
+      if (width > 0.01 && depth > 0.01) { 
         const centerX = (startPointVec.x + endPointVec.x) / 2;
         const centerY = (startPointVec.y + endPointVec.y) / 2;
         
         const count = objects.filter(o => o.type === 'plane' && o.name.startsWith("Rectangle")).length + 1;
         addObject('plane', {
           name: `Rectangle ${count}`,
-          position: [centerX, centerY, 0], // Position the center of the plane
-          rotation: [0, 0, 0],         // No rotation for XY plane
-          dimensions: { width, height: depth }, // PlaneGeometry uses width/height for its dimensions
+          position: [centerX, centerY, 0], 
+          rotation: [0, 0, 0], 
+          dimensions: { width, height: depth }, 
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
@@ -249,8 +229,8 @@ const SceneViewer: React.FC = () => {
         (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         tempDrawingMeshRef.current = null;
       }
-      setActiveTool('select'); // Revert to select tool after drawing
-      return; // Drawing action handled, exit
+      setActiveTool('select'); 
+      return; 
     }
 
     // Existing click logic for selection, paint, eraser (if not drawing)
@@ -285,22 +265,39 @@ const SceneViewer: React.FC = () => {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
             setActiveTool('select'); 
-          } else {
+          } else { // Includes 'select', 'move', 'rotate', 'scale'
             selectObject(clickedObjectId);
+            // Transform controls attachment is handled by a separate useEffect
           }
-        } else {
-          if (activeTool !== 'paint' && activeTool !== 'eraser' && activeTool !== 'move' && activeTool !== 'rotate' && activeTool !== 'scale') {
-            selectObject(null); 
+        } else { // Clicked on empty space
+          if (activeTool === 'select' || activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') {
+             selectObject(null);
           }
         }
-      } else {
-        if (activeTool !== 'paint' && activeTool !== 'eraser' && activeTool !== 'move' && activeTool !== 'rotate' && activeTool !== 'scale') {
-            selectObject(null); 
-        }
+      } else { // Clicked on empty space
+         if (activeTool === 'select' || activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') {
+            selectObject(null);
+         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool, drawingState, getMousePositionOnXYPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
+
+
+  // Effect for attaching and managing pointer event listeners
+  useEffect(() => {
+    const currentMount = mountRef.current;
+    if (!currentMount) return;
+
+    currentMount.addEventListener('pointerdown', onPointerDown);
+    currentMount.addEventListener('pointermove', onPointerMove);
+    currentMount.addEventListener('pointerup', onPointerUp);
+
+    return () => {
+      currentMount.removeEventListener('pointerdown', onPointerDown);
+      currentMount.removeEventListener('pointermove', onPointerMove);
+      currentMount.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [onPointerDown, onPointerMove, onPointerUp]);
 
 
   // Update TransformControls based on activeTool and selectedObjectId
@@ -323,7 +320,7 @@ const SceneViewer: React.FC = () => {
         default: break; 
       }
     } else {
-      if(tc.object) tc.detach(); // Detach only if an object is attached
+      if(tc.object) tc.detach(); 
       tc.enabled = false;
       tc.visible = false;
     }
@@ -379,7 +376,7 @@ const SceneViewer: React.FC = () => {
     if (!sceneRef.current || !getMaterialById) return;
     const scene = sceneRef.current;
 
-    const existingObjectIds = scene.children
+    const existingObjectIdsInThree = scene.children
       .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current)
       .map(child => child.name);
       
@@ -394,20 +391,19 @@ const SceneViewer: React.FC = () => {
       }
 
       if (mesh) { 
-        if (transformControlsRef.current?.object === mesh && transformControlsRef.current?.dragging) {
-             if(Array.isArray(mesh.material)){
-                 createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
-             } else {
-                 createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
-             }
-        } else {
-            updateMeshProperties(mesh, objData);
-            if(Array.isArray(mesh.material)){
-                createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
-            } else {
-                createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
-            }
+        // Check if this mesh is being transformed
+        const isTransforming = transformControlsRef.current?.object === mesh && transformControlsRef.current?.dragging;
+        
+        if (!isTransforming) { // Only update if not actively being transformed by TransformControls
+          updateMeshProperties(mesh, objData);
         }
+        // Always update material, even if transforming, in case material itself changed
+        if(Array.isArray(mesh.material)){
+            createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
+        } else {
+            createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
+        }
+
       } else { 
         const material = createOrUpdateMaterial(materialProps);
         mesh = createPrimitive(objData, material);
@@ -415,7 +411,7 @@ const SceneViewer: React.FC = () => {
       }
     });
 
-    existingObjectIds.forEach(id => {
+    existingObjectIdsInThree.forEach(id => {
       if (!contextObjectIds.includes(id)) {
         const objectToRemove = scene.getObjectByName(id);
         if (objectToRemove) {
@@ -435,7 +431,7 @@ const SceneViewer: React.FC = () => {
       }
     });
 
-  }, [objects, getMaterialById]);
+  }, [objects, getMaterialById]); // Removed transformControlsRef.current from deps to avoid loop, transformation updates are handled by TC mouseUp
 
   // Highlight selected object
   useEffect(() => {
@@ -443,28 +439,31 @@ const SceneViewer: React.FC = () => {
     sceneRef.current.children.forEach(child => {
       if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current) { 
         const isSelected = child.name === selectedObjectId;
-        const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible;
+        const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible && transformControlsRef.current.dragging;
 
         if (Array.isArray(child.material)) {
             // Multi-material highlight needs more specific logic if desired
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
-            if (!child.userData.originalEmissive) {
+            if (child.userData.originalEmissive === undefined) { // Check if undefined, not just falsy
                 child.userData.originalEmissive = child.material.emissive.clone();
+            }
+             if (child.userData.originalEmissiveIntensity === undefined) {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
             }
+
 
             if (isSelected && !isTransforming) { 
                 child.material.emissive.setHex(0x00B8D9); 
                 child.material.emissiveIntensity = 0.7; 
             } else {
-                child.material.emissive.copy(child.userData.originalEmissive);
-                child.material.emissiveIntensity = child.userData.originalEmissiveIntensity;
+                if (child.userData.originalEmissive) child.material.emissive.copy(child.userData.originalEmissive);
+                child.material.emissiveIntensity = child.userData.originalEmissiveIntensity ?? 0;
             }
             child.material.needsUpdate = true;
         }
       }
     });
-  }, [selectedObjectId, objects, activeTool]);
+  }, [selectedObjectId, activeTool]); // Re-evaluate selection highlight when selectedObjectId or activeTool changes
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;
