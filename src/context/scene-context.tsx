@@ -1,26 +1,27 @@
+
 "use client";
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType } from '@/types';
-import { DEFAULT_MATERIAL_ID } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType, ToolType } from '@/types';
+import { DEFAULT_MATERIAL_ID, AVAILABLE_TOOLS } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
 interface SceneContextType extends Omit<SceneData, 'objects' | 'materials'> {
   objects: SceneObject[]; // Keep for viewer consumption
   materials: MaterialProperties[]; // Keep for viewer consumption
-  // addObject: (type: PrimitiveType) => void; // Removed
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
-  // addMaterial: (material: Partial<Omit<MaterialProperties, 'id'>>) => string; // Removed
-  updateMaterial: (id: string, updates: Partial<MaterialProperties>) => void; // Retained for potential use with node-selected materials
+  updateMaterial: (id: string, updates: Partial<MaterialProperties>) => void;
   getMaterialById: (id: string) => MaterialProperties | undefined;
   updateAmbientLight: (updates: Partial<AmbientLightProps>) => void;
   updateDirectionalLight: (updates: Partial<DirectionalLightProps>) => void;
   loadScene: (data: SceneData) => void;
   clearScene: () => void;
   selectedObjectId: string | null | undefined;
+  activeTool: ToolType | undefined;
+  setActiveTool: (tool: ToolType | undefined) => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -47,13 +48,11 @@ const initialSceneData: SceneData = {
     shadowBias: -0.0001,
   },
   selectedObjectId: null,
+  activeTool: 'select', // Default tool
 };
 
 export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sceneData, setSceneData] = useState<SceneData>(initialSceneData);
-
-  // addObject removed - object creation will be handled by a node system
-  // const addObject = useCallback((type: PrimitiveType) => { ... });
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
     setSceneData(prev => ({
@@ -73,14 +72,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const selectObject = useCallback((id: string | null) => {
     setSceneData(prev => ({ ...prev, selectedObjectId: id }));
   }, []);
-
-  // addMaterial removed - material creation will be handled by a node system
-  // const addMaterial = useCallback((materialProps: Partial<Omit<MaterialProperties, 'id'>>): string => { ... });
   
   const updateMaterial = useCallback((id: string, updates: Partial<MaterialProperties>) => {
-    // If updating the default material, a new material should ideally be created and assigned to objects using it.
-    // This logic might need refinement depending on how node-based material assignment works.
-    // For now, allow updating existing materials, including the default one (though UI for this is removed).
     setSceneData(prev => ({
       ...prev,
       materials: prev.materials.map(mat => mat.id === id ? { ...mat, ...updates } : mat),
@@ -101,42 +94,45 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loadScene = useCallback((data: SceneData) => {
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
-      // Ensure default material exists if loaded scene doesn't have it or if materials array is empty
       let materials = data.materials;
       if (!materials.find(m => m.id === DEFAULT_MATERIAL_ID)) {
         materials = [initialDefaultMaterial, ...materials];
       }
-      setSceneData({...data, materials});
+      setSceneData({...data, materials, activeTool: data.activeTool || 'select'});
     } else {
       console.error("Invalid scene data format");
     }
   }, []);
 
   const clearScene = useCallback(() => {
-    // Ensure initialSceneData is truly the initial state with default material
     const newInitialData = {
         ...initialSceneData,
-        materials: [initialDefaultMaterial], // Ensure default material is present
+        materials: [initialDefaultMaterial], 
         objects: [],
         selectedObjectId: null,
+        activeTool: 'select',
     };
     setSceneData(newInitialData);
   }, []);
+
+  const setActiveTool = useCallback((tool: ToolType | undefined) => {
+    setSceneData(prev => ({ ...prev, activeTool: tool }));
+  }, []);
   
   const contextValue = useMemo(() => ({
-    ...sceneData, // Includes objects, materials, ambientLight, directionalLight, selectedObjectId
-    // addObject, // Removed
+    ...sceneData,
     updateObject,
     removeObject,
     selectObject,
-    // addMaterial, // Removed
     updateMaterial,
     getMaterialById,
     updateAmbientLight,
     updateDirectionalLight,
     loadScene,
     clearScene,
-  }), [sceneData, updateObject, removeObject, selectObject, updateMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene]);
+    activeTool: sceneData.activeTool,
+    setActiveTool,
+  }), [sceneData, updateObject, removeObject, selectObject, updateMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene, setActiveTool]);
 
   return (
     <SceneContext.Provider value={contextValue}>
@@ -152,3 +148,4 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
+

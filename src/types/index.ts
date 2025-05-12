@@ -46,12 +46,38 @@ export interface DirectionalLightProps {
   shadowBias: number;
 }
 
+export type ToolType = 
+  | 'select' 
+  | 'line' 
+  | 'rectangle' 
+  | 'circle' 
+  | 'pushpull' 
+  | 'move' 
+  | 'rotate' 
+  | 'scale' 
+  | 'eraser';
+
+export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.ElementType }[] = [
+  { id: 'select', label: 'Select' },
+  { id: 'line', label: 'Line' },
+  { id: 'rectangle', label: 'Rectangle' },
+  { id: 'circle', label: 'Circle' },
+  { id: 'pushpull', label: 'Push/Pull' },
+  { id: 'move', label: 'Move' },
+  { id: 'rotate', label: 'Rotate' },
+  { id: 'scale', label: 'Scale' },
+  { id: 'eraser', label: 'Eraser' },
+];
+
+
 export interface SceneData {
   objects: SceneObject[];
   materials: MaterialProperties[];
   ambientLight: AmbientLightProps;
   directionalLight: DirectionalLightProps;
   selectedObjectId?: string | null;
+  activeTool?: ToolType;
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
+
