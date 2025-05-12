@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ArchiVision - 3D Architectural Visualizer',
+  title: 'ArchiVision',
   description: 'Create and visualize 3D architectural scenes with ArchiVision.',
 };
 
