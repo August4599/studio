@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -10,10 +9,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+// import { Slider } from "@/components/ui/slider"; // Not used for basic transforms
 import { useScene } from "@/context/scene-context";
-import type { SceneObject, PrimitiveType } from "@/types";
-import { SquarePen, Trash2 } from "lucide-react"; // Replaced Edit with SquarePen, added Trash2
+import type { SceneObject } from "@/types"; // Removed PrimitiveType as not directly used
+import { SquarePen, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,19 +40,24 @@ const VectorInput: React.FC<{
   step?: number;
   min?: number;
   max?: number;
-}> = ({ label, value, onChange, step = 0.1, min = -100, max = 100 }) => (
+  isDegrees?: boolean; // For rotation
+}> = ({ label, value, onChange, step = 0.1, min = -1000, max = 1000, isDegrees = false }) => (
   <div className="space-y-1">
-    <Label className="text-xs font-medium">{label}</Label>
+    <Label className="text-xs font-medium">{label} {isDegrees ? '(°)' : ''}</Label>
     <div className="grid grid-cols-3 gap-2">
       {['X', 'Y', 'Z'].map((axis, idx) => (
         <Input
           key={axis}
           type="number"
           aria-label={`${label} ${axis}`}
-          value={value[idx]}
-          onChange={(e) => onChange(idx, parseFloat(e.target.value) || 0)}
-          step={step}
-          min={min}
+          value={isDegrees ? parseFloat((value[idx] * 180 / Math.PI).toFixed(1)) : value[idx]}
+          onChange={(e) => {
+            let numValue = parseFloat(e.target.value);
+            if (isNaN(numValue)) numValue = 0; // Default to 0 if parsing fails
+            onChange(idx, isDegrees ? numValue * Math.PI / 180 : numValue);
+          }}
+          step={isDegrees ? 1 : step}
+          min={min} // Min/max apply to the input value (degrees if isDegrees)
           max={max}
           className="h-8 text-xs"
         />
@@ -69,14 +73,18 @@ const DimensionInput: React.FC<{
   step?: number;
   min?: number;
   max?: number;
-}> = ({ label, value, onChange, step = 0.1, min = 0.01, max = 100 }) => (
+}> = ({ label, value, onChange, step = 0.1, min = 0.01, max = 1000 }) => (
   <div className="space-y-1">
     <Label htmlFor={`dim-${label.toLowerCase()}`} className="text-xs font-medium">{label}</Label>
     <Input
       id={`dim-${label.toLowerCase()}`}
       type="number"
-      value={value === undefined ? '' : value}
-      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+      value={value === undefined || isNaN(value) ? '' : value}
+      onChange={(e) => {
+        let numValue = parseFloat(e.target.value);
+        if (isNaN(numValue)) numValue = min; // Default to min if parsing fails or empty
+        onChange(Math.max(min, numValue)); // Ensure value is not below min
+      }}
       step={step}
       min={min}
       max={max}
@@ -109,24 +117,26 @@ const ObjectPropertiesPanel = () => {
   const handleVectorChange = useCallback((field: 'position' | 'rotation' | 'scale', index: number, newValue: number) => {
     if (selectedObject) {
       const currentVector = [...selectedObject[field]] as [number, number, number];
-      currentVector[index] = newValue;
+      currentVector[index] = newValue; // newValue is already in radians for rotation due to VectorInput
       updateObject(selectedObject.id, { [field]: currentVector });
     }
   }, [selectedObject, updateObject]);
 
   const handleDimensionChange = useCallback((dimField: keyof SceneObject['dimensions'], newValue: number) => {
     if (selectedObject) {
-      updateObject(selectedObject.id, { 
-        dimensions: { ...selectedObject.dimensions, [dimField]: newValue } 
-      });
+      const newDimensions = { ...selectedObject.dimensions, [dimField]: newValue };
+      // If height changes for cube/cylinder, the context's updateObject will adjust Y position
+      updateObject(selectedObject.id, { dimensions: newDimensions });
     }
   }, [selectedObject, updateObject]);
   
   const handleMaterialChange = useCallback((newMaterialId: string) => {
     if (selectedObject) {
       updateObject(selectedObject.id, { materialId: newMaterialId });
+      const materialName = materials.find(m => m.id === newMaterialId)?.name || "Selected Material";
+      toast({title: "Material Changed", description: `${materialName} applied to ${selectedObject.name}.`});
     }
-  }, [selectedObject, updateObject]);
+  }, [selectedObject, updateObject, materials, toast]);
 
   const handleDeleteObject = () => {
     if (selectedObject) {
@@ -135,11 +145,18 @@ const ObjectPropertiesPanel = () => {
         title: "Object Removed",
         description: `${selectedObject.name} has been removed from the scene.`,
       });
+      // selectedObject will become null via useEffect due to selectedObjectId change
     }
   };
 
   if (!selectedObject) {
-    return null; // Don't render panel if no object is selected
+    return (
+        <AccordionItem value="item-object-props" className="border-b-0">
+            <AccordionTrigger className="hover:no-underline text-sm text-muted-foreground justify-center p-3">
+                No object selected
+            </AccordionTrigger>
+        </AccordionItem>
+    );
   }
   
   const currentMaterial = getMaterialById(selectedObject.materialId);
@@ -151,7 +168,7 @@ const ObjectPropertiesPanel = () => {
           <SquarePen size={18} /> Object Properties
         </div>
       </AccordionTrigger>
-      <AccordionContent className="space-y-4 p-2">
+      <AccordionContent className="space-y-3 p-2"> {/* Reduced spacing to p-2, space-y-3 */}
         <div className="space-y-1">
           <Label htmlFor="object-name" className="text-xs font-medium">Name</Label>
           <Input 
@@ -163,17 +180,10 @@ const ObjectPropertiesPanel = () => {
         </div>
 
         <VectorInput label="Position" value={selectedObject.position} onChange={(idx, val) => handleVectorChange('position', idx, val)} step={0.1} />
-        <VectorInput label="Rotation (°) " value={selectedObject.rotation.map(r => parseFloat((r * 180 / Math.PI).toFixed(1))) as [number,number,number]} 
-          onChange={(idx, val) => {
-             const newRotation = [...selectedObject.rotation] as [number,number,number];
-             newRotation[idx] = val * Math.PI / 180;
-             handleInputChange('rotation', newRotation);
-          }} 
-          step={1} 
-        />
+        <VectorInput label="Rotation" value={selectedObject.rotation} onChange={(idx, val) => handleVectorChange('rotation', idx, val)} isDegrees={true} step={1} />
         <VectorInput label="Scale" value={selectedObject.scale} onChange={(idx, val) => handleVectorChange('scale', idx, val)} step={0.05} min={0.01}/>
 
-        <h4 className="font-semibold text-sm pt-2 border-t mt-3">Dimensions</h4>
+        <h4 className="font-semibold text-xs pt-2 border-t mt-2 mb-1">Dimensions</h4> {/* Reduced font size and margins */}
         {selectedObject.type === 'cube' && (
           <>
             <DimensionInput label="Width (X)" value={selectedObject.dimensions.width} onChange={val => handleDimensionChange('width', val)} />
@@ -196,7 +206,7 @@ const ObjectPropertiesPanel = () => {
           </>
         )}
 
-        <div className="space-y-1 pt-2 border-t mt-3">
+        <div className="space-y-1 pt-2 border-t mt-2">
             <Label htmlFor="object-material" className="text-xs font-medium">Material</Label>
             <Select value={selectedObject.materialId} onValueChange={handleMaterialChange}>
               <SelectTrigger id="object-material" className="h-8 text-xs">
@@ -205,15 +215,18 @@ const ObjectPropertiesPanel = () => {
               <SelectContent>
                 {materials.map(material => (
                   <SelectItem key={material.id} value={material.id} className="text-xs">
-                    {material.name || material.id}
+                    <div className="flex items-center gap-2">
+                        <div style={{backgroundColor: material.color}} className="w-3 h-3 rounded-sm border shrink-0"/>
+                        <span>{material.name || material.id}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {currentMaterial && (
-                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                    <div style={{backgroundColor: currentMaterial.color}} className="w-3 h-3 rounded-sm border"/>
-                    <span>{currentMaterial.name || currentMaterial.id}</span>
+                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 pl-1">
+                    <div style={{backgroundColor: currentMaterial.color}} className="w-3 h-3 rounded-sm border shrink-0"/>
+                    <span>Current: {currentMaterial.name || currentMaterial.id}</span>
                 </div>
             )}
         </div>
@@ -233,7 +246,7 @@ const ObjectPropertiesPanel = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteObject}>
+              <AlertDialogAction onClick={handleDeleteObject} className="bg-destructive hover:bg-destructive/90">
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>

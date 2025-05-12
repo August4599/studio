@@ -1,13 +1,12 @@
-
 "use client";
 
 import { Accordion } from "@/components/ui/accordion";
 import LightingPanel from "./lighting-panel";
 import ScenePanel from "./scene-panel";
 import ToolsPanel from "./tools-panel";
-import ObjectPropertiesPanel from "./object-properties-panel"; // New
-import MaterialsPanel from "./materials-panel"; // New
-import RenderSettingsPanel from "./render-settings-panel"; // New
+import ObjectPropertiesPanel from "./object-properties-panel";
+import MaterialsPanel from "./materials-panel";
+import RenderSettingsPanel from "./render-settings-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
 import type { AppMode } from "@/types";
@@ -22,6 +21,7 @@ const MainSidebar = () => {
           <>
             <ToolsPanel />
             {selectedObjectId && <ObjectPropertiesPanel />}
+            <MaterialsPanel /> {/* Keep materials accessible for quick assignment */}
             <LightingPanel />
             <ScenePanel />
           </>
@@ -31,7 +31,7 @@ const MainSidebar = () => {
           <>
             <MaterialsPanel />
             {selectedObjectId && <ObjectPropertiesPanel />} 
-            <LightingPanel /> {/* Added LightingPanel to texturing mode */}
+            <LightingPanel />
             <ScenePanel />
           </>
         );
@@ -40,6 +40,8 @@ const MainSidebar = () => {
           <>
             <RenderSettingsPanel />
             <LightingPanel />
+            {selectedObjectId && <ObjectPropertiesPanel />} {/* Allow final tweaks */}
+            <MaterialsPanel /> {/* Allow final material checks */}
             <ScenePanel />
           </>
         );
@@ -49,21 +51,33 @@ const MainSidebar = () => {
   };
 
   const getDefaultOpenItems = (mode: AppMode) => {
+    let items: string[] = [];
     switch (mode) {
       case 'modelling':
-        return ['item-tools', selectedObjectId ? 'item-object-props' : undefined, 'item-lighting'].filter(Boolean) as string[];
+        items = ['item-tools'];
+        if (selectedObjectId) items.push('item-object-props');
+        else items.push('item-materials'); // Open materials if no object selected
+        items.push('item-lighting');
+        break;
       case 'texturing':
-        return ['item-materials', selectedObjectId ? 'item-object-props' : undefined, 'item-lighting'].filter(Boolean) as string[];
+        items = ['item-materials'];
+        if (selectedObjectId) items.push('item-object-props');
+        items.push('item-lighting');
+        break;
       case 'rendering':
-        return ['item-render-settings', 'item-lighting'].filter(Boolean) as string[];
+        items = ['item-render-settings', 'item-lighting'];
+        if (selectedObjectId) items.push('item-object-props');
+        break;
       default:
-        return [];
+        items = [];
     }
+    return items.filter(Boolean) as string[];
   }
 
   return (
     <ScrollArea className="h-full p-1">
-      <Accordion type="multiple" defaultValue={getDefaultOpenItems(appMode)} className="w-full" key={appMode + (selectedObjectId || '')}> {/* Added key to force re-render on mode/selection change for defaultValue */}
+      {/* Key ensures Accordion re-initializes with new defaultValues when appMode or selection changes */}
+      <Accordion type="multiple" defaultValue={getDefaultOpenItems(appMode)} className="w-full" key={`${appMode}-${selectedObjectId || 'no-selection'}`}>
         {getPanelsForMode(appMode)}
       </Accordion>
     </ScrollArea>

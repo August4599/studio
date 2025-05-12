@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect }from 'react';
@@ -16,12 +15,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Removed TabsContent as it's not used here
 import { Workflow, ChevronDown, ChevronUp, Settings, Brush, Camera as RenderIcon } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode } from '@/types';
 
-// Inline SVG for Node Editor Icon (simple placeholder) - can be enhanced or replaced
+// Inline SVG for Node Editor Icon (simple placeholder)
 const NodeEditorIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 opacity-80">
     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -38,7 +37,6 @@ const NodeEditorIcon = () => (
 
 const AppModeSwitcher: React.FC = () => {
   const { appMode, setAppMode } = useScene();
-  // Ensure appMode is initialized for Tabs defaultValue
   const [currentMode, setCurrentMode] = useState<AppMode>(appMode || 'modelling');
 
   useEffect(() => {
@@ -51,15 +49,15 @@ const AppModeSwitcher: React.FC = () => {
   };
 
   return (
-    <Tabs value={currentMode} onValueChange={handleModeChange} className="w-full bg-background border-b">
+    <Tabs value={currentMode} onValueChange={handleModeChange} className="w-full bg-background border-b shadow-sm">
       <TabsList className="grid w-full grid-cols-3 h-12 rounded-none border-b-0 p-0">
-        <TabsTrigger value="modelling" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm">
+        <TabsTrigger value="modelling" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
           <Settings size={16} /> Modelling
         </TabsTrigger>
-        <TabsTrigger value="texturing" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm">
+        <TabsTrigger value="texturing" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
           <Brush size={16} /> Texturing
         </TabsTrigger>
-        <TabsTrigger value="rendering" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm">
+        <TabsTrigger value="rendering" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
           <RenderIcon size={16} /> Rendering
         </TabsTrigger>
       </TabsList>
@@ -69,12 +67,12 @@ const AppModeSwitcher: React.FC = () => {
 
 const NodeEditorSection: React.FC = () => {
   const { appMode } = useScene();
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(true);
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(true); // Default to open
 
   const getNodeEditorTitle = () => {
     switch(appMode) {
       case 'modelling': return "Geometry Nodes";
-      case 'texturing': return "Material / Shader Nodes";
+      case 'texturing': return "Shader Nodes";
       case 'rendering': return "Compositing Nodes";
       default: return "Node Editor";
     }
@@ -82,19 +80,19 @@ const NodeEditorSection: React.FC = () => {
 
   const getNodeEditorPlaceholder = () => {
      switch(appMode) {
-      case 'modelling': return "Procedural geometry node editor (Future Development)";
-      case 'texturing': return "Create and edit materials using a node-based interface (Future Development)";
-      case 'rendering': return "Post-processing and render pass node editor (Future Development)";
-      default: return "Node-based editor area (Future Development)";
+      case 'modelling': return "Procedural geometry node editor. (Future Development)";
+      case 'texturing': return "Create and edit materials using a node-based interface. (Future Development)";
+      case 'rendering': return "Post-processing and render pass node editor. (Future Development)";
+      default: return "Node-based editor area. (Future Development)";
     }
   }
 
   return (
     <div className={cn(
-      "flex-none flex flex-col border-b bg-card shadow-sm overflow-hidden transition-all duration-300 ease-in-out",
-      isNodeEditorOpen ? "h-[30%] min-h-[150px]" : "h-[52px]" // Reduced height
+      "flex-none flex flex-col bg-background border-b border-t overflow-hidden transition-all duration-300 ease-in-out", // Added border-t
+      isNodeEditorOpen ? "h-[30%] min-h-[150px]" : "h-12" // Matched collapsed height to AppModeSwitcher
     )}>
-      <div className="p-3 border-b bg-muted/30 dark:bg-muted/10 flex justify-between items-center">
+      <div className="p-3 border-b bg-muted/20 dark:bg-muted/10 flex justify-between items-center h-12"> {/* Ensure header is fixed height */}
         <h2 className="text-base font-semibold text-foreground flex items-center">
           <NodeEditorIcon />
           {getNodeEditorTitle()}
@@ -110,7 +108,7 @@ const NodeEditorSection: React.FC = () => {
         </Button>
       </div>
       {isNodeEditorOpen && (
-        <div className="flex-grow p-4 flex items-center justify-center text-muted-foreground overflow-auto">
+        <div className="flex-grow p-4 flex items-center justify-center text-muted-foreground overflow-auto bg-card/30">
           <span className="italic text-sm">{getNodeEditorPlaceholder()}</span>
         </div>
       )}
@@ -121,7 +119,7 @@ const NodeEditorSection: React.FC = () => {
 const ArchiVisionLayout: React.FC = () => {
   return (
     <SidebarProvider defaultOpen>
-      <Sidebar variant="sidebar" collapsible="icon" className="border-r">
+      <Sidebar variant="sidebar" collapsible="icon" className="border-r shadow-md"> {/* Added shadow */}
         <SidebarHeader className="p-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Workflow className="w-7 h-7 text-accent" />
@@ -137,9 +135,9 @@ const ArchiVisionLayout: React.FC = () => {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="flex flex-col h-screen">
+      <SidebarInset className="flex flex-col h-screen bg-background"> {/* Ensure bg for inset */}
         {/* Mobile Header */}
-        <div className="p-2 md:hidden border-b flex items-center justify-start sticky top-0 bg-background z-20">
+        <div className="p-2 md:hidden border-b flex items-center justify-start sticky top-0 bg-background z-20 shadow-sm">
           <SidebarTrigger />
           <div className="flex items-center gap-2 ml-2">
             <Workflow className="w-5 h-5 text-accent" />
@@ -151,13 +149,12 @@ const ArchiVisionLayout: React.FC = () => {
         <AppModeSwitcher />
         
         <div className="flex-grow flex flex-col overflow-hidden">
-          {/* Node Editor Area - Content and visibility might depend on appMode */}
-          <NodeEditorSection />
-          
-          {/* Scene Viewer takes up the remaining space */}
+          {/* Scene Viewer takes up most space */}
           <div className="flex-grow overflow-hidden relative">
             <SceneViewer />
           </div>
+          {/* Node Editor Area - positioned at the bottom */}
+          <NodeEditorSection />
         </div>
       </SidebarInset>
     </SidebarProvider>

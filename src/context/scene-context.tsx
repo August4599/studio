@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -34,7 +33,7 @@ const SceneContext = createContext<SceneContextType | undefined>(undefined);
 const initialDefaultMaterial: MaterialProperties = {
   id: DEFAULT_MATERIAL_ID,
   name: DEFAULT_MATERIAL_NAME,
-  color: '#888888', // Changed from #cccccc for better visibility
+  color: '#B0B0B0', // Changed to a lighter gray
   roughness: 0.6,
   metalness: 0.3,
 };
@@ -44,14 +43,14 @@ const initialSceneData: SceneData = {
   materials: [initialDefaultMaterial],
   ambientLight: {
     color: '#ffffff',
-    intensity: 0.6, // Slightly increased ambient intensity
+    intensity: 0.7, // Slightly increased ambient intensity
   },
   directionalLight: {
     color: '#ffffff',
-    intensity: 1.2, // Slightly increased directional intensity
+    intensity: 1.5, // Slightly increased directional intensity
     position: [5, 10, 7.5],
     castShadow: true,
-    shadowBias: -0.0001,
+    shadowBias: -0.0005, // Adjusted shadow bias
   },
   selectedObjectId: null,
   activeTool: 'select',
@@ -70,7 +69,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: uuidv4(),
       type,
       name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${sceneData.objects.filter(o => o.type === type).length + 1}`,
-      position: [0, 0.5, 0], // Default position, adjust based on primitive
+      position: [0, 0.5, 0], 
       rotation: [0, 0, 0],
       scale: [1, 1, 1],
       dimensions: type === 'cube' ? { width: 1, height: 1, depth: 1 } : 
@@ -78,11 +77,20 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   type === 'plane' ? { width: 10, height: 10 } : {},
       materialId: materialId,
     };
-    if (type === 'plane') newObject.position = [0,0,0];
+    
+    // Adjust Y position for primitives to sit on the ground plane (Y=0)
+    if (type === 'cube' || type === 'cylinder') {
+      newObject.position[1] = (newObject.dimensions.height || 1) / 2;
+    } else if (type === 'plane') {
+      newObject.position = [0,0,0]; // Plane at origin
+    }
+
 
     setSceneData(prev => ({
       ...prev,
       objects: [...prev.objects, newObject],
+      selectedObjectId: newObject.id, // Auto-select new object
+      activeTool: 'select', // Switch to select tool
     }));
     return newObject;
   }, [sceneData.objects]);
@@ -90,7 +98,17 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
     setSceneData(prev => ({
       ...prev,
-      objects: prev.objects.map(obj => obj.id === id ? { ...obj, ...updates } : obj),
+      objects: prev.objects.map(obj => {
+        if (obj.id === id) {
+          const updatedObj = { ...obj, ...updates };
+          // If dimensions affecting height change, adjust Y position for cube/cylinder to stay on ground
+          if ((updatedObj.type === 'cube' || updatedObj.type === 'cylinder') && updates.dimensions?.height !== undefined) {
+            updatedObj.position[1] = (updatedObj.dimensions.height || 1) / 2;
+          }
+          return updatedObj;
+        }
+        return obj;
+      }),
     }));
   }, []);
 
@@ -109,7 +127,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addMaterial = useCallback((props?: Partial<Omit<MaterialProperties, 'id'>>): MaterialProperties => {
     const newMaterial: MaterialProperties = {
       id: uuidv4(),
-      name: `Material ${sceneData.materials.length}`,
+      name: `Material ${sceneData.materials.length}`, // Name will be unique due to length check before this
       color: '#ffffff',
       roughness: 0.5,
       metalness: 0.5,
@@ -130,11 +148,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const removeMaterial = useCallback((id: string) => {
-    if (id === DEFAULT_MATERIAL_ID) return; // Cannot remove default material
+    if (id === DEFAULT_MATERIAL_ID) return; 
     setSceneData(prev => ({
       ...prev,
       materials: prev.materials.filter(mat => mat.id !== id),
-      // Optionally, re-assign objects using this material to default
       objects: prev.objects.map(obj => obj.materialId === id ? { ...obj, materialId: DEFAULT_MATERIAL_ID } : obj),
     }));
   }, []);
@@ -154,36 +171,51 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loadScene = useCallback((data: SceneData) => {
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
       let materials = data.materials;
-      // Ensure default material exists, if not add it.
-      if (!materials.find(m => m.id === DEFAULT_MATERIAL_ID)) {
-        // If the loaded scene has a material named "Default Material" but different ID, use that
-        const loadedDefault = materials.find(m => m.name === DEFAULT_MATERIAL_NAME);
-        if (loadedDefault) {
-          // Update its ID to be the canonical default ID
-          loadedDefault.id = DEFAULT_MATERIAL_ID;
+      const defaultMaterialExists = materials.some(m => m.id === DEFAULT_MATERIAL_ID);
+
+      if (!defaultMaterialExists) {
+        const loadedDefaultByName = materials.find(m => m.name === DEFAULT_MATERIAL_NAME);
+        if (loadedDefaultByName) {
+          loadedDefaultByName.id = DEFAULT_MATERIAL_ID; // Standardize ID
+           // Ensure our initial default props are base, then override with loaded
+          materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
         } else {
           materials = [initialDefaultMaterial, ...materials];
         }
-      } else { // If it exists, ensure its properties are our current defaults if it's meant to be the fallback
-        materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
+      } else {
+         materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
       }
-      setSceneData({...initialSceneData, ...data, materials, appMode: data.appMode || 'modelling', activeTool: data.activeTool || 'select'});
+      
+      // Ensure all objects have valid materialId, fallback to default if not found
+      const validMaterialIds = new Set(materials.map(m => m.id));
+      const objects = data.objects.map(obj => ({
+        ...obj,
+        materialId: validMaterialIds.has(obj.materialId) ? obj.materialId : DEFAULT_MATERIAL_ID
+      }));
+
+      setSceneData({
+        ...initialSceneData, // Start with fresh defaults for any missing top-level keys
+        ...data, // Override with loaded data
+        materials, // Use processed materials
+        objects, // Use processed objects
+        appMode: data.appMode || 'modelling', 
+        activeTool: data.activeTool || 'select'
+      });
     } else {
       console.error("Invalid scene data format");
     }
   }, []);
 
   const clearScene = useCallback(() => {
-    const currentAppMode = sceneData.appMode; // Preserve current app mode
-    const newInitialData = {
-        ...initialSceneData, // This already contains the updated default material
+    const currentAppMode = sceneData.appMode; 
+    setSceneData({
+        ...initialSceneData, 
         appMode: currentAppMode, 
-        materials: [initialDefaultMaterial], // Ensure it's exactly our default
+        materials: [initialDefaultMaterial], // Ensure it's exactly our current default
         objects: [],
         selectedObjectId: null,
         activeTool: 'select',
-    };
-    setSceneData(newInitialData);
+    });
   }, [sceneData.appMode]);
 
   const setActiveTool = useCallback((tool: ToolType | undefined) => {

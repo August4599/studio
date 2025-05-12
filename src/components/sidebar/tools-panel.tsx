@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -17,7 +16,7 @@ import {
   RotateCcw, 
   Maximize2, // Scale
   Construction, // Tools section icon
-  Box, // For Add Cube specifically (replaces Cube)
+  Box, // For Add Cube specifically
   Type, // Text tool
   Image as ImageIcon, // Image tool
   Shapes, // Rectangle, Circle, Polygon etc.
@@ -29,7 +28,7 @@ import {
   ZoomIn, // Zoom tool (though orbit controls handle zoom)
   ChevronsUpDown, // Push/Pull tool
   PaintBucket, // Paint Bucket tool
-  Eye, // Orbit tool (Orbit controls are active by default)
+  // Eye, // Orbit tool (Orbit controls are active by default) // Commented out as orbit is default
   Copy, // Offset tool
   Scissors // Tape Measure / Protractor (could be split)
 } from "lucide-react";
@@ -41,63 +40,64 @@ interface ToolConfig {
   id: ToolType;
   label: string;
   icon: React.ElementType;
-  action?: () => void; // Optional action for tools that execute immediately
+  action?: () => void;
+  isPlaceholder?: boolean; // To indicate if it's a placeholder tool
 }
 
 const ToolsPanel = () => {
-  const { activeTool, setActiveTool, addObject } = useScene();
+  const { activeTool, setActiveTool, addObject, selectObject } = useScene();
   const { toast } = useToast();
 
-  const handleAddCube = () => {
-    const newCube = addObject('cube');
+  const handleAddPrimitive = (type: 'cube' | 'cylinder' | 'plane') => {
+    const newObj = addObject(type);
     toast({
       title: "Object Added",
-      description: `Added ${newCube.name} to the scene.`,
+      description: `${newObj.name} added and selected.`,
     });
-    setActiveTool('select'); // Switch to select tool after adding
+    // setActiveTool('select'); // addObject now handles this
+    // selectObject(newObj.id); // addObject now handles this
   };
 
-  // SketchUp-inspired tools. Some are direct, some are conceptual.
+  const placeholderToolAction = (toolLabel: string) => {
+    toast({
+      title: `${toolLabel} Selected`,
+      description: "This tool's functionality is currently in development.",
+      duration: 3000,
+    });
+  };
+
   const mainTools: ToolConfig[] = [
     { id: 'select', label: 'Select', icon: MousePointer2 },
-    { id: 'line', label: 'Line', icon: PenTool },
-    { id: 'arc', label: 'Arc', icon: Spline }, // Generic for arcs
-    { id: 'rectangle', label: 'Rectangle', icon: Shapes }, // Generic for shapes
-    // { id: 'circle', label: 'Circle', icon: CircleIcon }, // Could be sub-tool of Shapes
-    // { id: 'polygon', label: 'Polygon', icon: Hexagon }, // Could be sub-tool of Shapes
+    { id: 'line', label: 'Line', icon: PenTool, isPlaceholder: true },
+    { id: 'arc', label: 'Arc', icon: Spline, isPlaceholder: true }, 
+    { id: 'rectangle', label: 'Rectangle', icon: Shapes, isPlaceholder: true }, 
   ];
 
   const modificationTools: ToolConfig[] = [
-    { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown },
-    { id: 'move', label: 'Move', icon: Move },
-    { id: 'rotate', label: 'Rotate', icon: RotateCcw },
-    { id: 'scale', label: 'Scale', icon: Maximize2 },
-    { id: 'offset', label: 'Offset', icon: Copy }, // conceptual
+    { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, isPlaceholder: true },
+    { id: 'move', label: 'Move', icon: Move, isPlaceholder: true }, // Will become active with object selection
+    { id: 'rotate', label: 'Rotate', icon: RotateCcw, isPlaceholder: true }, // "
+    { id: 'scale', label: 'Scale', icon: Maximize2, isPlaceholder: true },   // "
+    { id: 'offset', label: 'Offset', icon: Copy, isPlaceholder: true }, 
   ];
   
   const utilityTools: ToolConfig[] = [
-    { id: 'tape', label: 'Tape', icon: Scissors }, // Tape measure
-    // { id: 'dimensions', label: 'Dimensions', icon: Ruler }, // Not a direct tool, but for display
-    { id: 'text', label: '3D Text', icon: Type },
-    { id: 'paint', label: 'Paint', icon: PaintBucket },
-    { id: 'eraser', label: 'Eraser', icon: Eraser },
+    { id: 'tape', label: 'Tape', icon: Scissors, isPlaceholder: true }, 
+    { id: 'text', label: '3D Text', icon: Type, isPlaceholder: true },
+    { id: 'paint', label: 'Paint', icon: PaintBucket, isPlaceholder: true },
+    { id: 'eraser', label: 'Eraser', icon: Eraser, isPlaceholder: true },
   ];
   
-  // Camera tools are usually handled by OrbitControls, but can have explicit buttons
-  // const cameraTools: ToolConfig[] = [
-  //   { id: 'orbit', label: 'Orbit', icon: Eye }, // Default
-  //   { id: 'pan', label: 'Pan', icon: Hand },
-  //   { id: 'zoom', label: 'Zoom', icon: ZoomIn }, // OrbitControls handles this
-  // ];
-  
   const primitiveToolsConfig: ToolConfig[] = [
-      { id: 'addCube', label: 'Add Cube', icon: Box, action: handleAddCube },
-      // Future: Add Sphere, Cylinder, Plane buttons here
+      { id: 'addCube', label: 'Add Cube', icon: Box, action: () => handleAddPrimitive('cube') },
+      // Future: Add Sphere, Cylinder, Plane buttons here. For now, only cube.
+      // { id: 'addCylinder', label: 'Add Cylinder', icon: CylinderIcon, action: () => handleAddPrimitive('cylinder')},
+      // { id: 'addPlane', label: 'Add Plane', icon: Square, action: () => handleAddPrimitive('plane')},
   ];
 
   const renderToolSection = (title: string, tools: ToolConfig[]) => (
     <>
-      <Label className="text-xs font-medium text-muted-foreground px-1 pt-2 block">{title}</Label>
+      <Label className="text-xs font-medium text-muted-foreground px-1 pt-2 pb-1 block">{title}</Label>
       <div className="grid grid-cols-4 gap-1">
         {tools.map((tool) => (
           <Tooltip key={tool.id}>
@@ -105,19 +105,23 @@ const ToolsPanel = () => {
               <Button
                 variant={activeTool === tool.id ? "secondary" : "outline"}
                 size="icon"
-                className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1"
+                className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1 border hover:bg-accent/80 focus:ring-accent"
                 onClick={() => {
                   setActiveTool(tool.id);
-                  if (tool.action) tool.action();
+                  if (tool.action) {
+                     tool.action();
+                  } else if (tool.isPlaceholder) {
+                    placeholderToolAction(tool.label);
+                  }
                 }}
                 aria-label={tool.label}
               >
-                <tool.icon size={20} />
-                <span className="text-[10px] leading-tight">{tool.label}</span>
+                <tool.icon size={20} className={activeTool === tool.id ? "text-accent-foreground" : "text-foreground/80"}/>
+                <span className={`text-[10px] leading-tight ${activeTool === tool.id ? "text-accent-foreground font-medium" : "text-muted-foreground"}`}>{tool.label}</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>{tool.label}</p>
+              <p>{tool.label}{tool.isPlaceholder ? " (WIP)" : ""}</p>
             </TooltipContent>
           </Tooltip>
         ))}
@@ -135,11 +139,10 @@ const ToolsPanel = () => {
       </AccordionTrigger>
       <AccordionContent className="p-2 space-y-1">
         <TooltipProvider delayDuration={100}>
+          {renderToolSection("Primitives", primitiveToolsConfig)}
           {renderToolSection("Drawing & Selection", mainTools)}
           {renderToolSection("Modification", modificationTools)}
           {renderToolSection("Utilities", utilityTools)}
-          {/* {renderToolSection("Camera", cameraTools)} // If explicit camera tools are needed */}
-          {renderToolSection("Add Primitives", primitiveToolsConfig)}
         </TooltipProvider>
       </AccordionContent>
     </AccordionItem>
