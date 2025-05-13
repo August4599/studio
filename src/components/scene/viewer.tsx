@@ -346,7 +346,11 @@ const SceneViewer: React.FC = () => {
 
         if (currentIntersection) {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
-            const pushPullAmount = dragVector.dot(worldFaceNormalVec); // Signed displacement
+            let pushPullAmount = dragVector.dot(worldFaceNormalVec); // Signed displacement
+
+            const sensitivityFactor = 5; // Adjust this value for more/less sensitivity
+            pushPullAmount *= sensitivityFactor;
+
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
             let newPositionArray = [...originalPosition] as [number, number, number];
@@ -693,3 +697,5 @@ const SceneViewer: React.FC = () => {
 };
 
 export default SceneViewer;
+
+
