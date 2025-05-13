@@ -30,31 +30,31 @@ const MainSidebar = () => {
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 h-12 rounded-none border-b p-0 sticky top-0 z-10 bg-card shadow-sm flex-none">
           {appMode === 'modelling' ? (
             <>
-              <TabsTrigger value="selection" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+              <TabsTrigger value="selection" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <BoxSelect size={16} /> Selection
               </TabsTrigger>
-              <TabsTrigger value="materials" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+              <TabsTrigger value="materials" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Palette size={16} /> Materials
               </TabsTrigger>
-              <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+              <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Globe size={16} /> Scene
               </TabsTrigger>
-               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary md:hidden">
+               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary md:hidden">
                 <Construction size={16}/> Project
               </TabsTrigger>
             </>
           ) : ( // Visualize & Export Mode
             <>
-              <TabsTrigger value="render" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+              <TabsTrigger value="render" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <ImageIconLucide size={16} /> Render
               </TabsTrigger>
-              <TabsTrigger value="camera" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+              <TabsTrigger value="camera" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Video size={16} /> Camera
               </TabsTrigger>
-               <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+               <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Globe size={16} /> Scene
               </TabsTrigger>
-               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary md:hidden">
+               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary md:hidden">
                 <Construction size={16}/> Project
               </TabsTrigger>
             </>

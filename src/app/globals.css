@@ -4,103 +4,103 @@
 
 @layer base {
   :root {
-    /* ArchiVision Theme: Light Gray, Dark Gray, Teal */
-    --background: 180 0% 94%; /* Light Gray (#F0F0F0) */
-    --foreground: 0 0% 20%; /* Dark Gray (#333) */
+    /* ArchiVision Theme: Black, White, Red */
+    --background: 0 0% 10%; /* Very Dark Gray / Near Black */
+    --foreground: 0 0% 95%; /* Near White */
 
-    --muted: 0 0% 88%; /* Lighter gray for muted backgrounds */
-    --muted-foreground: 0 0% 40%; /* Medium Dark Gray for muted text */
+    --muted: 0 0% 15%; /* Dark Gray */
+    --muted-foreground: 0 0% 60%; /* Light Gray for muted text */
 
-    --popover: 180 0% 94%; /* Light Gray */
-    --popover-foreground: 0 0% 20%; /* Dark Gray */
+    --popover: 0 0% 12%; /* Dark Gray */
+    --popover-foreground: 0 0% 95%; /* Near White */
 
-    --card: 180 0% 98%; /* Slightly lighter than background, or same for flat */
-    --card-foreground: 0 0% 20%; /* Dark Gray */
+    --card: 0 0% 12%; /* Dark Gray */
+    --card-foreground: 0 0% 95%; /* Near White */
 
-    --border: 0 0% 80%; /* Medium Gray for borders */
-    --input: 0 0% 85%; /* Slightly darker gray for input backgrounds */
+    --border: 0 0% 25%; /* Medium Dark Gray */
+    --input: 0 0% 20%; /* Dark Gray for input backgrounds */
 
-    --primary: 180 100% 25%; /* Teal (#008080) */
+    --primary: 0 70% 50%; /* Vibrant Red */
     --primary-foreground: 0 0% 98%; /* Near White for text on primary */
 
-    --secondary: 0 0% 30%; /* Darker Gray for secondary elements */
+    --secondary: 0 0% 30%; /* Medium Dark Gray for secondary elements */
     --secondary-foreground: 0 0% 95%; /* Near White for text on secondary */
 
-    --accent: 180 100% 30%; /* A slightly brighter Teal for accents */
+    --accent: 0 80% 55%; /* A slightly brighter Red for accents */
     --accent-foreground: 0 0% 98%; /* Near White */
 
-    --destructive: 0 84% 60%; /* Standard destructive red */
+    --destructive: 0 70% 50%; /* Red (can be same as primary) */
     --destructive-foreground: 0 0% 98%; /* Near White */
 
-    --ring: 180 100% 35%; /* Teal for focus rings */
+    --ring: 0 70% 55%; /* Red for focus rings */
 
     --radius: 0.5rem;
 
-    /* Chart Colors (adjust as needed, keeping contrast with background) */
-    --chart-1: 180 70% 40%; /* Teal variant 1 */
+    /* Chart Colors */
+    --chart-1: 0 60% 45%; /* Red variant 1 */
     --chart-2: 0 0% 50%;   /* Medium Gray */
-    --chart-3: 180 60% 35%; /* Teal variant 2 */
+    --chart-3: 0 50% 40%; /* Red variant 2 */
     --chart-4: 0 0% 30%;   /* Darker Gray */
-    --chart-5: 180 80% 45%; /* Teal variant 3 */
+    --chart-5: 0 70% 50%; /* Primary Red */
 
-    /* Sidebar specific (using the new theme) */
-    --sidebar-background: 0 0% 90%; /* Slightly darker light gray for sidebar */
-    --sidebar-foreground: 0 0% 15%; /* Darker gray for sidebar text */
-    --sidebar-primary: 180 100% 25%; /* Teal */
+    /* Sidebar specific */
+    --sidebar-background: 0 0% 8%; /* Slightly darker than main background */
+    --sidebar-foreground: 0 0% 90%; /* Slightly dimmer white */
+    --sidebar-primary: 0 70% 50%; /* Red */
     --sidebar-primary-foreground: 0 0% 98%; /* White */
-    --sidebar-accent: 180 100% 30%; /* Brighter Teal */
+    --sidebar-accent: 0 80% 55%; /* Brighter Red */
     --sidebar-accent-foreground: 0 0% 98%; /* White */
-    --sidebar-border: 0 0% 75%; /* Medium gray for sidebar borders */
-    --sidebar-ring: 180 100% 35%; /* Teal */
+    --sidebar-border: 0 0% 20%; /* Dark gray for sidebar borders */
+    --sidebar-ring: 0 70% 55%; /* Red */
   }
 
   .dark {
-    /* ArchiVision Dark Theme: Dark Gray, Light Gray, Teal */
-    --background: 0 0% 12%; /* Dark Gray (#1F1F1F) */
-    --foreground: 0 0% 93%; /* Light Gray (#EDEDED) */
+    /* ArchiVision Dark Theme: Black, White, Red (Same as root for consistency) */
+    --background: 0 0% 10%; 
+    --foreground: 0 0% 95%; 
 
-    --muted: 0 0% 18%; /* Slightly lighter dark gray */
-    --muted-foreground: 0 0% 65%; /* Medium light gray */
+    --muted: 0 0% 15%; 
+    --muted-foreground: 0 0% 60%; 
 
-    --popover: 0 0% 12%; /* Dark Gray */
-    --popover-foreground: 0 0% 93%; /* Light Gray */
+    --popover: 0 0% 12%; 
+    --popover-foreground: 0 0% 95%; 
 
-    --card: 0 0% 15%; /* Slightly lighter than background */
-    --card-foreground: 0 0% 93%; /* Light Gray */
+    --card: 0 0% 12%; 
+    --card-foreground: 0 0% 95%; 
 
-    --border: 0 0% 25%; /* Medium Dark Gray */
-    --input: 0 0% 20%; /* Darker Gray for inputs */
+    --border: 0 0% 25%; 
+    --input: 0 0% 20%; 
 
-    --primary: 180 70% 50%; /* Teal (#00B3B3 or similar bright teal for dark mode) */
-    --primary-foreground: 0 0% 10%; /* Very Dark Gray/Black for text on primary */
+    --primary: 0 70% 50%; 
+    --primary-foreground: 0 0% 98%; 
 
-    --secondary: 0 0% 80%; /* Light Gray for secondary elements */
-    --secondary-foreground: 0 0% 15%; /* Dark Gray for text on secondary */
+    --secondary: 0 0% 30%; 
+    --secondary-foreground: 0 0% 95%; 
 
-    --accent: 180 75% 55%; /* A brighter Teal for accents in dark mode */
-    --accent-foreground: 0 0% 10%; /* Very Dark Gray/Black */
+    --accent: 0 80% 55%; 
+    --accent-foreground: 0 0% 98%; 
 
-    --destructive: 0 70% 50%; /* A clear red for destructive actions */
-    --destructive-foreground: 0 0% 95%; /* Light Gray */
+    --destructive: 0 70% 50%; 
+    --destructive-foreground: 0 0% 98%; 
 
-    --ring: 180 70% 55%; /* Teal for focus rings */
+    --ring: 0 70% 55%; 
 
-    /* Chart Colors (adjust for dark mode contrast) */
-    --chart-1: 180 65% 55%; /* Teal variant 1 */
-    --chart-2: 0 0% 60%;   /* Medium Gray */
-    --chart-3: 180 55% 50%; /* Teal variant 2 */
-    --chart-4: 0 0% 40%;   /* Darker Gray */
-    --chart-5: 180 75% 60%; /* Teal variant 3 */
+    /* Chart Colors */
+    --chart-1: 0 60% 45%; 
+    --chart-2: 0 0% 50%;   
+    --chart-3: 0 50% 40%; 
+    --chart-4: 0 0% 30%;   
+    --chart-5: 0 70% 50%; 
     
     /* Sidebar specific dark theme (matches overall dark theme) */
-    --sidebar-background: 0 0% 10%; /* Even Darker for Sidebar */
-    --sidebar-foreground: 0 0% 90%; /* Light Gray */
-    --sidebar-primary: 180 70% 50%; /* Teal */
-    --sidebar-primary-foreground: 0 0% 10%; /* Dark Gray/Black */
-    --sidebar-accent: 180 75% 55%; /* Brighter Teal */
-    --sidebar-accent-foreground: 0 0% 10%; /* Dark Gray/Black */
-    --sidebar-border: 0 0% 20%; /* Dark Gray */
-    --sidebar-ring: 180 70% 55%; /* Teal */
+    --sidebar-background: 0 0% 8%; 
+    --sidebar-foreground: 0 0% 90%; 
+    --sidebar-primary: 0 70% 50%; 
+    --sidebar-primary-foreground: 0 0% 98%; 
+    --sidebar-accent: 0 80% 55%; 
+    --sidebar-accent-foreground: 0 0% 98%; 
+    --sidebar-border: 0 0% 20%; 
+    --sidebar-ring: 0 70% 55%; 
   }
 }
 
