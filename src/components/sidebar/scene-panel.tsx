@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -36,14 +35,14 @@ const ScenePanel = () => {
   const [isImportingCad, setIsImportingCad] = useState(false);
 
   const handleSaveCurrentProject = async () => {
-    if (!currentProject || isProjectLoading) return;
+    if (!currentProject || isProjectLoading || isImportingCad) return;
     const sceneDataToSave = getCurrentSceneData();
     await saveCurrentProjectScene(sceneDataToSave);
     toast({ title: "Project Saved", description: `${currentProject.name} has been saved.` });
   };
   
   const handleClearProjectScene = () => {
-    if (!currentProject || isProjectLoading) return;
+    if (!currentProject || isProjectLoading || isImportingCad) return;
     clearCurrentProjectScene(); 
     const clearedSceneData = getCurrentSceneData(); 
     saveCurrentProjectScene(clearedSceneData).then(() => {
@@ -72,54 +71,44 @@ const ScenePanel = () => {
     }
 
     setIsImportingCad(true);
-    toast({ title: "Importing CAD Plan", description: `Processing ${file.name}... This may take a moment.`, duration: 5000});
+    toast({ 
+        title: "Importing CAD Plan", 
+        description: `Processing ${file.name}... This may take a moment. Large files can cause unresponsiveness.`, 
+        duration: 10000 // Longer duration for initial toast
+    });
+    console.log(`[CAD Import] Started processing ${file.name}`);
 
     try {
-      if (file.name.toLowerCase().endsWith('.dxf')) {
-        const fileContent = await file.text();
-        // Offload parsing to a timeout to allow UI to update with loading state
-        // This is a basic way to make it slightly less blocking, web worker would be better for true non-blocking
-        await new Promise(resolve => setTimeout(resolve, 50)); 
-
-        const parsedObjects = parseDxfToSceneObjects(fileContent);
+      const fileContent = await file.text(); // Reading file is async
+      console.log(`[CAD Import] File read successfully. Parsing DXF...`);
         
-        if (parsedObjects.length > 0) {
-          addImportedObjects(parsedObjects);
-          toast({
-            title: "DXF Imported Successfully",
-            description: `${parsedObjects.length} object(s) added to the scene from ${file.name}.`,
-          });
-        } else {
-          toast({
-            title: "DXF Import Issue",
-            description: `No compatible objects found or error parsing ${file.name}. Check console for details.`,
-            variant: "default"
-          });
-        }
-      } else if (file.name.toLowerCase().endsWith('.dwg')) {
+      // The parsing itself is synchronous with dxf-parser
+      const parsedObjectsData = parseDxfToSceneObjects(fileContent);
+      console.log(`[CAD Import] DXF parsed. Found ${parsedObjectsData.length} potential objects.`);
+        
+      if (parsedObjectsData.length > 0) {
+        await addImportedObjects(parsedObjectsData); // This is now async and chunked
         toast({
-          title: "DWG Import Not Supported",
-          description: "Direct DWG import is not yet available. Please convert your DWG file to DXF format for import.",
-          variant: "default",
-          duration: 7000,
+          title: "DXF Imported Successfully",
+          description: `${parsedObjectsData.length} object(s) added to the scene from ${file.name}.`,
         });
       } else {
         toast({
-          title: "Unsupported File Type",
-          description: "Please select a .dxf file for CAD import.",
-          variant: "destructive",
+          title: "DXF Import Issue",
+          description: `No compatible objects found or error parsing ${file.name}. Check console for details.`,
+          variant: "default"
         });
       }
     } catch (error: any) {
-      console.error("Error importing CAD file:", error);
+      console.error("[CAD Import] Error importing CAD file:", error);
       toast({
         title: "CAD Import Failed",
         description: `Could not import ${file.name}. ${error.message || "An unknown error occurred."}`,
         variant: "destructive",
       });
     } finally {
+      console.log("[CAD Import] Import process finished.");
       setIsImportingCad(false);
-      // Reset file input
       if (cadFileInputRef.current) {
         cadFileInputRef.current.value = "";
       }
@@ -137,7 +126,8 @@ const ScenePanel = () => {
       <AccordionContent className="space-y-3 p-2">
         {currentProject && (
           <Button onClick={handleSaveCurrentProject} className="w-full text-xs" size="sm" variant="default" disabled={isProjectLoading || isImportingCad}>
-            <Save size={14} className="mr-2" /> Save Project ({currentProject.name})
+            {isProjectLoading && !isImportingCad ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
+            Save Project ({currentProject.name})
           </Button>
         )}
         
@@ -155,7 +145,7 @@ const ScenePanel = () => {
             type="file" 
             ref={cadFileInputRef} 
             onChange={handleCadFileImport} 
-            accept=".dxf,.dwg" 
+            accept=".dxf" // Currently only supporting DXF through the parser
             className="hidden" 
             disabled={isImportingCad}
         />
@@ -192,4 +182,3 @@ const ScenePanel = () => {
 };
 
 export default ScenePanel;
-

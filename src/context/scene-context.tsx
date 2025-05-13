@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -8,6 +7,8 @@ import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
+const IMPORT_CHUNK_SIZE = 50; // Process 50 objects at a time
+const IMPORT_CHUNK_DELAY = 50; // Delay in ms between chunks
 
 interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset'> {
   objects: SceneObject[];
@@ -19,7 +20,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   requestedViewPreset: ViewPreset | null | undefined;
   setAppMode: (mode: AppMode) => void;
   addObject: (type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>) => SceneObject;
-  addImportedObjects: (importedObjectsData: Partial<SceneObject>[]) => SceneObject[];
+  addImportedObjects: (importedObjectsData: Partial<SceneObject>[]) => Promise<SceneObject[]>;
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
@@ -51,7 +52,6 @@ const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
   const [sceneData, setSceneData] = useState<SceneData>(() => initialSceneOverride || initialSceneDataBlueprint);
 
-  // Ref to hold the latest objects array for use in callbacks that don't need to re-memoize on every objects change.
   const sceneObjectsRef = useRef(sceneData.objects);
   const sceneMaterialsRef = useRef(sceneData.materials);
   const sceneOtherLightsRef = useRef(sceneData.otherLights);
@@ -79,10 +79,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const addObject = useCallback((type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>): SceneObject => {
-    const currentObjects = sceneObjectsRef.current; // Use ref for accurate count
+    const currentObjects = sceneObjectsRef.current; 
     const baseName = type.charAt(0).toUpperCase() + type.slice(1);
     
-    // Find the highest existing number for this baseName
     let maxNum = 0;
     currentObjects.filter(o => o.name.startsWith(baseName)).forEach(o => {
         const match = o.name.match(new RegExp(`^${baseName}\\s*(\\d+)$`));
@@ -91,7 +90,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         }
     });
     const count = maxNum + 1;
-
 
     let defaultDimensions: SceneObjectDimensions = {};
     let defaultPosition: [number, number, number] = [0, 0, 0];
@@ -150,19 +148,17 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       ...prev,
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
-      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle'].includes(prev.activeTool || '')) ? 'select' : prev.activeTool,
+      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle', 'line'].includes(prev.activeTool || '')) ? 'select' : prev.activeTool,
       drawingState: {...getDefaultSceneData().drawingState, tool: null, startPoint: null}, 
     }));
     return newObject;
   }, []); 
 
-  const addImportedObjects = useCallback((importedObjectsData: Partial<SceneObject>[]): SceneObject[] => {
-    const newSceneObjects: SceneObject[] = importedObjectsData.map((objData, index) => {
+  const addObjectsChunk = useCallback((objectChunkData: Partial<SceneObject>[]): SceneObject[] => {
+    const newSceneObjects: SceneObject[] = objectChunkData.map((objData, index) => {
         const baseName = objData.type ? `${objData.type.charAt(0).toUpperCase() + objData.type.slice(1)}` : 'ImportedObject';
-        // Ensure unique name if multiple objects of same type are imported without names
-        const nameSuffix = importedObjectsData.length > 1 ? `_${index + 1}` : '';
+        const nameSuffix = objectChunkData.length > 1 ? `_chunk_item_${index + 1}` : '';
         
-        // Define default dimensions based on type if not provided by importer
         let defaultDimensions: SceneObjectDimensions = {};
         let defaultPosition: [number, number, number] = [0, 0, 0];
         let defaultRotation: [number, number, number] = [0, 0, 0];
@@ -172,19 +168,18 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
                 defaultDimensions = { width: 1, height: 1, depth: 1 };
                 defaultPosition = [0, (objData.dimensions?.height ?? 1) / 2, 0];
                 break;
-            case 'plane': // Common for CAD imports (floor plans)
-                defaultDimensions = { width: 1, height: 1 }; // Importer should provide actual size
+            case 'plane': 
+                defaultDimensions = { width: 1, height: 1 }; 
                 defaultPosition = [0, 0, 0];
-                defaultRotation = [-Math.PI / 2, 0, 0]; // Typically on XZ plane
+                defaultRotation = [-Math.PI / 2, 0, 0]; 
                 break;
-            // Add other types as needed
             default:
-                 defaultDimensions = { width: 1, height: 1, depth: 1 }; // Fallback to cube-like dimensions
+                 defaultDimensions = { width: 1, height: 1, depth: 1 };
         }
 
         return {
             id: objData.id || uuidv4(),
-            type: objData.type || 'cube', // Default to cube if type is missing
+            type: objData.type || 'cube', 
             name: objData.name || `${baseName}${nameSuffix}`,
             position: objData.position || defaultPosition,
             rotation: objData.rotation || defaultRotation,
@@ -197,12 +192,27 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setSceneData(prev => ({
         ...prev,
         objects: [...prev.objects, ...newSceneObjects],
-        selectedObjectId: newSceneObjects.length > 0 ? newSceneObjects[newSceneObjects.length -1].id : prev.selectedObjectId, // Select last imported
+        selectedObjectId: newSceneObjects.length > 0 ? newSceneObjects[newSceneObjects.length -1].id : prev.selectedObjectId,
         activeTool: 'select',
         drawingState: { ...getDefaultSceneData().drawingState, tool: null, startPoint: null },
     }));
     return newSceneObjects;
   }, []);
+
+  const addImportedObjects = useCallback(async (importedObjectsData: Partial<SceneObject>[]): Promise<SceneObject[]> => {
+    console.log(`Starting to import ${importedObjectsData.length} objects in chunks.`);
+    const allAddedObjects: SceneObject[] = [];
+    for (let i = 0; i < importedObjectsData.length; i += IMPORT_CHUNK_SIZE) {
+        const chunk = importedObjectsData.slice(i, i + IMPORT_CHUNK_SIZE);
+        console.log(`Processing chunk ${i / IMPORT_CHUNK_SIZE + 1}: ${chunk.length} objects`);
+        const addedInChunk = addObjectsChunk(chunk);
+        allAddedObjects.push(...addedInChunk);
+        // Yield to the event loop to keep UI responsive
+        await new Promise(resolve => setTimeout(resolve, IMPORT_CHUNK_DELAY));
+    }
+    console.log(`Finished importing all ${allAddedObjects.length} objects.`);
+    return allAddedObjects;
+  }, [addObjectsChunk]);
 
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
@@ -386,7 +396,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
   
   const getCurrentSceneData = useCallback((): SceneData => {
-    // Destructure from the main sceneData state, not refs, to get the current full state.
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
