@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
 import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
@@ -50,11 +50,23 @@ const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
   const [sceneData, setSceneData] = useState<SceneData>(() => initialSceneOverride || initialSceneDataBlueprint);
 
+  // Ref to hold the latest objects array for use in callbacks that don't need to re-memoize on every objects change.
+  const sceneObjectsRef = useRef(sceneData.objects);
+  const sceneMaterialsRef = useRef(sceneData.materials);
+  const sceneOtherLightsRef = useRef(sceneData.otherLights);
+
+
   useEffect(() => {
     if (initialSceneOverride) {
       setSceneData(initialSceneOverride);
     }
   }, [initialSceneOverride]);
+
+  useEffect(() => {
+    sceneObjectsRef.current = sceneData.objects;
+    sceneMaterialsRef.current = sceneData.materials;
+    sceneOtherLightsRef.current = sceneData.otherLights;
+  }, [sceneData.objects, sceneData.materials, sceneData.otherLights]);
 
 
   const setAppMode = useCallback((mode: AppMode) => {
@@ -66,11 +78,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const addObject = useCallback((type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>): SceneObject => {
+    const currentObjects = sceneObjectsRef.current;
     const baseName = type.charAt(0).toUpperCase() + type.slice(1);
-    const count = sceneData.objects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
+    const count = currentObjects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
 
     let defaultDimensions: SceneObjectDimensions = {};
-    let defaultPosition: [number, number, number] = [0, 0, 0]; // Base at Y=0
+    let defaultPosition: [number, number, number] = [0, 0, 0];
     let defaultRotation: [number, number, number] = [0, 0, 0];
     let defaultScale: [number, number, number] = [1, 1, 1];
 
@@ -102,15 +115,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         break;
       case 'torus':
         defaultDimensions = { radius: 0.5, tube: 0.2, radialSegments: 16, tubularSegments: 32 };
-        // Y position for Torus: its center should be at tube_radius above ground if main radius is on ground
-        // Or, if you want the whole torus to "sit" on the ground, Y = tube_radius
-        // The current logic places the center of the major ring at Y=0 and then offsets by tube radius.
-        // For base at Y=0, defaultPosition[1] should be dimensions.tube
         defaultPosition = [0, (initialProps?.dimensions?.tube ?? defaultDimensions.tube ?? 0.2), 0];
         break;
       case 'polygon': 
         defaultDimensions = { radius: 0.5, sides: 6 };
-        defaultPosition = [0, 0, 0]; // Flat on XZ plane
+        defaultPosition = [0, 0, 0]; 
         defaultRotation = [-Math.PI / 2, 0, 0];
         break;
     }
@@ -130,11 +139,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       ...prev,
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
-      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle'].includes(prev.activeTool)) ? 'select' : prev.activeTool,
+      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle'].includes(prev.activeTool || '')) ? 'select' : prev.activeTool,
       drawingState: {...getDefaultSceneData().drawingState, tool: null, startPoint: null}, 
     }));
     return newObject;
-  }, [sceneData.objects]);
+  }, []); // Empty dependency array, uses ref for object count.
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
     setSceneData(prev => ({
@@ -151,21 +160,19 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
           
           let heightLikeDimensionKey: keyof SceneObjectDimensions | null = null;
           if (updatedObj.type === 'sphere') heightLikeDimensionKey = 'radius';
-          else if (updatedObj.type === 'torus') heightLikeDimensionKey = 'tube'; // Torus base Y is its tube radius
+          else if (updatedObj.type === 'torus') heightLikeDimensionKey = 'tube';
           else if (updatedObj.dimensions.height !== undefined) heightLikeDimensionKey = 'height';
-
 
           const heightChanged = heightLikeDimensionKey ? (updates.dimensions?.[heightLikeDimensionKey] !== undefined && updates.dimensions?.[heightLikeDimensionKey] !== obj.dimensions[heightLikeDimensionKey]) : false;
           const positionNotExplicitlySet = updates.position === undefined;
-          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; // Simple check for upright
-
+          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
 
           if ((isYUpObject || isTorus) && heightChanged && positionNotExplicitlySet && isUpright) {
             updatedObj.position = [...updatedObj.position]; 
             let yPos = 0;
             if (updatedObj.type === 'sphere') yPos = updatedObj.dimensions.radius || 0;
-            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0; // Base of torus sits at Y=tube_radius
-            else yPos = (updatedObj.dimensions.height || 0) / 2; // For cube, cylinder, cone, text
+            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0;
+            else yPos = (updatedObj.dimensions.height || 0) / 2;
             updatedObj.position[1] = Math.max(0.001, yPos);
           }
           return updatedObj;
@@ -201,19 +208,20 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
   
   const addMaterial = useCallback((props?: Partial<Omit<MaterialProperties, 'id'>>): MaterialProperties => {
-    const defaultMatProps = getDefaultSceneData().materials[0]; // Get defaults from central place
+    const defaultMatProps = getDefaultSceneData().materials[0];
+    const currentMaterials = sceneMaterialsRef.current;
     const newMaterial: MaterialProperties = {
-      ...defaultMatProps, // Start with full defaults
+      ...defaultMatProps,
       id: uuidv4(),
-      name: `Material ${sceneData.materials.length}`, 
-      ...props, // Override with provided props
+      name: `Material ${currentMaterials.length +1}`, 
+      ...props,
     };
     setSceneData(prev => ({
       ...prev,
       materials: [...prev.materials, newMaterial],
     }));
     return newMaterial;
-  }, [sceneData.materials.length]);
+  }, []);
 
   const updateMaterial = useCallback((id: string, updates: Partial<MaterialProperties>) => {
     setSceneData(prev => ({
@@ -233,8 +241,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const getMaterialById = useCallback((id: string): MaterialProperties | undefined => {
-    return sceneData.materials.find(mat => mat.id === id);
-  }, [sceneData.materials]);
+    return sceneMaterialsRef.current.find(mat => mat.id === id);
+  }, []);
 
   const updateAmbientLight = useCallback((updates: Partial<AmbientLightProps>) => {
     setSceneData(prev => ({ ...prev, ambientLight: { ...prev.ambientLight, ...updates } }));
@@ -245,8 +253,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const addLight = useCallback((type: Exclude<LightType, 'ambient' | 'directional'>, props?: Partial<Omit<SceneLight, 'id' | 'type' | 'name'>>): SceneLight => {
+    const currentOtherLights = sceneOtherLightsRef.current;
     const baseName = type.charAt(0).toUpperCase() + type.slice(1) + " Light";
-    const count = (sceneData.otherLights?.filter(l => l.type === type).length || 0) + 1;
+    const count = (currentOtherLights?.filter(l => l.type === type).length || 0) + 1;
     
     let newLight: SceneLight;
     const baseLightProps = {
@@ -255,7 +264,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       color: '#ffffff',
       intensity: 1,
       visible: true,
-      ...props, // User provided props override defaults
+      ...props, 
     };
 
     switch(type) {
@@ -265,8 +274,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       case 'spot':
         newLight = { ...baseLightProps, type, position: [0,3,0], targetPosition: [0,0,0], angle: Math.PI / 4, penumbra: 0.1, distance: 10, decay: 2, castShadow: true, shadowBias: -0.005 };
         break;
-      case 'area': // RectAreaLight
-        newLight = { ...baseLightProps, type, position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5 }; // RectAreaLights often need higher intensity
+      case 'area': 
+        newLight = { ...baseLightProps, type, position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5 };
         break;
       default:
         throw new Error(`Unsupported light type: ${type}`);
@@ -274,10 +283,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     
     setSceneData(prev => ({
       ...prev,
-      otherLights: [...(prev.otherLights || []), newLight as SceneLight], // Ensure otherLights is initialized
+      otherLights: [...(prev.otherLights || []), newLight as SceneLight],
     }));
     return newLight as SceneLight;
-  }, [sceneData.otherLights]);
+  }, []);
 
   const updateLight = useCallback((id: string, updates: Partial<SceneLight>) => {
     setSceneData(prev => ({
@@ -294,17 +303,17 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const getLightById = useCallback((id: string): SceneLight | undefined => {
-    return sceneData.otherLights?.find(l => l.id === id);
-  }, [sceneData.otherLights]);
+    return sceneOtherLightsRef.current?.find(l => l.id === id);
+  }, []);
 
 
   const loadScene = useCallback((data: SceneData) => {
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
       setSceneData({
-        ...getDefaultSceneData(), // Ensure all fields from default are present
-        ...data, // Then override with loaded data
-        otherLights: data.otherLights || [], // Ensure otherLights is an array
-        drawingState: data.drawingState || getDefaultSceneData().drawingState, // Ensure drawingState is valid
+        ...getDefaultSceneData(), 
+        ...data, 
+        otherLights: data.otherLights || [], 
+        drawingState: data.drawingState || getDefaultSceneData().drawingState, 
       });
     } else {
       console.error("Invalid scene data provided to loadScene");
@@ -317,6 +326,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
   
   const getCurrentSceneData = useCallback((): SceneData => {
+    // Destructure from the main sceneData state, not refs, to get the current full state.
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
@@ -333,9 +343,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       let newActivePaintMaterialId = prev.activePaintMaterialId;
       let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState };
       
-      if (tool === 'paint') {
-        // Keep activePaintMaterialId if switching to paint
-      } else {
+      if (tool !== 'paint') {
         newActivePaintMaterialId = null; 
       }
 
@@ -419,3 +427,6 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
+
+
+    
