@@ -1,17 +1,18 @@
+
 "use client";
 
-import React, { useRef, useState } from "react"; // Added useState for future use if needed
+import React, { useRef } from "react";
 import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+// import { Input } from "@/components/ui/input"; // No longer needed for JSON import
 import { useScene } from "@/context/scene-context";
 import { useProject } from "@/context/project-context"; 
 import type { SceneData } from "@/types"; 
-import { Save, Upload, Trash2Icon, LogOut, Import } from "lucide-react";
+import { Save, Trash2Icon, LogOut, Import } from "lucide-react"; // Removed Upload icon as JSON upload is removed
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -29,7 +30,7 @@ import {
 const ScenePanel = () => {
   const { loadScene: loadSceneIntoContext, clearCurrentProjectScene, getCurrentSceneData } = useScene();
   const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // const fileInputRef = useRef<HTMLInputElement>(null); // No longer needed for JSON import
   const { toast } = useToast();
 
   const handleSaveCurrentProject = async () => {
@@ -48,41 +49,7 @@ const ScenePanel = () => {
     });
   };
 
-  const handleImportSceneFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!currentProject || isProjectLoading) {
-        toast({ title: "No Project Open", description: "Please open or create a project to import a scene.", variant: "destructive"});
-        if (event.target) event.target.value = ""; // Reset file input
-        return;
-    }
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const json = JSON.parse(e.target?.result as string);
-          if (json.objects && json.materials && json.ambientLight && json.directionalLight) {
-            loadSceneIntoContext(json as SceneData); 
-            saveCurrentProjectScene(json as SceneData).then(() => {
-                 toast({ title: "Scene Imported", description: `Scene data imported into ${currentProject.name}.` });
-            });
-          } else {
-            throw new Error("Invalid ArchiVision scene file format.");
-          }
-        } catch (error) {
-          console.error("Failed to import scene:", error);
-          toast({ title: "Import Error", description: `Failed to import scene: ${(error as Error).message}`, variant: "destructive" });
-        }
-      };
-      reader.readAsText(file);
-    }
-    if (event.target) {
-        event.target.value = ""; 
-    }
-  };
-
-  const triggerFileImport = () => {
-    fileInputRef.current?.click();
-  };
+  // handleImportSceneFile and triggerFileImport removed as JSON import is removed.
 
   const handleBackToProjects = () => {
     if (isProjectLoading) return;
@@ -97,16 +64,19 @@ const ScenePanel = () => {
     // Placeholder for actual CAD import logic
     toast({
       title: "CAD Import (In Development)",
-      description: "Functionality to import DWG/DXF files is currently under development. This feature requires a complex CAD file parser and geometry conversion.",
+      description: "Functionality to import DWG/DXF files, similar to SketchUp, is currently under development. This feature will involve parsing CAD data and converting it to 3D objects within ArchiVision.",
       variant: "default",
-      duration: 5000,
+      duration: 7000, // Increased duration for a more detailed message
     });
     // Actual implementation would involve:
     // 1. Triggering a file input for .dwg or .dxf files.
     // 2. Using a client-side or server-side library to parse the CAD file.
-    //    (e.g., 'dxf-parser' for DXF, or more complex solutions for DWG).
-    // 3. Converting CAD entities (lines, polylines, arcs, etc.) into Three.js geometries or SceneObject definitions.
-    // 4. Adding these new objects to the scene via addObject or a similar mechanism.
+    //    (e.g., 'dxf-parser' for DXF, or more complex solutions for DWG like a WASM library or server-side conversion).
+    // 3. Interpreting CAD entities (lines, polylines, arcs, layers, blocks etc.) and mapping them to SceneObject definitions.
+    //    - This includes handling units, scale, and positioning relative to the ArchiVision scene origin.
+    //    - Potentially offering options for layer import, 2D to 3D extrusion (like SketchUp's 'Push/Pull' on imported faces).
+    // 4. Adding these new objects to the scene via addObject or a specialized batch import mechanism.
+    // 5. This is a significant feature requiring substantial development.
   };
 
   return (
@@ -123,10 +93,11 @@ const ScenePanel = () => {
           </Button>
         )}
         
-        <Button onClick={triggerFileImport} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading || !currentProject}>
+        {/* JSON Import button and input removed */}
+        {/* <Button onClick={triggerFileImport} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading || !currentProject}>
           <Import size={14} className="mr-2" /> Import Scene File (.json)
         </Button>
-        <Input type="file" ref={fileInputRef} onChange={handleImportSceneFile} accept=".json" className="hidden" />
+        <Input type="file" ref={fileInputRef} onChange={handleImportSceneFile} accept=".json" className="hidden" /> */}
 
         <Button 
           onClick={handleImportCadPlan} 
