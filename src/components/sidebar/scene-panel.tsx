@@ -8,11 +8,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input"; // No longer needed for JSON import
+import { Input } from "@/components/ui/input"; 
 import { useScene } from "@/context/scene-context";
 import { useProject } from "@/context/project-context"; 
 import type { SceneData } from "@/types"; 
-import { Save, Trash2Icon, LogOut, Import } from "lucide-react"; // Removed Upload icon as JSON upload is removed
+import { Save, Trash2Icon, LogOut, Import } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -25,12 +25,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { parseDxfToSceneObjects } from "@/lib/cad-importer";
 
 
 const ScenePanel = () => {
-  const { loadScene: loadSceneIntoContext, clearCurrentProjectScene, getCurrentSceneData } = useScene();
+  const { addImportedObjects, clearCurrentProjectScene, getCurrentSceneData } = useScene();
   const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); 
-  // const fileInputRef = useRef<HTMLInputElement>(null); // No longer needed for JSON import
+  const cadFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleSaveCurrentProject = async () => {
@@ -49,35 +50,73 @@ const ScenePanel = () => {
     });
   };
 
-  // handleImportSceneFile and triggerFileImport removed as JSON import is removed.
-
   const handleBackToProjects = () => {
     if (isProjectLoading) return;
     closeProject();
   };
 
-  const handleImportCadPlan = () => {
+  const triggerCadFileImport = () => {
     if (!currentProject || isProjectLoading) {
         toast({ title: "No Project Open", description: "Please open or create a project to import a CAD plan.", variant: "destructive"});
         return;
     }
-    // Placeholder for actual CAD import logic
-    toast({
-      title: "CAD Import (In Development)",
-      description: "Functionality to import DWG/DXF files, similar to SketchUp, is currently under development. This feature will involve parsing CAD data and converting it to 3D objects within ArchiVision.",
-      variant: "default",
-      duration: 7000, // Increased duration for a more detailed message
-    });
-    // Actual implementation would involve:
-    // 1. Triggering a file input for .dwg or .dxf files.
-    // 2. Using a client-side or server-side library to parse the CAD file.
-    //    (e.g., 'dxf-parser' for DXF, or more complex solutions for DWG like a WASM library or server-side conversion).
-    // 3. Interpreting CAD entities (lines, polylines, arcs, layers, blocks etc.) and mapping them to SceneObject definitions.
-    //    - This includes handling units, scale, and positioning relative to the ArchiVision scene origin.
-    //    - Potentially offering options for layer import, 2D to 3D extrusion (like SketchUp's 'Push/Pull' on imported faces).
-    // 4. Adding these new objects to the scene via addObject or a specialized batch import mechanism.
-    // 5. This is a significant feature requiring substantial development.
+    cadFileInputRef.current?.click();
   };
+
+  const handleCadFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentProject) {
+      toast({ title: "Import Cancelled", description: "No file selected or no project open.", variant: "default"});
+      return;
+    }
+
+    if (file.name.toLowerCase().endsWith('.dxf')) {
+      try {
+        const fileContent = await file.text();
+        const parsedObjects = parseDxfToSceneObjects(fileContent);
+        
+        if (parsedObjects.length > 0) {
+          addImportedObjects(parsedObjects);
+          toast({
+            title: "DXF Imported",
+            description: `${parsedObjects.length} object(s) added to the scene from ${file.name}.`,
+          });
+        } else {
+          toast({
+            title: "DXF Import Issue",
+            description: `No compatible objects found or error parsing ${file.name}. Check console for details.`,
+            variant: "default"
+          });
+        }
+      } catch (error) {
+        console.error("Error importing DXF file:", error);
+        toast({
+          title: "DXF Import Failed",
+          description: `Could not import ${file.name}. Check console for details.`,
+          variant: "destructive",
+        });
+      }
+    } else if (file.name.toLowerCase().endsWith('.dwg')) {
+      toast({
+        title: "DWG Import Not Supported",
+        description: "Direct DWG import is not yet available. Please convert your DWG file to DXF format for import.",
+        variant: "default",
+        duration: 7000,
+      });
+    } else {
+      toast({
+        title: "Unsupported File Type",
+        description: "Please select a .dxf file.",
+        variant: "destructive",
+      });
+    }
+
+    // Reset file input
+    if (cadFileInputRef.current) {
+      cadFileInputRef.current.value = "";
+    }
+  };
+
 
   return (
     <AccordionItem value="item-scene">
@@ -93,21 +132,22 @@ const ScenePanel = () => {
           </Button>
         )}
         
-        {/* JSON Import button and input removed */}
-        {/* <Button onClick={triggerFileImport} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading || !currentProject}>
-          <Import size={14} className="mr-2" /> Import Scene File (.json)
-        </Button>
-        <Input type="file" ref={fileInputRef} onChange={handleImportSceneFile} accept=".json" className="hidden" /> */}
-
         <Button 
-          onClick={handleImportCadPlan} 
+          onClick={triggerCadFileImport} 
           className="w-full text-xs" 
           size="sm" 
           variant="outline" 
           disabled={isProjectLoading || !currentProject}
         >
-          <Import size={14} className="mr-2" /> Import CAD Plan (.dwg, .dxf)
+          <Import size={14} className="mr-2" /> Import CAD Plan (.dxf)
         </Button>
+        <Input 
+            type="file" 
+            ref={cadFileInputRef} 
+            onChange={handleCadFileImport} 
+            accept=".dxf,.dwg" // Still accept .dwg to show message
+            className="hidden" 
+        />
         
         <AlertDialog>
           <AlertDialogTrigger asChild>

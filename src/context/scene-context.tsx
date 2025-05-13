@@ -19,6 +19,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   requestedViewPreset: ViewPreset | null | undefined;
   setAppMode: (mode: AppMode) => void;
   addObject: (type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>) => SceneObject;
+  addImportedObjects: (importedObjectsData: Partial<SceneObject>[]) => SceneObject[];
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
@@ -78,9 +79,19 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const addObject = useCallback((type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>): SceneObject => {
-    const currentObjects = sceneObjectsRef.current;
+    const currentObjects = sceneObjectsRef.current; // Use ref for accurate count
     const baseName = type.charAt(0).toUpperCase() + type.slice(1);
-    const count = currentObjects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
+    
+    // Find the highest existing number for this baseName
+    let maxNum = 0;
+    currentObjects.filter(o => o.name.startsWith(baseName)).forEach(o => {
+        const match = o.name.match(new RegExp(`^${baseName}\\s*(\\d+)$`));
+        if (match && match[1]) {
+            maxNum = Math.max(maxNum, parseInt(match[1]));
+        }
+    });
+    const count = maxNum + 1;
+
 
     let defaultDimensions: SceneObjectDimensions = {};
     let defaultPosition: [number, number, number] = [0, 0, 0];
@@ -143,7 +154,56 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       drawingState: {...getDefaultSceneData().drawingState, tool: null, startPoint: null}, 
     }));
     return newObject;
-  }, []); // Empty dependency array, uses ref for object count.
+  }, []); 
+
+  const addImportedObjects = useCallback((importedObjectsData: Partial<SceneObject>[]): SceneObject[] => {
+    const newSceneObjects: SceneObject[] = importedObjectsData.map((objData, index) => {
+        const baseName = objData.type ? `${objData.type.charAt(0).toUpperCase() + objData.type.slice(1)}` : 'ImportedObject';
+        // Ensure unique name if multiple objects of same type are imported without names
+        const nameSuffix = importedObjectsData.length > 1 ? `_${index + 1}` : '';
+        
+        // Define default dimensions based on type if not provided by importer
+        let defaultDimensions: SceneObjectDimensions = {};
+        let defaultPosition: [number, number, number] = [0, 0, 0];
+        let defaultRotation: [number, number, number] = [0, 0, 0];
+
+        switch (objData.type) {
+            case 'cube':
+                defaultDimensions = { width: 1, height: 1, depth: 1 };
+                defaultPosition = [0, (objData.dimensions?.height ?? 1) / 2, 0];
+                break;
+            case 'plane': // Common for CAD imports (floor plans)
+                defaultDimensions = { width: 1, height: 1 }; // Importer should provide actual size
+                defaultPosition = [0, 0, 0];
+                defaultRotation = [-Math.PI / 2, 0, 0]; // Typically on XZ plane
+                break;
+            // Add other types as needed
+            default:
+                 defaultDimensions = { width: 1, height: 1, depth: 1 }; // Fallback to cube-like dimensions
+        }
+
+        return {
+            id: objData.id || uuidv4(),
+            type: objData.type || 'cube', // Default to cube if type is missing
+            name: objData.name || `${baseName}${nameSuffix}`,
+            position: objData.position || defaultPosition,
+            rotation: objData.rotation || defaultRotation,
+            scale: objData.scale || [1, 1, 1],
+            dimensions: { ...defaultDimensions, ...objData.dimensions },
+            materialId: objData.materialId || DEFAULT_MATERIAL_ID,
+        };
+    });
+
+    setSceneData(prev => ({
+        ...prev,
+        objects: [...prev.objects, ...newSceneObjects],
+        selectedObjectId: newSceneObjects.length > 0 ? newSceneObjects[newSceneObjects.length -1].id : prev.selectedObjectId, // Select last imported
+        activeTool: 'select',
+        drawingState: { ...getDefaultSceneData().drawingState, tool: null, startPoint: null },
+    }));
+    return newSceneObjects;
+  }, []);
+
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
     setSceneData(prev => ({
@@ -388,6 +448,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     ...sceneData,
     setAppMode,
     addObject,
+    addImportedObjects,
     updateObject,
     removeObject,
     selectObject,
@@ -411,7 +472,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     getCurrentSceneData,
     requestedViewPreset: sceneData.requestedViewPreset,
     setCameraViewPreset,
-  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset]);
+  }), [sceneData, setAppMode, addObject, addImportedObjects, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset]);
 
   return (
     <SceneContext.Provider value={contextValue}>
@@ -427,6 +488,3 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
-
-
-    
