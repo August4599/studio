@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -62,7 +61,7 @@ const VectorInput: React.FC<{
           step={isDegrees ? 1 : step}
           min={min} 
           max={max}
-          className="h-8 text-xs"
+          className="h-9 text-sm" // Updated size
         />
       ))}
     </div>
@@ -91,7 +90,7 @@ const DimensionInput: React.FC<{
       step={step}
       min={min}
       max={max}
-      className="h-8 text-xs"
+      className="h-9 text-sm" // Updated size
     />
   </div>
 );
@@ -189,7 +188,7 @@ const ObjectPropertiesPanel = () => {
             id="object-name"
             value={selectedObject.name} 
             onChange={(e) => handleInputChange('name', e.target.value)} 
-            className="h-8 text-xs"
+            className="h-9 text-sm" // Updated size
           />
         </div>
 
@@ -257,7 +256,7 @@ const ObjectPropertiesPanel = () => {
                 id="text-content" 
                 value={selectedObject.dimensions.text || ""}
                 onChange={(e) => handleInputChange('dimensions.text', e.target.value)}
-                className="h-16 text-xs"
+                className="h-16 text-sm" // Updated size
                 placeholder="Enter 3D text (feature in development)"
               />
             </div>
@@ -268,17 +267,22 @@ const ObjectPropertiesPanel = () => {
             <p className="text-xs text-muted-foreground italic">Actual TextGeometry rendering is a future feature. Dimensions control the placeholder.</p>
           </>
         )}
+        {selectedObject.type === 'cadPlan' && (
+            <p className="text-xs text-muted-foreground italic p-2 bg-muted/30 rounded-md">
+              This is an imported CAD Plan. Its geometry is defined by the imported file. You can adjust its overall position, rotation, and scale. Individual line editing is not yet supported.
+            </p>
+        )}
 
 
         <div className="space-y-1 pt-2 border-t mt-2">
             <Label htmlFor="object-material" className="text-xs font-medium">Material</Label>
             <Select value={selectedObject.materialId} onValueChange={handleMaterialChange}>
-              <SelectTrigger id="object-material" className="h-8 text-xs">
+              <SelectTrigger id="object-material" className="h-9 text-sm"> {/* Updated size */}
                 <SelectValue placeholder="Select material" />
               </SelectTrigger>
               <SelectContent>
                 {materials.map(material => (
-                  <SelectItem key={material.id} value={material.id} className="text-xs">
+                  <SelectItem key={material.id} value={material.id} className="text-sm"> {/* Updated text size */}
                     <div className="flex items-center gap-2">
                         <div style={{backgroundColor: material.color}} className="w-3 h-3 rounded-sm border shrink-0"/>
                         <span>{material.name || material.id}</span>
@@ -297,7 +301,7 @@ const ObjectPropertiesPanel = () => {
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="w-full text-xs mt-3">
+            <Button variant="destructive" size="sm" className="w-full text-sm h-9 mt-3"> {/* Updated size */}
               <Trash2 size={14} className="mr-2" /> Delete Object
             </Button>
           </AlertDialogTrigger>

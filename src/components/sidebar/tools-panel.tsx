@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -22,22 +21,24 @@ import {
   LayoutPanelLeft, 
   Type as TextIcon, 
   Square, 
-  PenTool, // For Line / Freehand
-  Spline, // For Arc
+  PenTool, 
+  Spline, 
   Eraser, 
-  ChevronsUpDown, // For Push/Pull
+  ChevronsUpDown, 
   PaintBucket, 
-  Copy, // For Offset
-  Ruler, // For Tape Measure
-  Target, // For Protractor (or a more specific icon if available)
-  Hand, // For Pan
-  Expand, // For Zoom Extents
-  Globe, // For Sphere (placeholder, could be more specific)
-  Triangle, // For Cone (placeholder)
-  Disc, // For Torus (placeholder)
-  Hexagon, // For Polygon
-  Minus, // For general line drawing
-  Edit3 // For Freehand
+  Copy, 
+  Ruler, 
+  Hand, 
+  Expand, 
+  Globe, 
+  Triangle, 
+  Disc, 
+  Hexagon, 
+  Minus, 
+  Edit3,
+  Image as ImageIcon, // Added for completeness, though not directly used here
+  ZoomIn, // Added for completeness
+  Target // Used for Follow Me and Protractor placeholders
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -114,7 +115,7 @@ const ToolsPanel = () => {
                 min="3" max="32" step="1" 
                 value={drawingState.polygonSides || 6} 
                 onChange={(e) => setDrawingState({ polygonSides: parseInt(e.target.value) || 6 })}
-                className="h-6 w-12 text-xs p-1"
+                className="h-7 w-12 text-xs p-1" // Adjusted height
               />
             </div>
           )
@@ -127,38 +128,35 @@ const ToolsPanel = () => {
       tools: [
         { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => activateGenericTool('pushpull', 'Push/Pull Tool', 'Click a face and drag to extrude.') },
         { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset.') }, 
-        { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude (WIP).') }, // Target is a temp icon
+        { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude (WIP).') },
       ]
     },
     {
       title: "Construction & Utilities",
       tools: [
         { id: 'tape', label: 'Measure', icon: Ruler, action: () => activateGenericTool('tape', 'Tape Measure Tool', 'Click two points to measure.') }, 
-        { id: 'protractor', label: 'Protractor', icon: Target, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle (WIP).') }, // Target is a temp icon
+        { id: 'protractor', label: 'Protractor', icon: Target, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle (WIP).') }, 
         { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
         { id: 'paint', label: 'Paint', icon: PaintBucket, action: () => activateGenericTool('paint', 'Paint Tool', 'Select material, then click object/face.') },
         { id: 'eraser', label: 'Eraser', icon: Eraser, action: () => activateGenericTool('eraser', 'Eraser Tool', 'Click objects to delete.') },
-        // { id: 'axes', label: 'Axes', icon: Crosshair, action: () => activateGenericTool('axes', 'Axes Tool', 'Click to redefine drawing axes (WIP).') },
       ]
     },
     {
       title: "Primitive Shapes",
       tools: [
         { id: 'addCube', label: 'Cube', icon: Box, action: () => handleAddPrimitive('cube') },
-        { id: 'addCylinder', label: 'Cylinder', icon: Disc, action: () => handleAddPrimitive('cylinder')}, // Disc as temp for cylinder
+        { id: 'addCylinder', label: 'Cylinder', icon: Disc, action: () => handleAddPrimitive('cylinder')},
         { id: 'addPlane', label: 'Plane', icon: LayoutPanelLeft, action: () => handleAddPrimitive('plane')},
         { id: 'addSphere', label: 'Sphere', icon: Globe, action: () => handleAddPrimitive('sphere') },
         { id: 'addCone', label: 'Cone', icon: Triangle, action: () => handleAddPrimitive('cone') },
-        { id: 'addTorus', label: 'Torus', icon: LucideCircle, action: () => handleAddPrimitive('torus') }, // Circle as temp for torus
+        { id: 'addTorus', label: 'Torus', icon: LucideCircle, action: () => handleAddPrimitive('torus') }, 
       ]
     },
      {
       title: "Navigation",
       tools: [
-        // { id: 'orbit', label: 'Orbit', icon: Eye, action: () => activateGenericTool('orbit', 'Orbit Tool', 'Orbit controls are usually active by default.') }, // Orbit is usually default
         { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (WIP).') },
         { id: 'zoomExtents', label: 'Zoom Extents', icon: Expand, action: () => activateGenericTool('zoomExtents', 'Zoom Extents', 'Fit all objects in view (WIP).') },
-        // { id: 'zoom', label: 'Zoom', icon: ZoomIn, action: () => activateGenericTool('zoom', 'Zoom Tool', 'Click and drag to zoom window (WIP).') },
       ]
     }
   ];
@@ -182,7 +180,7 @@ const ToolsPanel = () => {
             <span className={`text-[10px] leading-tight text-center ${activeTool === tool.id ? "text-primary-foreground font-medium" : "text-muted-foreground"}`}>{tool.label}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">
+        <TooltipContent side="right" sideOffset={5}>
           <p>{tool.label}</p>
         </TooltipContent>
       </Tooltip>
@@ -202,7 +200,7 @@ const ToolsPanel = () => {
           {toolCategories.map(category => (
             <div key={category.title} className="space-y-1 py-1">
               <Label className="text-xs font-medium text-muted-foreground px-1 pb-1 block">{category.title}</Label>
-              <div className={`grid grid-cols-3 gap-1`}> {/* Fixed 3 columns for better density */}
+              <div className={`grid grid-cols-3 gap-1`}>
                 {category.tools.map(renderToolButton)}
               </div>
             </div>

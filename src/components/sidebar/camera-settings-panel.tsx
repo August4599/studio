@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -36,12 +35,12 @@ const CameraSettingsPanel = () => {
         {/* <div className="space-y-1">
           <Label htmlFor="camera-type" className="text-xs">Camera Type</Label>
           <Select value={cameraType} onValueChange={setCameraType}>
-            <SelectTrigger id="camera-type" className="h-8 text-xs">
+            <SelectTrigger id="camera-type" className="h-9 text-sm"> // Updated size
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="perspective" className="text-xs">Perspective</SelectItem>
-              <SelectItem value="orthographic" className="text-xs">Orthographic</SelectItem>
+              <SelectItem value="perspective" className="text-sm">Perspective</SelectItem> // Updated text size
+              <SelectItem value="orthographic" className="text-sm">Orthographic</SelectItem> // Updated text size
             </SelectContent>
           </Select>
         </div> */}
@@ -59,7 +58,7 @@ const CameraSettingsPanel = () => {
         
         <div className="space-y-1">
             <Label htmlFor="focal-length" className="text-xs">Focal Length (mm)</Label>
-            <Input id="focal-length" type="number" defaultValue="50" className="h-8 text-xs" disabled/>
+            <Input id="focal-length" type="number" defaultValue="50" className="h-9 text-sm" disabled/> {/* Updated size */}
         </div>
 
         <div className="space-y-1">

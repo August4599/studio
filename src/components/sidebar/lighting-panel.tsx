@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useCallback, useState, useEffect } from "react";
@@ -43,7 +42,7 @@ const VectorInput: React.FC<{label: string; value: [number,number,number] | unde
           {['X', 'Y', 'Z'].map((axis, idx) => (
               <div key={axis}>
                   <Label htmlFor={`${label}-${axis}`} className="text-xs">{axis}</Label>
-                  <Input id={`${label}-${axis}`} type="number" value={value[idx]} onChange={e => onChange(idx, e.target.value)} className="h-8 text-xs" step={step} disabled={disabled} />
+                  <Input id={`${label}-${axis}`} type="number" value={value[idx]} onChange={e => onChange(idx, e.target.value)} className="h-9 text-sm" step={step} disabled={disabled} />
               </div>
           ))}
       </div>
@@ -93,12 +92,12 @@ const LightEditorDialog: React.FC<{
             {!isDirectional && // Name editable for other lights
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="light-name" className="text-right text-xs">Name</Label>
-                <Input id="light-name" value={editedLight.name} onChange={(e) => handleChange('name', e.target.value)} className="col-span-3 h-8 text-xs" />
+                <Input id="light-name" value={editedLight.name} onChange={(e) => handleChange('name', e.target.value)} className="col-span-3 h-9 text-sm" />
               </div>
             }
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="light-color" className="text-right text-xs">Color</Label>
-              <Input id="light-color" type="color" value={editedLight.color} onChange={(e) => handleChange('color', e.target.value)} className="col-span-3 h-8" />
+              <Input id="light-color" type="color" value={editedLight.color} onChange={(e) => handleChange('color', e.target.value)} className="col-span-3 h-9" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="light-intensity" className="text-xs">Intensity: {editedLight.intensity.toFixed(2)}</Label>
@@ -144,11 +143,11 @@ const LightEditorDialog: React.FC<{
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                             <Label htmlFor="area-width" className="text-xs">Width</Label>
-                            <Input id="area-width" type="number" min="0.1" step="0.1" value={(editedLight as AreaLightSceneProps).width || 1} onChange={(e) => handleChange('width', parseFloat(e.target.value))} className="h-8 text-xs" />
+                            <Input id="area-width" type="number" min="0.1" step="0.1" value={(editedLight as AreaLightSceneProps).width || 1} onChange={(e) => handleChange('width', parseFloat(e.target.value))} className="h-9 text-sm" />
                         </div>
                          <div className="space-y-1">
                             <Label htmlFor="area-height" className="text-xs">Height</Label>
-                            <Input id="area-height" type="number" min="0.1" step="0.1" value={(editedLight as AreaLightSceneProps).height || 1} onChange={(e) => handleChange('height', parseFloat(e.target.value))} className="h-8 text-xs" />
+                            <Input id="area-height" type="number" min="0.1" step="0.1" value={(editedLight as AreaLightSceneProps).height || 1} onChange={(e) => handleChange('height', parseFloat(e.target.value))} className="h-9 text-sm" />
                         </div>
                     </div>
                 </>
@@ -258,7 +257,7 @@ const LightingPanel = () => {
               type="color"
               value={ambientLight.color}
               onChange={(e) => handleAmbientChange('color', e.target.value)}
-              className="h-8 w-full"
+              className="h-9 w-full" // Updated size
             />
           </div>
           <div className="space-y-1">
@@ -280,7 +279,7 @@ const LightingPanel = () => {
                 <LightEditorDialog 
                     light={directionalLight} 
                     onSave={(_, updates) => updateDirectionalLight(updates as Partial<DirectionalLightSceneProps>)}
-                    trigger={<Button variant="ghost" size="icon" className="h-6 w-6"><Edit3 size={12}/></Button>}
+                    trigger={<Button variant="ghost" size="icon" className="h-7 w-7"><Edit3 size={14}/></Button>} // Updated size
                     isDirectional={true}
                 />
             )}
@@ -292,7 +291,7 @@ const LightingPanel = () => {
               type="color"
               value={directionalLight.color}
               onChange={(e) => handleDirLightChange('color', e.target.value)}
-              className="h-8 w-full"
+              className="h-9 w-full" // Updated size
             />
           </div>
           <div className="space-y-1">
@@ -337,13 +336,13 @@ const LightingPanel = () => {
             <div className="flex justify-between items-center">
                 <h4 className="font-semibold text-sm">Other Lights</h4>
                 <Select onValueChange={(type: Exclude<LightType, 'ambient' | 'directional'>) => handleAddLight(type)}>
-                    <SelectTrigger className="h-8 w-auto text-xs px-2 py-1">
+                    <SelectTrigger className="h-9 w-auto text-sm px-3 py-1"> {/* Updated size & text */}
                         <PlusCircle size={14} className="mr-1" /> Add Light
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="point" className="text-xs"><LampDesk size={14} className="inline mr-2"/> Point Light</SelectItem>
-                        <SelectItem value="spot" className="text-xs"><LampCeiling size={14} className="inline mr-2"/> Spot Light</SelectItem>
-                        <SelectItem value="area" className="text-xs"><LampWallUp size={14} className="inline mr-2"/> Area Light</SelectItem>
+                        <SelectItem value="point" className="text-sm"><LampDesk size={14} className="inline mr-2"/> Point Light</SelectItem> {/* Updated text size */}
+                        <SelectItem value="spot" className="text-sm"><LampCeiling size={14} className="inline mr-2"/> Spot Light</SelectItem> {/* Updated text size */}
+                        <SelectItem value="area" className="text-sm"><LampWallUp size={14} className="inline mr-2"/> Area Light</SelectItem> {/* Updated text size */}
                     </SelectContent>
                 </Select>
             </div>
@@ -353,24 +352,24 @@ const LightingPanel = () => {
                     {otherLights.map(light => {
                         const LightIcon = light.type === 'point' ? LampDesk : light.type === 'spot' ? LampCeiling : LampWallUp;
                         return (
-                            <div key={light.id} className={cn("flex items-center justify-between p-1.5 rounded-md text-xs hover:bg-muted/50", selectedLightId === light.id && "bg-muted")}>
+                            <div key={light.id} className={cn("flex items-center justify-between p-1.5 rounded-md text-sm hover:bg-muted/50", selectedLightId === light.id && "bg-muted")}> {/* Updated text size */}
                                 <button className="flex items-center gap-1.5 overflow-hidden flex-grow text-left" onClick={() => setSelectedLightId(light.id)}>
                                     <LightIcon size={14} className={cn(!light.visible && "opacity-50")}/>
                                     <span className={cn("truncate", !light.visible && "line-through text-muted-foreground")}>{light.name}</span>
                                 </button>
                                 <div className="flex items-center shrink-0">
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleToggleLightVisibility(light.id)}>
-                                        {light.visible ? <Eye size={12}/> : <EyeOff size={12}/>}
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleLightVisibility(light.id)}> {/* Updated size */}
+                                        {light.visible ? <Eye size={14}/> : <EyeOff size={14}/>}
                                     </Button>
                                     {selectedLightForDialog && selectedLightForDialog.id === light.id && (
                                         <LightEditorDialog 
                                             light={light} 
                                             onSave={updateLight}
-                                            trigger={<Button variant="ghost" size="icon" className="h-6 w-6"><Edit3 size={12}/></Button>}
+                                            trigger={<Button variant="ghost" size="icon" className="h-7 w-7"><Edit3 size={14}/></Button>} // Updated size
                                         />
                                     )}
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleRemoveLight(light.id)}>
-                                        <Trash2 size={12}/>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleRemoveLight(light.id)}> {/* Updated size */}
+                                        <Trash2 size={14}/>
                                     </Button>
                                 </div>
                             </div>

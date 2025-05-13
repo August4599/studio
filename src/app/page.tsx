@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect }from 'react';
@@ -13,15 +12,15 @@ import ProjectDashboard from '@/components/project/project-dashboard';
 import {
   SidebarProvider,
   Sidebar,
-  SidebarHeader,
+  // SidebarHeader as ShadcnSidebarHeader, // Avoid name collision
   SidebarTrigger,
   SidebarContent,
-  SidebarFooter,
+  // SidebarFooter as ShadcnSidebarFooter, // Avoid name collision
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide, ZoomIn } from "lucide-react"; 
+import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide, ZoomIn, FolderArchive } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode, PrimitiveType, ToolType } from '@/types';
 import {
@@ -34,6 +33,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import ScenePanel from '@/components/sidebar/scene-panel';
 
 
 // Inline SVG for Node Editor Icon
@@ -65,19 +65,19 @@ const AppModeSwitcher: React.FC = () => {
   };
 
   return (
-    <Tabs value={currentMode} onValueChange={handleModeChange} className="w-full bg-card border-b shadow-sm flex-none">
-      <TabsList className="grid w-full grid-cols-2 h-12 rounded-none border-b-0 p-0">
+    <Tabs value={currentMode} onValueChange={handleModeChange} className="w-auto">
+      <TabsList className="grid grid-cols-2 h-9 rounded-md p-0 bg-muted/60 border">
         <TabsTrigger 
           value="modelling" 
-          className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary flex items-center gap-2 text-sm font-medium"
+          className="h-full rounded-l-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm px-4 text-xs"
         >
-          <Layers3 size={16} /> Shape & Material
+          <Layers3 size={14} className="mr-1.5" /> Shape & Material
         </TabsTrigger>
         <TabsTrigger 
           value="rendering" 
-          className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary flex items-center gap-2 text-sm font-medium"
+          className="h-full rounded-r-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm px-4 text-xs"
         >
-          <Orbit size={16} /> Visualize & Export
+          <Orbit size={14} className="mr-1.5" /> Visualize & Export
         </TabsTrigger>
       </TabsList>
     </Tabs>
@@ -101,7 +101,7 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
       "flex-none flex flex-col bg-background border-t overflow-hidden transition-all duration-300 ease-in-out shadow-inner",
       isNodeEditorOpen ? "h-[35%] min-h-[200px]" : "h-12"
     )}>
-      <div className="p-3 border-b bg-card/80 dark:bg-card/60 flex justify-between items-center h-12 cursor-pointer hover:bg-muted/30" onClick={() => setIsNodeEditorOpen(!isNodeEditorOpen)}>
+      <div className="p-3 border-b bg-card/80 flex justify-between items-center h-12 cursor-pointer hover:bg-muted/30" onClick={() => setIsNodeEditorOpen(!isNodeEditorOpen)}>
         <h2 className="text-base font-semibold text-foreground flex items-center">
           <NodeEditorIcon />
           {getNodeEditorTitle()}
@@ -128,6 +128,7 @@ const ArchiVisionLayout: React.FC = () => {
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); 
   const { appMode, setActiveTool, addObject, triggerZoomExtents } = useScene();
   const { toast } = useToast();
+  const { currentProject } = useProject();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -202,7 +203,7 @@ const ArchiVisionLayout: React.FC = () => {
   }, [setActiveTool, addObject, toast, triggerZoomExtents]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       {appMode === 'modelling' && (
         <div className="w-64 flex-none hidden md:flex flex-col bg-card border-r shadow-sm">
           <ToolsSidebar />
@@ -210,24 +211,40 @@ const ArchiVisionLayout: React.FC = () => {
       )}
 
       <div className="flex flex-col flex-grow overflow-hidden">
-        <AppModeSwitcher /> 
-
+         {/* Top Bar: App Mode Switcher + Project Actions */}
+        <div className="flex items-center justify-between border-b bg-card shadow-sm flex-none h-14 px-4">
+          <div className="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+            </svg>
+            <h1 className="text-xl font-semibold hidden sm:block">ArchiVision</h1>
+          </div>
+          <AppModeSwitcher />
+          <div className="w-auto"> 
+            {/* Project Actions Menu/Button can go here */}
+             <Button variant="outline" size="sm" onClick={() => { /* Logic to open project dashboard or menu */ console.log("Project actions clicked"); }}>
+                <FolderArchive size={16} className="mr-2"/> {currentProject?.name || "Projects"}
+             </Button>
+          </div>
+        </div>
+        
         <SidebarProvider defaultOpen side="right">
           <div className="flex flex-row flex-grow overflow-hidden">
+            {/* Viewport Area */}
             <div className="flex flex-col flex-grow bg-background relative overflow-hidden">
-              
-              <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-card z-20 shadow-sm h-12">
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-primary">
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                  </svg>
-                  <h1 className="text-lg font-semibold">ArchiVision</h1>
+                {/* Mobile Header with Tools/Inspector Toggles */}
+                <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-card z-20 shadow-sm h-12">
+                    <div className="flex items-center gap-1">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-primary">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                        </svg>
+                        <h1 className="text-base font-semibold">ArchiVision</h1>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                        {appMode === 'modelling' && <DialogTriggerForTools />}
+                        <SidebarTrigger /> 
+                    </div>
                 </div>
-                {appMode === 'modelling' && ( 
-                    <DialogTriggerForTools />
-                )}
-                <SidebarTrigger /> 
-              </div>
               
               <div className="flex-grow overflow-hidden relative">
                 <SceneViewer />
@@ -235,20 +252,17 @@ const ArchiVisionLayout: React.FC = () => {
               </div>
             </div>
 
-            <Sidebar variant="sidebar" collapsible="icon" side="right" className="border-l shadow-lg w-72 md:w-80 bg-card">
-              <SidebarHeader className="p-3 flex justify-between items-center h-12">
-                <div className="flex items-center gap-2">
-                  <Settings2 className="w-6 h-6 text-primary" />
-                  <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden">Properties</h1>
-                </div>
-                <SidebarTrigger /> 
-              </SidebarHeader>
-              <SidebarContent>
+            {/* Right Inspector Panel */}
+            <Sidebar variant="sidebar" collapsible="icon" side="right" className="border-l shadow-lg w-72 md:w-80 lg:w-96 bg-card">
+              <SidebarContent className="p-0 m-0"> {/* Remove padding for Tabs */}
                 <MainSidebar />
               </SidebarContent>
-              <SidebarFooter className="p-2 group-data-[collapsible=icon]:hidden border-t">
-                <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ArchiVision</p>
-              </SidebarFooter>
+              {/* Optional: Footer for the right sidebar */}
+               {/* 
+                <ShadcnSidebarFooter className="p-2 group-data-[collapsible=icon]:hidden border-t">
+                  <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ArchiVision</p>
+                </ShadcnSidebarFooter>
+              */}
             </Sidebar>
           </div>
         </SidebarProvider>

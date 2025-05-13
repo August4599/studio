@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -12,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useScene } from "@/context/scene-context";
 import { useProject } from "@/context/project-context"; 
 import type { SceneData, SceneObject } from "@/types"; 
-import { Save, Trash2Icon, LogOut, Import, Loader2 } from "lucide-react"; 
+import { Save, Trash2Icon, LogOut, Import, Loader2, Settings } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -128,25 +127,25 @@ const ScenePanel = () => {
     <AccordionItem value="item-scene">
       <AccordionTrigger className="hover:no-underline">
         <div className="flex items-center gap-2">
-          <Save size={18} /> Project & Scene
+          <Settings size={18} /> Project &amp; Scene
         </div>
       </AccordionTrigger>
       <AccordionContent className="space-y-3 p-2">
         {currentProject && (
-          <Button onClick={handleSaveCurrentProject} className="w-full text-xs" size="sm" variant="default" disabled={isProjectLoading || isImportingCad}>
-            {isProjectLoading && !isImportingCad ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
+          <Button onClick={handleSaveCurrentProject} className="w-full text-sm h-9" size="sm" variant="default" disabled={isProjectLoading || isImportingCad}> {/* Updated size */}
+            {isProjectLoading && !isImportingCad ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />} {/* Updated icon size */}
             Save Project ({currentProject.name})
           </Button>
         )}
         
         <Button 
           onClick={triggerCadFileImport} 
-          className="w-full text-xs" 
+          className="w-full text-sm h-9" // Updated size
           size="sm" 
           variant="outline" 
           disabled={isProjectLoading || !currentProject || isImportingCad}
         >
-          {isImportingCad ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Import size={14} className="mr-2" />}
+          {isImportingCad ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Import size={16} className="mr-2" />} {/* Updated icon size */}
           {isImportingCad ? "Importing CAD..." : "Import CAD Plan (.dxf)"}
         </Button>
         <Input 
@@ -160,8 +159,8 @@ const ScenePanel = () => {
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="w-full text-xs" size="sm" disabled={isProjectLoading || !currentProject || isImportingCad}>
-                <Trash2Icon size={14} className="mr-2" /> Clear Scene in Project
+            <Button variant="destructive" className="w-full text-sm h-9" size="sm" disabled={isProjectLoading || !currentProject || isImportingCad}> {/* Updated size */}
+                <Trash2Icon size={16} className="mr-2" /> Clear Scene {/* Updated icon size */}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -180,8 +179,8 @@ const ScenePanel = () => {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Button onClick={handleBackToProjects} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading || isImportingCad}>
-          <LogOut size={14} className="mr-2" /> Back to Projects
+        <Button onClick={handleBackToProjects} className="w-full text-sm h-9" size="sm" variant="outline" disabled={isProjectLoading || isImportingCad}> {/* Updated size */}
+          <LogOut size={16} className="mr-2" /> Back to Projects {/* Updated icon size */}
         </Button>
 
       </AccordionContent>

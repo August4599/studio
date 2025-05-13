@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -36,12 +35,12 @@ const RenderSettingsPanel = () => {
         <div className="space-y-1">
           <Label htmlFor="render-engine" className="text-xs">Render Engine</Label>
            <Select value={engine} onValueChange={setEngine}>
-            <SelectTrigger id="render-engine" className="h-8 text-xs">
+            <SelectTrigger id="render-engine" className="h-9 text-sm"> {/* Updated size */}
               <SelectValue placeholder="Select engine" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cycles" className="text-xs">Cycles (Path Tracing - Higher Quality)</SelectItem>
-              <SelectItem value="eevee" className="text-xs">Eevee (Real-time - Faster Preview)</SelectItem>
+              <SelectItem value="cycles" className="text-sm">Cycles (Path Tracing - Higher Quality)</SelectItem> {/* Updated text size */}
+              <SelectItem value="eevee" className="text-sm">Eevee (Real-time - Faster Preview)</SelectItem> {/* Updated text size */}
             </SelectContent>
           </Select>
         </div>
@@ -49,14 +48,14 @@ const RenderSettingsPanel = () => {
         <div className="space-y-1">
           <Label htmlFor="render-resolution" className="text-xs">Output Resolution</Label>
           <Select value={resolution} onValueChange={setResolution}>
-            <SelectTrigger id="render-resolution" className="h-8 text-xs">
+            <SelectTrigger id="render-resolution" className="h-9 text-sm"> {/* Updated size */}
               <SelectValue placeholder="Select resolution" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1280x720" className="text-xs">1280x720 (HD 720p)</SelectItem>
-              <SelectItem value="1920x1080" className="text-xs">1920x1080 (Full HD 1080p)</SelectItem>
-              <SelectItem value="2560x1440" className="text-xs">2560x1440 (QHD 1440p)</SelectItem>
-              <SelectItem value="3840x2160" className="text-xs">3840x2160 (4K UHD)</SelectItem>
+              <SelectItem value="1280x720" className="text-sm">1280x720 (HD 720p)</SelectItem> {/* Updated text size */}
+              <SelectItem value="1920x1080" className="text-sm">1920x1080 (Full HD 1080p)</SelectItem> {/* Updated text size */}
+              <SelectItem value="2560x1440" className="text-sm">2560x1440 (QHD 1440p)</SelectItem> {/* Updated text size */}
+              <SelectItem value="3840x2160" className="text-sm">3840x2160 (4K UHD)</SelectItem> {/* Updated text size */}
             </SelectContent>
           </Select>
         </div>
@@ -64,12 +63,12 @@ const RenderSettingsPanel = () => {
         <div className="space-y-1">
           <Label htmlFor="output-format" className="text-xs">Output Format</Label>
           <Select value={outputFormat} onValueChange={setOutputFormat}>
-            <SelectTrigger id="output-format" className="h-8 text-xs">
+            <SelectTrigger id="output-format" className="h-9 text-sm"> {/* Updated size */}
               <SelectValue placeholder="Select format" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="png" className="text-xs">PNG (Lossless, Alpha)</SelectItem>
-              <SelectItem value="jpeg" className="text-xs">JPEG (Lossy, Smaller)</SelectItem>
+              <SelectItem value="png" className="text-sm">PNG (Lossless, Alpha)</SelectItem> {/* Updated text size */}
+              <SelectItem value="jpeg" className="text-sm">JPEG (Lossy, Smaller)</SelectItem> {/* Updated text size */}
               {/* Future: TIFF, EXR etc. */}
             </SelectContent>
           </Select>
@@ -86,7 +85,7 @@ const RenderSettingsPanel = () => {
             min="1" 
             max="8192" // Increased max samples
             step="16" // Common step for samples
-            className="h-8 text-xs"
+            className="h-9 text-sm" // Updated size
             disabled={engine !== "cycles"}
           />
            {engine !== "cycles" && <p className="text-xs text-muted-foreground italic">Sample count primarily affects Cycles engine.</p>}
@@ -95,11 +94,11 @@ const RenderSettingsPanel = () => {
         <div className="space-y-2 border-t pt-3 mt-3">
             <h4 className="font-semibold text-sm flex items-center gap-2"><ListChecks size={16}/> Render Passes (Future)</h4>
             <p className="text-xs text-muted-foreground">Configure individual render passes like Depth, Normal, AO, etc. for compositing.</p>
-            <Button variant="outline" size="sm" className="w-full text-xs" disabled>Configure Passes (Coming Soon)</Button>
+            <Button variant="outline" size="sm" className="w-full text-sm h-9" disabled>Configure Passes (Coming Soon)</Button> {/* Updated size */}
         </div>
         
 
-        <Button className="w-full text-xs mt-2" size="sm" disabled>
+        <Button className="w-full text-sm mt-2 h-9" size="sm" disabled> {/* Updated size */}
           <Camera size={14} className="mr-2" /> Render Image (Coming Soon)
         </Button>
         <p className="text-xs text-muted-foreground text-center">

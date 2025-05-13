@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -15,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const WorldSettingsPanel = () => {
   // Placeholder states
-  const [bgColor, setBgColor] = React.useState("#f0f0f0"); // Default to match scene viewer
+  const [bgColor, setBgColor] = React.useState("#1F1F1F"); // Default to a dark gray for dark mode
   const [useHdri, setUseHdri] = React.useState(false);
   const [showGridInRender, setShowGridInRender] = React.useState(false);
 
@@ -34,7 +33,7 @@ const WorldSettingsPanel = () => {
             type="color"
             value={bgColor}
             onChange={(e) => setBgColor(e.target.value)}
-            className="h-8 w-full"
+            className="h-9 w-full" // Updated size
             disabled={useHdri} // Disable if HDRI is active
           />
            {useHdri && <p className="text-xs text-muted-foreground italic">Color overridden by HDRI.</p>}
@@ -50,7 +49,7 @@ const WorldSettingsPanel = () => {
                 />
                 <Label htmlFor="use-hdri" className="text-xs font-normal">Use HDRI</Label>
             </div>
-            <Button variant="outline" size="sm" className="w-full text-xs" disabled={!useHdri}>Upload HDRI (Coming Soon)</Button>
+            <Button variant="outline" size="sm" className="w-full text-sm h-9" disabled={!useHdri}>Upload HDRI (Coming Soon)</Button> {/* Updated size */}
             {useHdri && <p className="text-xs text-muted-foreground">Select an equirectangular HDR image for environment lighting and reflections.</p>}
         </div>
         

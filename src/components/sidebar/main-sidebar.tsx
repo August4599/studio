@@ -1,6 +1,6 @@
 "use client";
 
-import { Accordion } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LightingPanel from "./lighting-panel";
 import ScenePanel from "./scene-panel";
 import ObjectPropertiesPanel from "./object-properties-panel";
@@ -12,75 +12,105 @@ import ObjectHierarchyPanel from "./object-hierarchy-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
 import type { AppMode } from "@/types";
+import { Settings2, BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Construction, SlidersHorizontal } from "lucide-react";
+import { Accordion } from "@/components/ui/accordion";
 
 const MainSidebar = () => {
   const { appMode, selectedObjectId } = useScene();
 
-  const getPanelsForMode = (mode: AppMode) => {
-    const hasSelection = !!selectedObjectId;
-
-    switch (mode) {
-      case 'modelling': // Shape & Material
-        return (
-          <>
-            <ObjectHierarchyPanel />
-            {hasSelection && <ObjectPropertiesPanel />}
-            <MaterialsPanel />
-            <LightingPanel /> 
-            <WorldSettingsPanel /> 
-            <ScenePanel /> 
-            {!hasSelection && <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>}
-          </>
-        );
-      case 'rendering': // Visualize & Export
-        return (
-          <>
-            <RenderSettingsPanel />
-            <CameraSettingsPanel />
-            {/* Lighting is crucial for rendering, so it remains. World settings too. */}
-            <LightingPanel /> 
-            <WorldSettingsPanel />
-            <ObjectHierarchyPanel /> {/* Hierarchy useful in both modes */}
-            {hasSelection && <ObjectPropertiesPanel />} {/* Props still useful */}
-            <MaterialsPanel />  {/* Material review/tweaking might happen */}
-            <ScenePanel /> {/* Scene actions like save/export might be relevant */}
-          </>
-        );
-      default:
-        return null;
-    }
+  const getDefaultTabValue = () => {
+    if (appMode === 'rendering') return 'render';
+    if (selectedObjectId) return 'selection';
+    return 'scene';
   };
 
-  const getDefaultOpenItems = (mode: AppMode) => {
-    let items: string[] = ['item-object-hierarchy']; 
-    const objectPropsOpen = selectedObjectId ? ['item-object-props'] : [];
-
-    switch (mode) {
-      case 'modelling':
-        items = [...items, ...objectPropsOpen, 'item-materials', 'item-lighting', 'item-world-settings', 'item-scene'];
-        if (!selectedObjectId && !items.includes('item-scene')) items.push('item-scene'); 
-        break;
-      case 'rendering':
-        items = [...items, 'item-render-settings', 'item-camera-settings', 'item-lighting', 'item-world-settings'];
-        if (selectedObjectId) items.push(...objectPropsOpen);
-        if (!items.includes('item-materials')) items.push('item-materials');
-        if (!items.includes('item-scene')) items.push('item-scene'); 
-        break;
-    }
-    return [...new Set(items.filter(Boolean))] as string[];
-  }
-
   return (
-    <ScrollArea className="h-full p-1">
-      <Accordion 
-        type="multiple" 
-        defaultValue={getDefaultOpenItems(appMode)} 
-        className="w-full" 
-        key={`${appMode}-${selectedObjectId || 'no-selection'}`} 
-      >
-        {getPanelsForMode(appMode)}
-      </Accordion>
-    </ScrollArea>
+    <div className="flex flex-col h-full bg-card">
+      <Tabs defaultValue={getDefaultTabValue()} className="flex flex-col flex-grow overflow-hidden" key={appMode + (selectedObjectId || 'none')}>
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 h-12 rounded-none border-b p-0 sticky top-0 z-10 bg-card shadow-sm flex-none">
+          {appMode === 'modelling' ? (
+            <>
+              <TabsTrigger value="selection" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+                <BoxSelect size={16} /> Selection
+              </TabsTrigger>
+              <TabsTrigger value="materials" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+                <Palette size={16} /> Materials
+              </TabsTrigger>
+              <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+                <Globe size={16} /> Scene
+              </TabsTrigger>
+               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary md:hidden">
+                <Construction size={16}/> Project
+              </TabsTrigger>
+            </>
+          ) : ( // Visualize & Export Mode
+            <>
+              <TabsTrigger value="render" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+                <ImageIconLucide size={16} /> Render
+              </TabsTrigger>
+              <TabsTrigger value="camera" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+                <Video size={16} /> Camera
+              </TabsTrigger>
+               <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary">
+                <Globe size={16} /> Scene
+              </TabsTrigger>
+               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary md:hidden">
+                <Construction size={16}/> Project
+              </TabsTrigger>
+            </>
+          )}
+        </TabsList>
+
+        <ScrollArea className="flex-grow p-1"> {/* Added padding to scroll area */}
+            <TabsContent value="selection" className="p-0 m-0">
+              <Accordion type="multiple" defaultValue={['item-object-props']} className="w-full">
+                {selectedObjectId ? <ObjectPropertiesPanel /> : <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>}
+              </Accordion>
+            </TabsContent>
+
+            <TabsContent value="materials" className="p-0 m-0">
+                <Accordion type="multiple" defaultValue={['item-materials']} className="w-full">
+                    <MaterialsPanel />
+                </Accordion>
+            </TabsContent>
+
+            <TabsContent value="scene" className="p-0 m-0">
+                <Accordion type="multiple" defaultValue={['item-object-hierarchy', 'item-lighting', 'item-world-settings']} className="w-full">
+                    <ObjectHierarchyPanel />
+                    <LightingPanel />
+                    <WorldSettingsPanel />
+                </Accordion>
+            </TabsContent>
+            
+            <TabsContent value="project" className="p-0 m-0 md:hidden"> {/* Project Tab content for mobile */}
+                <Accordion type="multiple" defaultValue={['item-scene']} className="w-full">
+                    <ScenePanel />
+                </Accordion>
+            </TabsContent>
+
+            <TabsContent value="render" className="p-0 m-0">
+                {appMode === 'rendering' && (
+                    <Accordion type="multiple" defaultValue={['item-render-settings']} className="w-full">
+                        <RenderSettingsPanel />
+                    </Accordion>
+                )}
+            </TabsContent>
+            <TabsContent value="camera" className="p-0 m-0">
+                {appMode === 'rendering' && (
+                    <Accordion type="multiple" defaultValue={['item-camera-settings']} className="w-full">
+                        <CameraSettingsPanel />
+                    </Accordion>
+                )}
+            </TabsContent>
+        </ScrollArea>
+      </Tabs>
+       {/* Project Panel for desktop, outside tabs, always visible */}
+       <div className="hidden md:block p-1 border-t">
+          <Accordion type="single" collapsible defaultValue={'item-scene'} className="w-full">
+            <ScenePanel />
+          </Accordion>
+        </div>
+    </div>
   );
 };
 

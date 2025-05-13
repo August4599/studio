@@ -4,119 +4,103 @@
 
 @layer base {
   :root {
-    /* ArchiVision Theme: Dark Mode - Black, White, Red */
-    --background: 0 0% 3%; /* Very Dark Gray / Near Black */
-    --foreground: 0 0% 98%; /* Near White */
-    --card: 0 0% 7%; /* Slightly lighter than background */
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 80% 55%; /* Vibrant Red for primary actions/elements */
-    --primary-foreground: 0 0% 100%; /* White text on red primary */
-    --secondary: 0 0% 12%; /* Dark Gray */
-    --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 65%; /* Lighter gray for muted text */
-    --accent: 0 70% 50%; /* A distinct Red for accents, can be same as primary or slightly different */
-    --accent-foreground: 0 0% 100%; /* White */
-    --destructive: 0 85% 45%; /* A strong Red for destructive actions */
-    --destructive-foreground: 0 0% 100%; /* White */
-    --border: 0 0% 15%; /* Dark Gray for borders */
-    --input: 0 0% 10%; /* Dark Gray for input backgrounds */
-    --ring: 0 80% 60%; /* Red for ring/focus, matching primary */
-    
-    --chart-1: 0 70% 60%; /* Lighter Red */
-    --chart-2: 0 0% 80%;   /* Light Gray */
-    --chart-3: 0 60% 50%; /* Different Red */
-    --chart-4: 0 0% 60%;   /* Medium Gray */
-    --chart-5: 0 80% 55%; /* Another Red variant */
+    /* ArchiVision Theme: Light Gray, Dark Gray, Teal */
+    --background: 180 0% 94%; /* Light Gray (#F0F0F0) */
+    --foreground: 0 0% 20%; /* Dark Gray (#333) */
+
+    --muted: 0 0% 88%; /* Lighter gray for muted backgrounds */
+    --muted-foreground: 0 0% 40%; /* Medium Dark Gray for muted text */
+
+    --popover: 180 0% 94%; /* Light Gray */
+    --popover-foreground: 0 0% 20%; /* Dark Gray */
+
+    --card: 180 0% 98%; /* Slightly lighter than background, or same for flat */
+    --card-foreground: 0 0% 20%; /* Dark Gray */
+
+    --border: 0 0% 80%; /* Medium Gray for borders */
+    --input: 0 0% 85%; /* Slightly darker gray for input backgrounds */
+
+    --primary: 180 100% 25%; /* Teal (#008080) */
+    --primary-foreground: 0 0% 98%; /* Near White for text on primary */
+
+    --secondary: 0 0% 30%; /* Darker Gray for secondary elements */
+    --secondary-foreground: 0 0% 95%; /* Near White for text on secondary */
+
+    --accent: 180 100% 30%; /* A slightly brighter Teal for accents */
+    --accent-foreground: 0 0% 98%; /* Near White */
+
+    --destructive: 0 84% 60%; /* Standard destructive red */
+    --destructive-foreground: 0 0% 98%; /* Near White */
+
+    --ring: 180 100% 35%; /* Teal for focus rings */
 
     --radius: 0.5rem;
 
+    /* Chart Colors (adjust as needed, keeping contrast with background) */
+    --chart-1: 180 70% 40%; /* Teal variant 1 */
+    --chart-2: 0 0% 50%;   /* Medium Gray */
+    --chart-3: 180 60% 35%; /* Teal variant 2 */
+    --chart-4: 0 0% 30%;   /* Darker Gray */
+    --chart-5: 180 80% 45%; /* Teal variant 3 */
+
+    /* Sidebar specific (using the new theme) */
+    --sidebar-background: 0 0% 90%; /* Slightly darker light gray for sidebar */
+    --sidebar-foreground: 0 0% 15%; /* Darker gray for sidebar text */
+    --sidebar-primary: 180 100% 25%; /* Teal */
+    --sidebar-primary-foreground: 0 0% 98%; /* White */
+    --sidebar-accent: 180 100% 30%; /* Brighter Teal */
+    --sidebar-accent-foreground: 0 0% 98%; /* White */
+    --sidebar-border: 0 0% 75%; /* Medium gray for sidebar borders */
+    --sidebar-ring: 180 100% 35%; /* Teal */
+  }
+
+  .dark {
+    /* ArchiVision Dark Theme: Dark Gray, Light Gray, Teal */
+    --background: 0 0% 12%; /* Dark Gray (#1F1F1F) */
+    --foreground: 0 0% 93%; /* Light Gray (#EDEDED) */
+
+    --muted: 0 0% 18%; /* Slightly lighter dark gray */
+    --muted-foreground: 0 0% 65%; /* Medium light gray */
+
+    --popover: 0 0% 12%; /* Dark Gray */
+    --popover-foreground: 0 0% 93%; /* Light Gray */
+
+    --card: 0 0% 15%; /* Slightly lighter than background */
+    --card-foreground: 0 0% 93%; /* Light Gray */
+
+    --border: 0 0% 25%; /* Medium Dark Gray */
+    --input: 0 0% 20%; /* Darker Gray for inputs */
+
+    --primary: 180 70% 50%; /* Teal (#00B3B3 or similar bright teal for dark mode) */
+    --primary-foreground: 0 0% 10%; /* Very Dark Gray/Black for text on primary */
+
+    --secondary: 0 0% 80%; /* Light Gray for secondary elements */
+    --secondary-foreground: 0 0% 15%; /* Dark Gray for text on secondary */
+
+    --accent: 180 75% 55%; /* A brighter Teal for accents in dark mode */
+    --accent-foreground: 0 0% 10%; /* Very Dark Gray/Black */
+
+    --destructive: 0 70% 50%; /* A clear red for destructive actions */
+    --destructive-foreground: 0 0% 95%; /* Light Gray */
+
+    --ring: 180 70% 55%; /* Teal for focus rings */
+
+    /* Chart Colors (adjust for dark mode contrast) */
+    --chart-1: 180 65% 55%; /* Teal variant 1 */
+    --chart-2: 0 0% 60%;   /* Medium Gray */
+    --chart-3: 180 55% 50%; /* Teal variant 2 */
+    --chart-4: 0 0% 40%;   /* Darker Gray */
+    --chart-5: 180 75% 60%; /* Teal variant 3 */
+    
     /* Sidebar specific dark theme (matches overall dark theme) */
-    --sidebar-background: 0 0% 5%; /* Slightly Darker for Sidebar */
-    --sidebar-foreground: 0 0% 95%; /* White */
-    --sidebar-primary: 0 80% 55%; /* Red for sidebar primary */
-    --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 0 70% 50%; /* Red for accents in sidebar */
-    --sidebar-accent-foreground: 0 0% 100%; /* White */
-    --sidebar-border: 0 0% 12%; /* Dark Gray */
-    --sidebar-ring: 0 80% 60%; /* Red */
-  }
-
-  /* ArchiVision Theme: Light Mode - White, Black, Red */
-  .light {
-    --background: 0 0% 98%; /* Almost White */
-    --foreground: 0 0% 7%; /* Near Black */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 0 0% 7%; /* Near Black */
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 0 0% 7%; /* Near Black */
-    --primary: 0 80% 50%; /* Vibrant Red */
-    --primary-foreground: 0 0% 100%; /* White */
-    --secondary: 0 0% 92%; /* Light Gray */
-    --secondary-foreground: 0 0% 10%; /* Black */
-    --muted: 0 0% 92%; /* Light Gray */
-    --muted-foreground: 0 0% 40%; /* Medium Gray for muted text */
-    --accent: 0 70% 45%;  /* A distinct Red for accents */
-    --accent-foreground: 0 0% 100%; /* White */
-    --destructive: 0 85% 40%; 
-    --destructive-foreground: 0 0% 100%; 
-    --border: 0 0% 85%; /* Lighter Gray for borders */
-    --input: 0 0% 95%; 
-    --ring: 0 80% 55%; /* Red */
-    
-    --chart-1: 0 70% 60%; /* Lighter Red */
-    --chart-2: 0 0% 30%;   /* Dark Gray */
-    --chart-3: 0 60% 50%; /* Different Red */
-    --chart-4: 0 0% 50%;   /* Medium Gray */
-    --chart-5: 0 80% 55%; /* Another Red variant */
-
-    --sidebar-background: 0 0% 96%; 
-    --sidebar-foreground: 0 0% 7%; 
-    --sidebar-primary: 0 80% 50%; /* Red */
-    --sidebar-primary-foreground: 0 0% 100%; 
-    --sidebar-accent: 0 70% 45%; /* Darker Red */
-    --sidebar-accent-foreground: 0 0% 100%; 
-    --sidebar-border: 0 0% 88%; 
-    --sidebar-ring: 0 80% 55%; /* Red */
-  }
-
-  .dark { /* Explicit Dark Mode for ArchiVision Theme: Black, White, Red */
-    --background: 0 0% 3%; 
-    --foreground: 0 0% 98%; 
-    --card: 0 0% 7%; 
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 80% 55%; /* Red */
-    --primary-foreground: 0 0% 100%; 
-    --secondary: 0 0% 12%; 
-    --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 65%; 
-    --accent: 0 70% 50%; /* Red */
-    --accent-foreground: 0 0% 100%; 
-    --destructive: 0 85% 45%; /* Adjusted Destructive Red */
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 15%; 
-    --input: 0 0% 10%; 
-    --ring: 0 80% 60%; /* Red */
-
-    --chart-1: 0 70% 60%; 
-    --chart-2: 0 0% 80%;
-    --chart-3: 0 60% 50%;
-    --chart-4: 0 0% 60%;
-    --chart-5: 0 80% 55%;
-    
-    --sidebar-background: 0 0% 5%; 
-    --sidebar-foreground: 0 0% 95%; 
-    --sidebar-primary: 0 80% 55%; 
-    --sidebar-primary-foreground: 0 0% 100%; 
-    --sidebar-accent: 0 70% 50%; 
-    --sidebar-accent-foreground: 0 0% 100%; 
-    --sidebar-border: 0 0% 12%; 
-    --sidebar-ring: 0 80% 60%; 
+    --sidebar-background: 0 0% 10%; /* Even Darker for Sidebar */
+    --sidebar-foreground: 0 0% 90%; /* Light Gray */
+    --sidebar-primary: 180 70% 50%; /* Teal */
+    --sidebar-primary-foreground: 0 0% 10%; /* Dark Gray/Black */
+    --sidebar-accent: 180 75% 55%; /* Brighter Teal */
+    --sidebar-accent-foreground: 0 0% 10%; /* Dark Gray/Black */
+    --sidebar-border: 0 0% 20%; /* Dark Gray */
+    --sidebar-ring: 180 70% 55%; /* Teal */
   }
 }
 
