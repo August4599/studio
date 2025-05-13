@@ -1,30 +1,66 @@
 
-import DxfParser, { type Vertex } from 'dxf-parser';
+import DxfParser, { type Vertex, type Polyline } from 'dxf-parser';
 import type { SceneObject, PrimitiveType, SceneObjectDimensions } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import * as THREE from 'three';
 
-interface DxfEntity {
+interface DxfEntityBase {
   type: string;
-  vertices?: Vertex[];
   layer?: string;
   colorNumber?: number;
   extrusionDirection?: Vertex;
-  // Add other properties as needed by dxf-parser types
-  [key: string]: any;
+  [key: string]: any; 
 }
 
-// Helper to get bounding box of vertices (assuming Y is up for 2D CAD, so we use X and Z)
-function getBounds(vertices: Vertex[]): { min: THREE.Vector2; max: THREE.Vector2 } {
+interface DxfLineEntity extends DxfEntityBase {
+  type: 'LINE';
+  vertices: Vertex[];
+}
+
+interface DxfLwPolylineEntity extends DxfEntityBase {
+  type: 'LWPOLYLINE';
+  vertices: Vertex[];
+  closed?: boolean; // DxfParser might add this
+  flags?: number; // Standard DXF flag for LWPOLYLINE
+}
+interface DxfPolylineEntity extends DxfEntityBase, Polyline { // Extends DxfParser's Polyline
+  type: 'POLYLINE';
+  // vertices are part of Polyline type
+}
+
+
+interface DxfCircleEntity extends DxfEntityBase {
+  type: 'CIRCLE';
+  center: Vertex;
+  radius: number;
+}
+
+interface DxfArcEntity extends DxfEntityBase {
+  type: 'ARC';
+  center: Vertex;
+  radius: number;
+  startAngle: number;
+  endAngle: number;
+}
+
+
+type DxfEntity = DxfLineEntity | DxfLwPolylineEntity | DxfPolylineEntity | DxfCircleEntity | DxfArcEntity | DxfEntityBase;
+
+
+function getBounds(vertices: Vertex[]): { min: THREE.Vector2; max: THREE.Vector2 } | null {
+  if (!vertices || vertices.length === 0) return null;
   const min = new THREE.Vector2(Infinity, Infinity);
   const max = new THREE.Vector2(-Infinity, -Infinity);
   vertices.forEach(v => {
-    min.x = Math.min(min.x, v.x);
-    min.y = Math.min(min.y, v.y); // DXF Y corresponds to scene Z
-    max.x = Math.max(max.x, v.x);
-    max.y = Math.max(max.y, v.y); // DXF Y corresponds to scene Z
+    if (v && typeof v.x === 'number' && typeof v.y === 'number') {
+      min.x = Math.min(min.x, v.x);
+      min.y = Math.min(min.y, v.y); 
+      max.x = Math.max(max.x, v.x);
+      max.y = Math.max(max.y, v.y); 
+    }
   });
+  if (min.x === Infinity) return null; // No valid vertices found
   return { min, max };
 }
 
@@ -32,8 +68,8 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
   const parser = new DxfParser();
   try {
     const dxf = parser.parseSync(dxfString);
-    if (!dxf || !dxf.entities) {
-      console.error('Failed to parse DXF or no entities found.');
+    if (!dxf || !dxf.entities || !Array.isArray(dxf.entities)) {
+      console.error('Failed to parse DXF or no entities array found.');
       return [];
     }
 
@@ -42,73 +78,130 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
 
     dxf.entities.forEach((entity: DxfEntity) => {
       objectCount++;
-      const baseName = `${entity.type.charAt(0).toUpperCase() + entity.type.slice(1).toLowerCase()}_${objectCount}`;
-      const defaultPosition: [number, number, number] = [0, 0, 0];
-      const defaultRotation: [number, number, number] = [0, 0, 0];
-      const defaultScale: [number, number, number] = [1, 1, 1];
+      const baseName = `${entity.type ? entity.type.charAt(0).toUpperCase() + entity.type.slice(1).toLowerCase() : 'CadObject'}_${objectCount}`;
+      let defaultPosition: [number, number, number] = [0, 0.01, 0]; // Default Y slightly above ground
+      let defaultRotation: [number, number, number] = [0, 0, 0];
+      let defaultScale: [number, number, number] = [1, 1, 1];
       let defaultDimensions: SceneObjectDimensions = {};
       let primitiveType: PrimitiveType | null = null;
 
-      if (entity.type === 'LINE' && entity.vertices && entity.vertices.length >= 2) {
-        primitiveType = 'cube'; // Represent lines as thin cubes
-        const start = entity.vertices[0];
-        const end = entity.vertices[1];
-        const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-        
-        defaultDimensions = { width: length, height: 0.05, depth: 0.05 }; // Length along X, thin Y and Z
-        defaultPosition[0] = (start.x + end.x) / 2;
-        defaultPosition[1] = 0.025; // Place it slightly above ground
-        defaultPosition[2] = (start.y + end.y) / 2; // DXF Y to Scene Z
+      try { // Add try-catch for individual entity processing
+        switch (entity.type) {
+          case 'LINE':
+            if (entity.vertices && entity.vertices.length >= 2) {
+              primitiveType = 'cube'; 
+              const start = entity.vertices[0];
+              const end = entity.vertices[1];
+              if (!start || !end || typeof start.x !== 'number' || typeof start.y !== 'number' || typeof end.x !== 'number' || typeof end.y !== 'number') break;
 
-        const angle = Math.atan2(end.y - start.y, end.x - start.x);
-        defaultRotation[1] = -angle; // Rotate around scene Y axis
+              const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+              if (length < 0.001) break; // Skip zero-length lines
+              
+              defaultDimensions = { width: length, height: 0.02, depth: 0.02 }; 
+              defaultPosition[0] = (start.x + end.x) / 2;
+              defaultPosition[2] = (start.y + end.y) / 2; 
 
-      } else if (entity.type === 'LWPOLYLINE' && entity.vertices && entity.vertices.length > 0) {
-        const isClosed = entity.flags === 1 || (entity.vertices.length > 2 && entity.vertices[0].x === entity.vertices[entity.vertices.length - 1].x && entity.vertices[0].y === entity.vertices[entity.vertices.length - 1].y);
-        if (isClosed) {
-          primitiveType = 'plane';
-          const bounds = getBounds(entity.vertices);
-          const width = bounds.max.x - bounds.min.x;
-          const depth = bounds.max.y - bounds.min.y; // DXF Y is scene Z
+              const angle = Math.atan2(end.y - start.y, end.x - start.x);
+              defaultRotation[1] = -angle; 
+            }
+            break;
           
-          defaultDimensions = { width: Math.max(0.01, width), height: Math.max(0.01, depth) }; // Plane's height is depth in XZ
-          defaultPosition[0] = (bounds.min.x + bounds.max.x) / 2;
-          defaultPosition[1] = 0; // On the ground
-          defaultPosition[2] = (bounds.min.y + bounds.max.y) / 2;
-          defaultRotation[0] = -Math.PI / 2; // Rotate to lie on XZ plane
-        } else {
-          // Treat open polylines as a series of lines
-          for (let i = 0; i < entity.vertices.length - 1; i++) {
-            const start = entity.vertices[i];
-            const end = entity.vertices[i+1];
-            const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-            if (length < 0.001) continue;
+          case 'LWPOLYLINE':
+          case 'POLYLINE': // Treat POLYLINE similarly to LWPOLYLINE for simplicity
+            if (entity.vertices && entity.vertices.length > 0) {
+              const isClosed = entity.closed || entity.flags === 1 || (entity.vertices.length > 2 && entity.vertices[0].x === entity.vertices[entity.vertices.length - 1].x && entity.vertices[0].y === entity.vertices[entity.vertices.length - 1].y);
+              
+              if (isClosed && entity.vertices.length >=3) {
+                primitiveType = 'plane';
+                const bounds = getBounds(entity.vertices);
+                if (!bounds) break;
+                const width = bounds.max.x - bounds.min.x;
+                const depth = bounds.max.y - bounds.min.y; 
+                
+                defaultDimensions = { width: Math.max(0.01, width), height: Math.max(0.01, depth) }; 
+                defaultPosition[0] = (bounds.min.x + bounds.max.x) / 2;
+                defaultPosition[1] = 0; 
+                defaultPosition[2] = (bounds.min.y + bounds.max.y) / 2;
+                defaultRotation[0] = -Math.PI / 2; 
+              } else { // Open polyline - treat as series of line segments
+                for (let i = 0; i < entity.vertices.length - 1; i++) {
+                  const start = entity.vertices[i];
+                  const end = entity.vertices[i+1];
+                  if (!start || !end || typeof start.x !== 'number' || typeof start.y !== 'number' || typeof end.x !== 'number' || typeof end.y !== 'number') continue;
 
-            sceneObjects.push({
-              type: 'cube',
-              name: `${baseName}_seg${i}`,
-              position: [(start.x + end.x) / 2, 0.025, (start.y + end.y) / 2],
-              rotation: [0, -Math.atan2(end.y - start.y, end.x - start.x), 0],
-              scale: [1,1,1],
-              dimensions: { width: length, height: 0.05, depth: 0.05 },
-              materialId: DEFAULT_MATERIAL_ID,
-            });
-          }
-          primitiveType = null; // Already handled
+                  const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+                  if (length < 0.001) continue;
+
+                  sceneObjects.push({
+                    type: 'cube',
+                    name: `${baseName}_seg${i}`,
+                    position: [(start.x + end.x) / 2, 0.01, (start.y + end.y) / 2],
+                    rotation: [0, -Math.atan2(end.y - start.y, end.x - start.x), 0],
+                    scale: [1,1,1],
+                    dimensions: { width: length, height: 0.02, depth: 0.02 },
+                    materialId: DEFAULT_MATERIAL_ID,
+                  });
+                }
+                primitiveType = null; 
+              }
+            }
+            break;
+
+          case 'CIRCLE':
+            if (entity.center && typeof entity.radius === 'number' && entity.radius > 0) {
+              primitiveType = 'plane'; 
+              defaultDimensions = { 
+                  width: entity.radius * 2, 
+                  height: entity.radius * 2,
+                  radialSegments: 32 
+              };
+              defaultPosition[0] = entity.center.x;
+              defaultPosition[1] = 0; 
+              defaultPosition[2] = entity.center.y; 
+              defaultRotation[0] = -Math.PI / 2; 
+            }
+            break;
+          
+          case 'ARC':
+            if (entity.center && typeof entity.radius === 'number' && entity.radius > 0 && typeof entity.startAngle === 'number' && typeof entity.endAngle === 'number') {
+              // Representing arcs as a series of short lines (cubes) for simplicity
+              // A proper arc would require a custom geometry or more complex shape generation
+              const segments = 16; // Number of line segments to approximate the arc
+              const angleStep = (entity.endAngle - entity.startAngle) / segments;
+              for (let i = 0; i < segments; i++) {
+                const angle1 = entity.startAngle + i * angleStep;
+                const angle2 = entity.startAngle + (i + 1) * angleStep;
+                const x1 = entity.center.x + entity.radius * Math.cos(angle1 * Math.PI / 180);
+                const y1 = entity.center.y + entity.radius * Math.sin(angle1 * Math.PI / 180);
+                const x2 = entity.center.x + entity.radius * Math.cos(angle2 * Math.PI / 180);
+                const y2 = entity.center.y + entity.radius * Math.sin(angle2 * Math.PI / 180);
+                
+                const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                if (length < 0.001) continue;
+
+                sceneObjects.push({
+                    type: 'cube',
+                    name: `${baseName}_arcSeg${i}`,
+                    position: [(x1 + x2) / 2, 0.01, (y1 + y2) / 2],
+                    rotation: [0, -Math.atan2(y2 - y1, x2 - x1), 0],
+                    scale: [1,1,1],
+                    dimensions: { width: length, height: 0.02, depth: 0.02 },
+                    materialId: DEFAULT_MATERIAL_ID,
+                  });
+              }
+              primitiveType = null; // Handled as segments
+            }
+            break;
+          // TODO: Add MTEXT, TEXT, HATCH etc. support
+          default:
+            // console.log(`Unsupported DXF entity type: ${entity.type}`);
+            break;
         }
-      } else if (entity.type === 'CIRCLE' && entity.center && entity.radius) {
-        primitiveType = 'plane'; // Represent circles as flat planes (using CircleGeometry in three-utils)
-        defaultDimensions = { 
-            width: entity.radius * 2, // Plane width = diameter
-            height: entity.radius * 2, // Plane height = diameter
-            radialSegments: 32 // Make it look like a circle
-        };
-        defaultPosition[0] = entity.center.x;
-        defaultPosition[1] = 0; // On the ground
-        defaultPosition[2] = entity.center.y; // DXF Y to Scene Z
-        defaultRotation[0] = -Math.PI / 2; // Rotate to lie on XZ plane
+      } catch (entityError) {
+        console.warn(`Skipping entity due to error: ${baseName} (Type: ${entity.type})`, entityError);
+        primitiveType = null; // Ensure this entity is not added if an error occurred
       }
-      // TODO: Add ARC, TEXT, etc. support with similar logic
+
 
       if (primitiveType) {
         sceneObjects.push({
@@ -126,7 +219,7 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
 
     return sceneObjects;
   } catch (err) {
-    console.error('Error parsing DXF:', err);
-    return [];
+    console.error('Major error during DXF parsing:', err);
+    return []; // Return empty array on major failure
   }
 }

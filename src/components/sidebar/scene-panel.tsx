@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   AccordionContent,
   AccordionItem,
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useScene } from "@/context/scene-context";
 import { useProject } from "@/context/project-context"; 
 import type { SceneData } from "@/types"; 
-import { Save, Trash2Icon, LogOut, Import } from "lucide-react"; 
+import { Save, Trash2Icon, LogOut, Import, Loader2 } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -33,6 +33,7 @@ const ScenePanel = () => {
   const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); 
   const cadFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [isImportingCad, setIsImportingCad] = useState(false);
 
   const handleSaveCurrentProject = async () => {
     if (!currentProject || isProjectLoading) return;
@@ -51,13 +52,13 @@ const ScenePanel = () => {
   };
 
   const handleBackToProjects = () => {
-    if (isProjectLoading) return;
+    if (isProjectLoading || isImportingCad) return;
     closeProject();
   };
 
   const triggerCadFileImport = () => {
-    if (!currentProject || isProjectLoading) {
-        toast({ title: "No Project Open", description: "Please open or create a project to import a CAD plan.", variant: "destructive"});
+    if (!currentProject || isProjectLoading || isImportingCad) {
+        toast({ title: "Action Denied", description: "Ensure a project is open and no import is in progress.", variant: "destructive"});
         return;
     }
     cadFileInputRef.current?.click();
@@ -70,15 +71,22 @@ const ScenePanel = () => {
       return;
     }
 
-    if (file.name.toLowerCase().endsWith('.dxf')) {
-      try {
+    setIsImportingCad(true);
+    toast({ title: "Importing CAD Plan", description: `Processing ${file.name}... This may take a moment.`, duration: 5000});
+
+    try {
+      if (file.name.toLowerCase().endsWith('.dxf')) {
         const fileContent = await file.text();
+        // Offload parsing to a timeout to allow UI to update with loading state
+        // This is a basic way to make it slightly less blocking, web worker would be better for true non-blocking
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+
         const parsedObjects = parseDxfToSceneObjects(fileContent);
         
         if (parsedObjects.length > 0) {
           addImportedObjects(parsedObjects);
           toast({
-            title: "DXF Imported",
+            title: "DXF Imported Successfully",
             description: `${parsedObjects.length} object(s) added to the scene from ${file.name}.`,
           });
         } else {
@@ -88,32 +96,33 @@ const ScenePanel = () => {
             variant: "default"
           });
         }
-      } catch (error) {
-        console.error("Error importing DXF file:", error);
+      } else if (file.name.toLowerCase().endsWith('.dwg')) {
         toast({
-          title: "DXF Import Failed",
-          description: `Could not import ${file.name}. Check console for details.`,
+          title: "DWG Import Not Supported",
+          description: "Direct DWG import is not yet available. Please convert your DWG file to DXF format for import.",
+          variant: "default",
+          duration: 7000,
+        });
+      } else {
+        toast({
+          title: "Unsupported File Type",
+          description: "Please select a .dxf file for CAD import.",
           variant: "destructive",
         });
       }
-    } else if (file.name.toLowerCase().endsWith('.dwg')) {
+    } catch (error: any) {
+      console.error("Error importing CAD file:", error);
       toast({
-        title: "DWG Import Not Supported",
-        description: "Direct DWG import is not yet available. Please convert your DWG file to DXF format for import.",
-        variant: "default",
-        duration: 7000,
-      });
-    } else {
-      toast({
-        title: "Unsupported File Type",
-        description: "Please select a .dxf file.",
+        title: "CAD Import Failed",
+        description: `Could not import ${file.name}. ${error.message || "An unknown error occurred."}`,
         variant: "destructive",
       });
-    }
-
-    // Reset file input
-    if (cadFileInputRef.current) {
-      cadFileInputRef.current.value = "";
+    } finally {
+      setIsImportingCad(false);
+      // Reset file input
+      if (cadFileInputRef.current) {
+        cadFileInputRef.current.value = "";
+      }
     }
   };
 
@@ -127,7 +136,7 @@ const ScenePanel = () => {
       </AccordionTrigger>
       <AccordionContent className="space-y-3 p-2">
         {currentProject && (
-          <Button onClick={handleSaveCurrentProject} className="w-full text-xs" size="sm" variant="default" disabled={isProjectLoading}>
+          <Button onClick={handleSaveCurrentProject} className="w-full text-xs" size="sm" variant="default" disabled={isProjectLoading || isImportingCad}>
             <Save size={14} className="mr-2" /> Save Project ({currentProject.name})
           </Button>
         )}
@@ -137,21 +146,23 @@ const ScenePanel = () => {
           className="w-full text-xs" 
           size="sm" 
           variant="outline" 
-          disabled={isProjectLoading || !currentProject}
+          disabled={isProjectLoading || !currentProject || isImportingCad}
         >
-          <Import size={14} className="mr-2" /> Import CAD Plan (.dxf)
+          {isImportingCad ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Import size={14} className="mr-2" />}
+          {isImportingCad ? "Importing CAD..." : "Import CAD Plan (.dxf)"}
         </Button>
         <Input 
             type="file" 
             ref={cadFileInputRef} 
             onChange={handleCadFileImport} 
-            accept=".dxf,.dwg" // Still accept .dwg to show message
+            accept=".dxf,.dwg" 
             className="hidden" 
+            disabled={isImportingCad}
         />
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="w-full text-xs" size="sm" disabled={isProjectLoading || !currentProject}>
+            <Button variant="destructive" className="w-full text-xs" size="sm" disabled={isProjectLoading || !currentProject || isImportingCad}>
                 <Trash2Icon size={14} className="mr-2" /> Clear Scene in Project
             </Button>
           </AlertDialogTrigger>
@@ -163,15 +174,15 @@ const ScenePanel = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isProjectLoading}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleClearProjectScene} disabled={isProjectLoading}>
+              <AlertDialogCancel disabled={isProjectLoading || isImportingCad}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleClearProjectScene} disabled={isProjectLoading || isImportingCad}>
                 Clear Scene
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        <Button onClick={handleBackToProjects} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading}>
+        <Button onClick={handleBackToProjects} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading || isImportingCad}>
           <LogOut size={14} className="mr-2" /> Back to Projects
         </Button>
 
@@ -181,3 +192,4 @@ const ScenePanel = () => {
 };
 
 export default ScenePanel;
+
