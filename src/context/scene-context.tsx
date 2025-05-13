@@ -1,10 +1,13 @@
+
 "use client";
 
 import type React from 'react';
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
+import { getDefaultSceneData } from '@/lib/project-manager'; // To get default scene for new projects
+
 
 interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState'> {
   objects: SceneObject[];
@@ -23,63 +26,36 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   getMaterialById: (id: string) => MaterialProperties | undefined;
   updateAmbientLight: (updates: Partial<AmbientLightProps>) => void;
   updateDirectionalLight: (updates: Partial<DirectionalLightProps>) => void;
-  loadScene: (data: SceneData) => void;
-  clearScene: () => void;
+  loadScene: (data: SceneData) => void; // Now primarily for internal use / project loading
+  clearCurrentProjectScene: () => void; // Renamed from clearScene
   selectedObjectId: string | null | undefined;
   activeTool: ToolType | undefined;
   setActiveTool: (tool: ToolType | undefined) => void;
   setActivePaintMaterialId: (materialId: string | null) => void;
   setDrawingState: (newState: Partial<DrawingState>) => void;
+  getCurrentSceneData: () => SceneData; // To provide data for saving
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
 
-const initialDefaultMaterial: MaterialProperties = {
-  id: DEFAULT_MATERIAL_ID,
-  name: DEFAULT_MATERIAL_NAME,
-  color: '#B0B0B0', 
-  roughness: 0.6,
-  metalness: 0.3,
-};
+const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 
-const initialDrawingState: DrawingState = {
-  isActive: false,
-  tool: null,
-  startPoint: null,
-  currentPoint: null,
-  measureDistance: null,
-  pushPullFaceInfo: null,
-};
+export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
+  const [sceneData, setSceneData] = useState<SceneData>(() => initialSceneOverride || initialSceneDataBlueprint);
 
-const initialSceneData: SceneData = {
-  objects: [],
-  materials: [initialDefaultMaterial],
-  ambientLight: {
-    color: '#ffffff',
-    intensity: 0.7, 
-  },
-  directionalLight: {
-    color: '#ffffff',
-    intensity: 1.5, 
-    position: [5, 10, 7.5],
-    castShadow: true,
-    shadowBias: -0.0005, 
-  },
-  selectedObjectId: null,
-  activeTool: 'select',
-  activePaintMaterialId: null,
-  appMode: 'modelling', // Default to combined mode
-  drawingState: initialDrawingState,
-};
+  // Effect to re-initialize if initialSceneOverride changes (e.g. opening a different project)
+  useEffect(() => {
+    if (initialSceneOverride) {
+      setSceneData(initialSceneOverride);
+    }
+  }, [initialSceneOverride]);
 
-export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [sceneData, setSceneData] = useState<SceneData>(initialSceneData);
 
   const setAppMode = useCallback((mode: AppMode) => {
     if (mode === 'modelling' || mode === 'rendering') {
-      setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null, drawingState: initialDrawingState }));
+      setSceneData(prev => ({ ...prev, appMode: mode, activeTool: 'select', selectedObjectId: null, drawingState: {isActive: false, tool: null, startPoint: null} }));
     } else {
-      setSceneData(prev => ({ ...prev, appMode: 'modelling', activeTool: 'select', selectedObjectId: null, drawingState: initialDrawingState }));
+      setSceneData(prev => ({ ...prev, appMode: 'modelling', activeTool: 'select', selectedObjectId: null, drawingState: {isActive: false, tool: null, startPoint: null} }));
     }
   }, []);
 
@@ -88,7 +64,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const count = sceneData.objects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
 
     let defaultDimensions: SceneObjectDimensions = {};
-    let defaultPosition: [number, number, number] = [0, 0.5, 0]; // Default Y assumes height of 1
+    let defaultPosition: [number, number, number] = [0, 0.5, 0];
     let defaultRotation: [number, number, number] = [0, 0, 0];
     let defaultScale: [number, number, number] = [1, 1, 1];
 
@@ -128,7 +104,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
       activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull'].includes(prev.activeTool)) ? 'select' : prev.activeTool,
-      drawingState: initialDrawingState, 
+      drawingState: {isActive: false, tool: null, startPoint: null}, 
     }));
     return newObject;
   }, [sceneData.objects]);
@@ -170,9 +146,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const selectObject = useCallback((id: string | null) => {
     setSceneData(prev => {
-      // Preserve drawingState.isActive if a drawing operation (like push/pull) was just
-      // initiated on this object and is currently active.
-      // Otherwise, ensure drawingState.isActive is false for a simple selection.
       const preserveActiveDrawing = prev.drawingState.isActive &&
                                     (
                                       (prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id) ||
@@ -234,64 +207,38 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const loadScene = useCallback((data: SceneData) => {
+    // This function is now mainly for loading a new project's scene data
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
-      let materials = data.materials;
-      const defaultMaterialExists = materials.some(m => m.id === DEFAULT_MATERIAL_ID);
-
-      if (!defaultMaterialExists) {
-        const loadedDefaultByName = materials.find(m => m.name === DEFAULT_MATERIAL_NAME);
-        if (loadedDefaultByName) {
-          loadedDefaultByName.id = DEFAULT_MATERIAL_ID; 
-          materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
-        } else {
-          materials = [initialDefaultMaterial, ...materials];
-        }
-      } else {
-         materials = materials.map(m => m.id === DEFAULT_MATERIAL_ID ? {...initialDefaultMaterial, ...m} : m);
-      }
-      
-      const validMaterialIds = new Set(materials.map(m => m.id));
-      const objects = data.objects.map(obj => ({
-        ...obj,
-        materialId: validMaterialIds.has(obj.materialId) ? obj.materialId : DEFAULT_MATERIAL_ID
-      }));
-
-      const validAppMode = (data.appMode === 'modelling' || data.appMode === 'rendering') ? data.appMode : 'modelling';
-
-      setSceneData({
-        ...initialSceneData, 
-        ...data, 
-        materials, 
-        objects, 
-        appMode: validAppMode, 
-        activeTool: data.activeTool || 'select',
-        activePaintMaterialId: data.activePaintMaterialId || null,
-        drawingState: data.drawingState || initialDrawingState,
-      });
+      setSceneData(data);
     } else {
-      console.error("Invalid scene data format");
+      console.error("Invalid scene data provided to loadScene");
+      setSceneData(getDefaultSceneData()); // Fallback to default
     }
   }, []);
 
-  const clearScene = useCallback(() => {
-    const currentAppMode = sceneData.appMode; 
-    const currentPaintMaterial = sceneData.activePaintMaterialId;
-    setSceneData({
-        ...initialSceneData, 
-        appMode: currentAppMode, 
-        materials: [initialDefaultMaterial], 
-        objects: [],
-        selectedObjectId: null,
-        activeTool: 'select',
-        activePaintMaterialId: currentPaintMaterial,
-        drawingState: initialDrawingState,
-    });
-  }, [sceneData.appMode, sceneData.activePaintMaterialId]);
+  const clearCurrentProjectScene = useCallback(() => {
+    // This will effectively reset the scene to its default state for the current project
+    // The actual persistence of this cleared state is handled by ProjectContext calling save
+    setSceneData(getDefaultSceneData());
+  }, []);
+  
+  const getCurrentSceneData = useCallback((): SceneData => {
+    // Exclude functions, only return serializable data
+    const { 
+      objects, materials, ambientLight, directionalLight, 
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState 
+    } = sceneData;
+    return { 
+      objects, materials, ambientLight, directionalLight, 
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState 
+    };
+  }, [sceneData]);
+
 
   const setActiveTool = useCallback((tool: ToolType | undefined) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
-      let newDrawingState: DrawingState = { ...initialDrawingState }; 
+      let newDrawingState: DrawingState = {isActive: false, tool: null, startPoint: null}; 
       
       if (tool === 'paint') {
         // Keep activePaintMaterialId if switching to paint
@@ -345,13 +292,14 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateAmbientLight,
     updateDirectionalLight,
     loadScene,
-    clearScene,
+    clearCurrentProjectScene,
     activeTool: sceneData.activeTool,
     setActiveTool,
     activePaintMaterialId: sceneData.activePaintMaterialId,
     setActivePaintMaterialId,
     setDrawingState,
-  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearScene, setActiveTool, setActivePaintMaterialId, setDrawingState]);
+    getCurrentSceneData,
+  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData]);
 
   return (
     <SceneContext.Provider value={contextValue}>
@@ -367,4 +315,3 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
-

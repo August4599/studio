@@ -1,11 +1,14 @@
+
 "use client";
 
 import React, { useState, useEffect }from 'react';
 import { SceneProvider, useScene } from "@/context/scene-context";
+import { ProjectProvider, useProject } from "@/context/project-context";
 import SceneViewer from "@/components/scene/viewer";
 import MainSidebar from "@/components/sidebar/main-sidebar";
 import ToolsSidebar from '@/components/sidebar/tools-sidebar';
-import ToolsPanel from '@/components/sidebar/tools-panel'; // Import ToolsPanel
+import ToolsPanel from '@/components/sidebar/tools-panel';
+import ProjectDashboard from '@/components/project/project-dashboard';
 import {
   SidebarProvider,
   Sidebar,
@@ -17,7 +20,7 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction } from "lucide-react"; 
+import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2 } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode } from '@/types';
 import {
@@ -114,7 +117,7 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
 }
 
 const ArchiVisionLayout: React.FC = () => {
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); // Closed by default
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
   const { appMode } = useScene();
 
   return (
@@ -193,12 +196,34 @@ const DialogTriggerForTools: React.FC = () => (
   </Dialog>
 );
 
+const AppCore: React.FC = () => {
+  const { currentProject, isLoading } = useProject();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-background text-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-4 text-lg">Loading ArchiVision...</span>
+      </div>
+    );
+  }
+
+  if (!currentProject) {
+    return <ProjectDashboard />;
+  }
+
+  return (
+    <SceneProvider key={currentProject.id} initialSceneOverride={currentProject.sceneData}>
+      <ArchiVisionLayout />
+    </SceneProvider>
+  );
+};
 
 export default function ArchiVisionAppPage() {
   return (
-    <SceneProvider>
-      <ArchiVisionLayout />
+    <ProjectProvider>
+      <AppCore />
       <Toaster />
-    </SceneProvider>
+    </ProjectProvider>
   );
 }

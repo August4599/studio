@@ -121,9 +121,28 @@ export interface SceneData {
   selectedObjectId?: string | null;
   activeTool?: ToolType;
   activePaintMaterialId?: string | null;
-  appMode: AppMode;
+  appMode: AppMode; // This might become part of project settings rather than scene data
   drawingState: DrawingState; 
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
 export const DEFAULT_MATERIAL_NAME = 'Default Material';
+
+
+// Project Management Types
+export interface Project {
+  id: string;
+  name: string;
+  lastModified: number; // timestamp
+  sceneData: SceneData;
+  // Thumbnail could be a base64 string or URL if we implement that
+  thumbnail?: string; 
+}
+
+// For displaying in lists, without the full scene data for performance
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  lastModified: number;
+  thumbnail?: string;
+}
