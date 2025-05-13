@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import ToolsPanel from "./tools-panel";
@@ -8,7 +7,7 @@ import { Construction } from 'lucide-react';
 
 const ToolsSidebar = () => {
   return (
-    <div className="flex flex-col h-full bg-card border-r shadow-sm text-card-foreground">
+    <div className="flex flex-col h-full bg-card text-card-foreground">
       <div className="p-3 flex items-center gap-2 border-b h-12 flex-none">
         <Construction className="w-6 h-6 text-primary" />
         <h2 className="text-lg font-semibold">Modeling Tools</h2>

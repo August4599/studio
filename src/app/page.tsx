@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect }from 'react';
@@ -6,6 +5,7 @@ import { SceneProvider, useScene } from "@/context/scene-context";
 import SceneViewer from "@/components/scene/viewer";
 import MainSidebar from "@/components/sidebar/main-sidebar";
 import ToolsSidebar from '@/components/sidebar/tools-sidebar';
+import ToolsPanel from '@/components/sidebar/tools-panel'; // Import ToolsPanel
 import {
   SidebarProvider,
   Sidebar,
@@ -17,9 +17,19 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2 } from "lucide-react"; 
+import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode } from '@/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion } from "@/components/ui/accordion";
+
 
 // Inline SVG for Node Editor Icon
 const NodeEditorIcon = () => (
@@ -110,7 +120,7 @@ const ArchiVisionLayout: React.FC = () => {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {appMode === 'modelling' && (
-        <div className="w-64 flex-none hidden md:flex flex-col bg-card border-r">
+        <div className="w-64 flex-none hidden md:flex flex-col bg-card border-r shadow-sm">
           <ToolsSidebar />
         </div>
       )}
@@ -127,7 +137,7 @@ const ArchiVisionLayout: React.FC = () => {
                   <Workflow className="w-5 h-5 text-primary" />
                   <h1 className="text-lg font-semibold">ArchiVision</h1>
                 </div>
-                {appMode === 'modelling' && ( // Show tools trigger only in modelling mode for mobile
+                {appMode === 'modelling' && ( 
                     <DialogTriggerForTools />
                 )}
                 <SidebarTrigger /> 
@@ -162,17 +172,6 @@ const ArchiVisionLayout: React.FC = () => {
   );
 };
 
-// Dialog Trigger for Tools on Mobile
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Construction } from "lucide-react";
-
 const DialogTriggerForTools: React.FC = () => (
   <Dialog>
     <DialogTrigger asChild>
@@ -181,12 +180,14 @@ const DialogTriggerForTools: React.FC = () => (
         <span className="sr-only">Open Tools</span>
       </Button>
     </DialogTrigger>
-    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm">
-      <DialogHeader className="p-4 border-b">
+    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col">
+      <DialogHeader className="p-4 border-b flex-none">
         <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
       </DialogHeader>
-      <ScrollArea className="flex-grow">
-          <ToolsSidebar />
+      <ScrollArea className="flex-grow p-1">
+        <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
+          <ToolsPanel />
+        </Accordion>
       </ScrollArea>
     </DialogContent>
   </Dialog>
