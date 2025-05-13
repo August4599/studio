@@ -88,7 +88,6 @@ export function parseDxfToCadPlan(dxfString: string): Partial<SceneObject> | nul
               const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
               if (length < MIN_LENGTH_THRESHOLD) break;
               
-              // Store original coordinates for now, will normalize later
               planLines.push({ start: [start.x, start.y], end: [end.x, end.y] });
               const { min, max } = getBounds2D([start, end], overallMin, overallMax);
               overallMin = min;
@@ -132,15 +131,15 @@ export function parseDxfToCadPlan(dxfString: string): Partial<SceneObject> | nul
 
           case 'CIRCLE':
             if (entity.center && typeof entity.radius === 'number' && entity.radius >= MIN_LENGTH_THRESHOLD / 2) {
-              const segments = 32; // Number of segments to approximate the circle
+              const segments = 32; 
               const circleVerticesForBounds: Vertex[] = [];
               for (let i = 0; i < segments; i++) {
                 const angle1 = (i / segments) * Math.PI * 2;
                 const angle2 = ((i + 1) / segments) * Math.PI * 2;
                 const x1 = entity.center.x + entity.radius * Math.cos(angle1);
-                const y1 = entity.center.y + entity.radius * Math.sin(angle1); // DXF Y
+                const y1 = entity.center.y + entity.radius * Math.sin(angle1); 
                 const x2 = entity.center.x + entity.radius * Math.cos(angle2);
-                const y2 = entity.center.y + entity.radius * Math.sin(angle2); // DXF Y
+                const y2 = entity.center.y + entity.radius * Math.sin(angle2); 
                 planLines.push({ start: [x1, y1], end: [x2, y2] });
                 if (i === 0) circleVerticesForBounds.push({x:x1, y:y1} as Vertex);
                  circleVerticesForBounds.push({x:x2, y:y2} as Vertex);
@@ -149,7 +148,7 @@ export function parseDxfToCadPlan(dxfString: string): Partial<SceneObject> | nul
                  const { min, max } = getBounds2D(circleVerticesForBounds, overallMin, overallMax);
                  overallMin = min;
                  overallMax = max;
-              } else { // Fallback for bounds if no segments (e.g. radius too small)
+              } else { 
                  const { min, max } = getBounds2D([
                     { x: entity.center.x - entity.radius, y: entity.center.y - entity.radius },
                     { x: entity.center.x + entity.radius, y: entity.center.y + entity.radius }
@@ -166,10 +165,9 @@ export function parseDxfToCadPlan(dxfString: string): Partial<SceneObject> | nul
               const totalArcLength = entity.radius * Math.abs(entity.endAngle - entity.startAngle) * Math.PI / 180;
               if (totalArcLength < MIN_LENGTH_THRESHOLD) break;
 
-              // Normalize angles (DXF angles are in degrees, counter-clockwise)
               let startAngRad = entity.startAngle * Math.PI / 180;
               let endAngRad = entity.endAngle * Math.PI / 180;
-              if (endAngRad < startAngRad) endAngRad += 2 * Math.PI; // Ensure end angle is greater for CW loop
+              if (endAngRad < startAngRad) endAngRad += 2 * Math.PI; 
 
               const angleStep = (endAngRad - startAngRad) / segments;
               let arcVerticesForBounds: Vertex[] = [];
@@ -221,11 +219,11 @@ export function parseDxfToCadPlan(dxfString: string): Partial<SceneObject> | nul
       id: uuidv4(),
       type: 'cadPlan',
       name: 'Imported CAD Plan',
-      position: [centerX, 0.01, centerZ], // Position the plan's geometric center in the world
-      rotation: [0, 0, 0], // CAD plan is on XZ plane by default
+      position: [0, 0.01, 0], // Position the plan at the world origin (or slightly above grid)
+      rotation: [0, 0, 0], 
       scale: [1, 1, 1],
-      dimensions: { width, depth }, // Overall bounding box dimensions
-      materialId: DEFAULT_MATERIAL_ID, // This material's color will style the lines
+      dimensions: { width, depth }, 
+      materialId: DEFAULT_MATERIAL_ID, 
       visible: true,
       planData: cadPlanData,
     };
