@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect }from 'react';
@@ -90,10 +89,10 @@ interface NodeEditorSectionProps {
 }
 
 const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen, setIsNodeEditorOpen }) => {
-  const getNodeEditorTitle = () => "Advanced Operations";
+  const getNodeEditorTitle = () => "Procedural Editor"; // Renamed for clarity
   
   const getNodeEditorPlaceholder = () => {
-    return "Unlock advanced architectural workflows with node-based procedural modeling, custom material shaders, and rendering composites. Coming soon to ArchiVision!";
+    return "Create complex geometries, custom materials, and advanced rendering effects using a node-based workflow. Define procedural rules, link parameters, and build sophisticated shaders. (Coming Soon)";
   }
 
   return (
@@ -125,7 +124,7 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
 }
 
 const ArchiVisionLayout: React.FC = () => {
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); // Node editor closed by default
   const { appMode, setActiveTool, addObject } = useScene();
   const { toast } = useToast();
 
@@ -133,7 +132,7 @@ const ArchiVisionLayout: React.FC = () => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return; // Don't trigger shortcuts if an input field is active
+        return; 
       }
 
       const key = event.key.toUpperCase();
@@ -141,7 +140,6 @@ const ArchiVisionLayout: React.FC = () => {
       let newObjectToAdd: PrimitiveType | undefined = undefined;
       let toolLabel: string | undefined = undefined;
 
-      // Tool shortcuts (no modifiers)
       if (!event.shiftKey && !event.ctrlKey && !event.altKey) {
         switch (key) {
           case 'Q': toolToSet = 'select'; toolLabel = 'Select'; break;
@@ -152,35 +150,31 @@ const ArchiVisionLayout: React.FC = () => {
           case 'B': toolToSet = 'paint'; toolLabel = 'Paint'; break;
           case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
           case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
-          case ' ': // Space key
-            event.preventDefault(); // Prevent default space behavior (like scrolling)
+          case ' ': 
+            event.preventDefault(); 
             toolToSet = 'select'; 
             toolLabel = 'Select'; 
             break;
-          case 'ESCAPE': // Escape key to revert to select tool or clear drawing state
-            setActiveTool('select'); // Default to select tool
+          case 'ESCAPE': 
+            setActiveTool('select'); 
             toast({ title: "Tool Reset", description: "Switched to Select tool." });
             return; 
         }
       }
       
-      // Add object shortcuts (Shift + Key)
       if (event.shiftKey && !event.ctrlKey && !event.altKey) {
         switch (key) {
-            case 'A': // Shift + A (Common for Add Menu)
+            case 'A': 
                 event.preventDefault(); 
-                newObjectToAdd = 'cube'; // Default to cube, or open an "add menu" in future
+                newObjectToAdd = 'cube'; 
                 break;
-            case 'C': // Shift + C for Circle tool
+            case 'C': 
                 event.preventDefault();
                 toolToSet = 'circle';
                 toolLabel = 'Circle Tool';
                 break;
-            // case 'R': // Shift + R for Rectangle tool - 'R' is already scale tool
-            //     event.preventDefault();
-            //     toolToSet = 'rectangle';
-            //     toolLabel = 'Rectangle Tool';
-            //     break;
+            // 'R' for rectangle would conflict with 'R' for scale tool.
+            // Consider a different key or a modal for adding shapes if Shift+A opens a menu.
         }
       }
 
@@ -189,7 +183,7 @@ const ArchiVisionLayout: React.FC = () => {
         toast({ title: "Tool Changed", description: `${toolLabel || toolToSet.charAt(0).toUpperCase() + toolToSet.slice(1)} tool activated.` });
       }
       if (newObjectToAdd) {
-        addObject(newObjectToAdd); // Toast for added object is handled in addObject
+        addObject(newObjectToAdd); 
       }
     };
 
@@ -309,4 +303,3 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
-

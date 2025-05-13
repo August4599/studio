@@ -1,4 +1,3 @@
-
 import DxfParser, { type Vertex, type Polyline } from 'dxf-parser';
 import type { SceneObject, PrimitiveType, SceneObjectDimensions } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
@@ -47,6 +46,8 @@ interface DxfArcEntity extends DxfEntityBase {
 
 type DxfEntity = DxfLineEntity | DxfLwPolylineEntity | DxfPolylineEntity | DxfCircleEntity | DxfArcEntity | DxfEntityBase;
 
+const MIN_LENGTH_THRESHOLD = 0.01; // Minimum length for a line/segment to be imported
+
 
 function getBounds(vertices: Vertex[]): { min: THREE.Vector2; max: THREE.Vector2 } | null {
   if (!vertices || vertices.length === 0) return null;
@@ -85,18 +86,18 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
       let defaultDimensions: SceneObjectDimensions = {};
       let primitiveType: PrimitiveType | null = null;
 
-      try { // Add try-catch for individual entity processing
+      try { 
         switch (entity.type) {
           case 'LINE':
             if (entity.vertices && entity.vertices.length >= 2) {
-              primitiveType = 'cube'; 
               const start = entity.vertices[0];
               const end = entity.vertices[1];
               if (!start || !end || typeof start.x !== 'number' || typeof start.y !== 'number' || typeof end.x !== 'number' || typeof end.y !== 'number') break;
 
               const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-              if (length < 0.001) break; // Skip zero-length lines
+              if (length < MIN_LENGTH_THRESHOLD) break; 
               
+              primitiveType = 'cube'; 
               defaultDimensions = { width: length, height: 0.02, depth: 0.02 }; 
               defaultPosition[0] = (start.x + end.x) / 2;
               defaultPosition[2] = (start.y + end.y) / 2; 
@@ -107,7 +108,7 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
             break;
           
           case 'LWPOLYLINE':
-          case 'POLYLINE': // Treat POLYLINE similarly to LWPOLYLINE for simplicity
+          case 'POLYLINE': 
             if (entity.vertices && entity.vertices.length > 0) {
               const isClosed = entity.closed || entity.flags === 1 || (entity.vertices.length > 2 && entity.vertices[0].x === entity.vertices[entity.vertices.length - 1].x && entity.vertices[0].y === entity.vertices[entity.vertices.length - 1].y);
               
@@ -118,19 +119,21 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
                 const width = bounds.max.x - bounds.min.x;
                 const depth = bounds.max.y - bounds.min.y; 
                 
-                defaultDimensions = { width: Math.max(0.01, width), height: Math.max(0.01, depth) }; 
+                if (width < MIN_LENGTH_THRESHOLD || depth < MIN_LENGTH_THRESHOLD) break;
+
+                defaultDimensions = { width: width, height: depth }; 
                 defaultPosition[0] = (bounds.min.x + bounds.max.x) / 2;
                 defaultPosition[1] = 0; 
                 defaultPosition[2] = (bounds.min.y + bounds.max.y) / 2;
                 defaultRotation[0] = -Math.PI / 2; 
-              } else { // Open polyline - treat as series of line segments
+              } else { 
                 for (let i = 0; i < entity.vertices.length - 1; i++) {
                   const start = entity.vertices[i];
                   const end = entity.vertices[i+1];
                   if (!start || !end || typeof start.x !== 'number' || typeof start.y !== 'number' || typeof end.x !== 'number' || typeof end.y !== 'number') continue;
 
                   const length = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-                  if (length < 0.001) continue;
+                  if (length < MIN_LENGTH_THRESHOLD) continue;
 
                   sceneObjects.push({
                     type: 'cube',
@@ -148,7 +151,7 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
             break;
 
           case 'CIRCLE':
-            if (entity.center && typeof entity.radius === 'number' && entity.radius > 0) {
+            if (entity.center && typeof entity.radius === 'number' && entity.radius >= MIN_LENGTH_THRESHOLD / 2) {
               primitiveType = 'plane'; 
               defaultDimensions = { 
                   width: entity.radius * 2, 
@@ -164,9 +167,10 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
           
           case 'ARC':
             if (entity.center && typeof entity.radius === 'number' && entity.radius > 0 && typeof entity.startAngle === 'number' && typeof entity.endAngle === 'number') {
-              // Representing arcs as a series of short lines (cubes) for simplicity
-              // A proper arc would require a custom geometry or more complex shape generation
-              const segments = 16; // Number of line segments to approximate the arc
+              const segments = 16; 
+              const totalArcLength = entity.radius * Math.abs(entity.endAngle - entity.startAngle) * Math.PI / 180;
+              if (totalArcLength < MIN_LENGTH_THRESHOLD) break;
+
               const angleStep = (entity.endAngle - entity.startAngle) / segments;
               for (let i = 0; i < segments; i++) {
                 const angle1 = entity.startAngle + i * angleStep;
@@ -177,7 +181,7 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
                 const y2 = entity.center.y + entity.radius * Math.sin(angle2 * Math.PI / 180);
                 
                 const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-                if (length < 0.001) continue;
+                if (length < MIN_LENGTH_THRESHOLD / segments) continue; // Adjusted threshold for segments
 
                 sceneObjects.push({
                     type: 'cube',
@@ -189,17 +193,15 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
                     materialId: DEFAULT_MATERIAL_ID,
                   });
               }
-              primitiveType = null; // Handled as segments
+              primitiveType = null; 
             }
             break;
-          // TODO: Add MTEXT, TEXT, HATCH etc. support
           default:
-            // console.log(`Unsupported DXF entity type: ${entity.type}`);
             break;
         }
       } catch (entityError) {
         console.warn(`Skipping entity due to error: ${baseName} (Type: ${entity.type})`, entityError);
-        primitiveType = null; // Ensure this entity is not added if an error occurred
+        primitiveType = null; 
       }
 
 
@@ -220,6 +222,6 @@ export function parseDxfToSceneObjects(dxfString: string): Partial<SceneObject>[
     return sceneObjects;
   } catch (err) {
     console.error('Major error during DXF parsing:', err);
-    return []; // Return empty array on major failure
+    return []; 
   }
 }

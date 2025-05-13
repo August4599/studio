@@ -1,7 +1,6 @@
-
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   AccordionContent,
   AccordionItem,
@@ -10,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
-import { Eye, EyeOff, Trash2, Layers } from "lucide-react";
+import { Eye, EyeOff, Trash2, Layers, ChevronDown } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +24,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+const ITEMS_PER_PAGE = 100; // Number of items to display/load at a time
+
 const ObjectHierarchyPanel = () => {
   const { objects, selectedObjectId, selectObject, updateObject, removeObject } = useScene();
   const { toast } = useToast();
+  const [visibleItemsCount, setVisibleItemsCount] = useState(ITEMS_PER_PAGE);
 
   const handleToggleVisibility = (id: string, currentVisibility?: boolean) => {
     updateObject(id, { visible: !(currentVisibility ?? true) });
@@ -37,6 +39,12 @@ const ObjectHierarchyPanel = () => {
     removeObject(id);
     toast({ title: "Object Deleted", description: `${name} removed from scene.` });
   };
+
+  const handleLoadMore = () => {
+    setVisibleItemsCount(prevCount => Math.min(prevCount + ITEMS_PER_PAGE, objects.length));
+  };
+
+  const displayedObjects = useMemo(() => objects.slice(0, visibleItemsCount), [objects, visibleItemsCount]);
 
   return (
     <AccordionItem value="item-object-hierarchy">
@@ -53,7 +61,7 @@ const ObjectHierarchyPanel = () => {
             </p>
           )}
           <div className="space-y-1">
-            {objects.map((obj) => (
+            {displayedObjects.map((obj) => (
               <div
                 key={obj.id}
                 className={cn(
@@ -71,7 +79,7 @@ const ObjectHierarchyPanel = () => {
                     size="icon"
                     className="h-6 w-6"
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevent selection when clicking visibility
+                      e.stopPropagation(); 
                       handleToggleVisibility(obj.id, obj.visible);
                     }}
                   >
@@ -83,7 +91,7 @@ const ObjectHierarchyPanel = () => {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={(e) => e.stopPropagation()} // Prevent selection
+                        onClick={(e) => e.stopPropagation()} 
                       >
                         <Trash2 size={12} />
                       </Button>
@@ -108,6 +116,17 @@ const ObjectHierarchyPanel = () => {
             ))}
           </div>
         </ScrollArea>
+        {objects.length > visibleItemsCount && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full mt-2 text-xs"
+            onClick={handleLoadMore}
+          >
+            <ChevronDown size={14} className="mr-2" />
+            Load More ({objects.length - visibleItemsCount} remaining)
+          </Button>
+        )}
       </AccordionContent>
     </AccordionItem>
   );
