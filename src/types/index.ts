@@ -15,6 +15,18 @@ export interface MaterialProperties {
   // Add other PBR properties as needed
 }
 
+export interface SceneObjectDimensions {
+  width?: number; // For cube, plane, text (bounding box)
+  height?: number; // For cube, cylinder, plane, text (bounding box)
+  depth?: number; // For cube, text (extrusion)
+  radiusTop?: number; // For cylinder
+  radiusBottom?: number; // For cylinder
+  radialSegments?: number; // For cylinder
+  heightSegments?: number; // For cylinder
+  text?: string; // For text
+  fontSize?: number; // For text
+}
+
 export interface SceneObject {
   id:string;
   type: PrimitiveType;
@@ -22,18 +34,7 @@ export interface SceneObject {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
-  dimensions: {
-    width?: number; // For cube, plane
-    height?: number; // For cube, cylinder
-    depth?: number; // For cube, text (extrusion)
-    radiusTop?: number; // For cylinder
-    radiusBottom?: number; // For cylinder
-    radialSegments?: number; // For cylinder
-    heightSegments?: number; // For cylinder
-    text?: string; // For text
-    fontSize?: number; // For text
-    // font?: string; // For text (path to font file or name) - Future
-  };
+  dimensions: SceneObjectDimensions;
   materialId: string;
 }
 
@@ -68,17 +69,24 @@ export type ToolType =
   | 'addCylinder'
   | 'addPlane';
 
+export interface PushPullFaceInfo {
+  objectId: string;
+  initialMeshWorldPosition: [number, number, number]; // Mesh's world position at drag start
+  initialLocalIntersectPoint: [number, number, number]; // Intersection point in local coords
+  localFaceNormal: [number, number, number]; // Face normal in local coords
+  worldFaceNormal: [number, number, number]; // Face normal in world coords, normalized
+  originalDimensions: SceneObjectDimensions;
+  originalPosition: [number, number, number];
+  originalType: PrimitiveType; // To know if we are extruding a plane
+}
+
 export interface DrawingState {
   isActive: boolean;
   tool: 'rectangle' | 'line' | 'arc' | 'tape' | 'pushpull' | null;
   startPoint: [number, number, number] | null;
   currentPoint?: [number, number, number] | null;
   measureDistance?: number | null; // For Tape Measure tool
-  pushPullFaceInfo?: { // For Push/Pull tool (simplified initial state)
-    objectId: string;
-    // More details will be needed for actual geometry manipulation
-    // e.g., face index, initial mouse projection on face normal
-  } | null;
+  pushPullFaceInfo?: PushPullFaceInfo | null;
 }
 
 
@@ -101,7 +109,7 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
   { id: 'addPlane', label: 'Add Plane'},
 ];
 
-export type AppMode = 'modelling' | 'rendering';
+export type AppMode = 'modelling' | 'rendering'; // 'texturing' mode removed
 
 export interface SceneData {
   objects: SceneObject[];

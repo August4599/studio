@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType, ToolType, AppMode, DrawingState } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightProps, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 
@@ -69,7 +69,7 @@ const initialSceneData: SceneData = {
   selectedObjectId: null,
   activeTool: 'select',
   activePaintMaterialId: null,
-  appMode: 'modelling',
+  appMode: 'modelling', // Default to combined mode
   drawingState: initialDrawingState,
 };
 
@@ -88,28 +88,29 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const baseName = type.charAt(0).toUpperCase() + type.slice(1);
     const count = sceneData.objects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
 
-    let defaultDimensions: SceneObject['dimensions'] = {};
-    let defaultPosition: [number, number, number] = [0, 0.5, 0];
+    let defaultDimensions: SceneObjectDimensions = {};
+    let defaultPosition: [number, number, number] = [0, 0.5, 0]; // Default Y assumes height of 1
     let defaultRotation: [number, number, number] = [0, 0, 0];
     let defaultScale: [number, number, number] = [1, 1, 1];
 
     switch (type) {
       case 'cube':
         defaultDimensions = { width: 1, height: 1, depth: 1 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1) / 2, 0];
+        // Adjust Y position based on height, ensuring it's positive (object sits on XZ plane)
+        defaultPosition = [0, Math.max(0.001, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1)) / 2, 0];
         break;
       case 'cylinder':
         defaultDimensions = { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1) / 2, 0];
+        defaultPosition = [0, Math.max(0.001, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1)) / 2, 0];
         break;
       case 'plane':
         defaultDimensions = { width: 10, height: 10 }; 
         defaultPosition = [0, 0, 0]; 
-        defaultRotation = [-Math.PI / 2, 0, 0]; 
+        defaultRotation = [-Math.PI / 2, 0, 0]; // Default to XZ plane
         break;
       case 'text':
         defaultDimensions = { text: "3D Text", fontSize: 1, depth: 0.2, width: 2, height: 0.5 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 0.5) / 2, 0]; 
+        defaultPosition = [0, Math.max(0.001, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 0.5)) / 2, 0]; 
         break;
     }
     
@@ -128,7 +129,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
-      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape'].includes(prev.activeTool)) ? 'select' : prev.activeTool,
+      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull'].includes(prev.activeTool)) ? 'select' : prev.activeTool,
       drawingState: initialDrawingState, 
     }));
     return newObject;
@@ -145,13 +146,16 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
           
           const isYUpObject = (updatedObj.type === 'cube' || updatedObj.type === 'cylinder' || updatedObj.type === 'text');
-          const heightChanged = updates.dimensions?.height !== undefined;
+          const heightChanged = updates.dimensions?.height !== undefined && updates.dimensions.height !== obj.dimensions.height;
           const positionNotExplicitlySet = updates.position === undefined;
-          const isUpright = updatedObj.rotation[0] === 0 && updatedObj.rotation[2] === 0; // Simple check for upright
+          // Simple check for upright (primarily concerned with X and Z rotations being zero for auto-Y pos)
+          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
+
 
           if (isYUpObject && heightChanged && positionNotExplicitlySet && isUpright) {
             updatedObj.position = [...updatedObj.position]; 
-            updatedObj.position[1] = (updatedObj.dimensions.height || 1) / 2;
+            // Ensure positive height for position calculation
+            updatedObj.position[1] = Math.max(0.001, (updatedObj.dimensions.height || 1)) / 2;
           }
           return updatedObj;
         }
@@ -169,18 +173,17 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const selectObject = useCallback((id: string | null) => {
-    // When selecting a new object, or deselecting, reset drawing state
-    // unless the current tool is a persistent drawing tool that needs to continue (like 'paint')
     const currentTool = sceneData.activeTool;
-    const persistentTools: ToolType[] = ['paint']; // Add other tools if they shouldn't reset drawing state on selection
-    const shouldResetDrawing = !currentTool || !persistentTools.includes(currentTool);
+    const persistentTools: ToolType[] = ['paint', 'pushpull']; // pushpull might need to persist selection for its operation
+    const shouldResetDrawing = !currentTool || !persistentTools.includes(currentTool) || (currentTool === 'pushpull' && !id);
+
 
     setSceneData(prev => ({ 
         ...prev, 
         selectedObjectId: id, 
-        drawingState: shouldResetDrawing ? initialDrawingState : prev.drawingState 
+        drawingState: shouldResetDrawing ? initialDrawingState : { ...prev.drawingState, isActive: false } // Set isActive false when just selecting
     }));
-  }, [sceneData.activeTool]); // Include sceneData.activeTool in dependencies
+  }, [sceneData.activeTool]); 
   
   const addMaterial = useCallback((props?: Partial<Omit<MaterialProperties, 'id'>>): MaterialProperties => {
     const newMaterial: MaterialProperties = {
@@ -285,37 +288,32 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setActiveTool = useCallback((tool: ToolType | undefined) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
-      let newDrawingState = { ...prev.drawingState, isActive: false }; // Default to inactive
-
-      const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull'];
+      let newDrawingState: DrawingState = { ...initialDrawingState }; 
       
       if (tool === 'paint') {
-        // Keep activePaintMaterialId if switching to paint, otherwise clear it if not paint tool
+        // Keep activePaintMaterialId if switching to paint
       } else {
         newActivePaintMaterialId = null; 
       }
 
+      const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull'];
       if (tool && drawingTools.includes(tool)) {
         newDrawingState.tool = tool as 'rectangle' | 'line' | 'arc' | 'tape' | 'pushpull';
-        newDrawingState.startPoint = null;
-        newDrawingState.currentPoint = null;
-        newDrawingState.measureDistance = null;
-        newDrawingState.pushPullFaceInfo = null;
-        // isActive will be set true on pointer down for these tools
-      } else {
-        // If switching to a non-drawing tool or clearing the tool
-        newDrawingState = initialDrawingState;
       }
       
-      // If tool is not 'select', 'move', 'rotate', 'scale', clear selected object
-      const selectionPreservingTools: ToolType[] = ['select', 'move', 'rotate', 'scale', 'paint'];
+      const selectionPreservingTools: ToolType[] = ['select', 'move', 'rotate', 'scale', 'paint', 'pushpull'];
       let newSelectedObjectId = prev.selectedObjectId;
       if (tool && !selectionPreservingTools.includes(tool)) {
         newSelectedObjectId = null;
       }
 
-
-      return { ...prev, activeTool: tool, activePaintMaterialId: newActivePaintMaterialId, drawingState: newDrawingState, selectedObjectId: newSelectedObjectId };
+      return { 
+        ...prev, 
+        activeTool: tool, 
+        activePaintMaterialId: newActivePaintMaterialId, 
+        drawingState: newDrawingState, 
+        selectedObjectId: newSelectedObjectId 
+      };
     });
   }, []);
 

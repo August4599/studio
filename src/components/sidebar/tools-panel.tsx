@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -16,7 +17,7 @@ import {
   RotateCcw, 
   Maximize2, 
   Construction, 
-  Box, 
+  Box, // Changed from Cube to Box
   Circle as LucideCircle, 
   LayoutPanelLeft, 
   Type as TextIcon, 
@@ -97,7 +98,7 @@ const ToolsPanel = () => {
     setActiveTool('pushpull');
     toast({
       title: "Push/Pull Tool Active",
-      description: "Select a cube to interact. Full geometry modification is planned for future updates.",
+      description: "Click a face of a Cube or Rectangle (Plane) to start modifying. Drag to push or pull.",
     });
   };
 

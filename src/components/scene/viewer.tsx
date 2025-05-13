@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -8,7 +9,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { SceneObject } from '@/types';
+import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
 const SceneViewer: React.FC = () => {
@@ -44,19 +45,44 @@ const SceneViewer: React.FC = () => {
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
 
-  const getMousePositionOnXZPlane = useCallback((event: PointerEvent): THREE.Vector3 | null => {
-    if (!mountRef.current || !cameraRef.current) return null;
+  const getMouseIntersection = useCallback((event: PointerEvent, targetPlane?: THREE.Plane): { point: THREE.Vector3, object?: THREE.Object3D, face?: THREE.Face, normal?: THREE.Vector3 } | null => {
+    if (!mountRef.current || !cameraRef.current || !sceneRef.current) return null;
     const rect = mountRef.current.getBoundingClientRect();
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
-    const intersectionPoint = new THREE.Vector3();
-    if (raycaster.current.ray.intersectPlane(plane, intersectionPoint)) {
-      return intersectionPoint;
+
+    if (targetPlane) {
+        const intersectionPoint = new THREE.Vector3();
+        if (raycaster.current.ray.intersectPlane(targetPlane, intersectionPoint)) {
+            return { point: intersectionPoint };
+        }
+        return null;
+    }
+
+    const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls) && !(c === tempDrawingMeshRef.current) && !(c === tempMeasureLineRef.current) ), true);
+    if (intersects.length > 0) {
+        let firstIntersectedObject = intersects[0].object;
+        // Traverse up to find the named scene object (the direct child of the scene)
+        while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
+            firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
+        }
+        return { 
+            point: intersects[0].point, 
+            object: firstIntersectedObject, 
+            face: intersects[0].face || undefined, // face can be null if not intersecting a mesh with faces
+            normal: intersects[0].face?.normal || undefined
+        };
     }
     return null;
   }, []);
+
+
+  const getMousePositionOnXZPlane = useCallback((event: PointerEvent): THREE.Vector3 | null => {
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
+    const intersection = getMouseIntersection(event, plane);
+    return intersection ? intersection.point : null;
+  }, [getMouseIntersection]);
 
 
   // Initialize Three.js scene
@@ -163,6 +189,8 @@ const SceneViewer: React.FC = () => {
   const onPointerDown = useCallback((event: PointerEvent) => {
     if (transformControlsRef.current?.dragging) return;
 
+    const intersection = getMouseIntersection(event);
+
     if (activeTool === 'rectangle') {
       const point = getMousePositionOnXZPlane(event);
       if (point && sceneRef.current) {
@@ -192,13 +220,13 @@ const SceneViewer: React.FC = () => {
                 });
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
-                if (tempMeasureLineRef.current) { // Remove old line if any
+                if (tempMeasureLineRef.current) { 
                     sceneRef.current.remove(tempMeasureLineRef.current);
                     tempMeasureLineRef.current.geometry.dispose();
                     (tempMeasureLineRef.current.material as THREE.Material).dispose();
                 }
                 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true, opacity: 0.9 });
-                lineMaterial.renderOrder = 1000; // Ensure it's on top
+                lineMaterial.renderOrder = 1000; 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints([point, point.clone()]);
                 tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
                 sceneRef.current.add(tempMeasureLineRef.current);
@@ -217,59 +245,56 @@ const SceneViewer: React.FC = () => {
                     description: `Distance: ${distance.toFixed(3)} units`,
                 });
                 
-                // Optionally keep the line or remove it after a delay / on next tool use
                  if (tempMeasureLineRef.current && sceneRef.current) {
                      sceneRef.current.remove(tempMeasureLineRef.current);
                      tempMeasureLineRef.current.geometry.dispose();
                      (tempMeasureLineRef.current.material as THREE.Material).dispose();
                      tempMeasureLineRef.current = null;
                  }
-                setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null }); // Reset for next measurement
+                setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null }); 
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
                 setActiveTool('select');
             }
         }
     } else if (activeTool === 'pushpull') {
-        // Basic placeholder logic for push/pull
-        // Raycast to find an object
-        if (!mountRef.current || !cameraRef.current || !sceneRef.current) return;
-        const rect = mountRef.current.getBoundingClientRect();
-        mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-        const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper'), true);
-
-        if (intersects.length > 0) {
-            let firstIntersectedObject = intersects[0].object;
-            while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
-                firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
-            }
-            const clickedObjectId = firstIntersectedObject.name;
+        if (intersection && intersection.object && intersection.face && intersection.normal && sceneRef.current) {
+            const clickedMesh = intersection.object as THREE.Mesh;
+            const clickedObjectId = clickedMesh.name;
             const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
 
-            if (clickedSceneObject && clickedSceneObject.type === 'cube') {
-                toast({
-                    title: "Push/Pull: Cube Selected",
-                    description: `Object: ${clickedSceneObject.name}. Further face interaction is planned.`,
-                });
-                setDrawingState({
-                    isActive: true, // Placeholder to potentially disable orbit controls
-                    tool: 'pushpull',
-                    pushPullFaceInfo: { objectId: clickedObjectId }
+            if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane')) {
+                const localFaceNormal = intersection.normal.clone(); // Normal is in local space of the intersected object part
+                const worldFaceNormal = localFaceNormal.clone().applyMatrix3(clickedMesh.normalMatrix).normalize();
+                const initialLocalIntersectPoint = clickedMesh.worldToLocal(intersection.point.clone());
+
+                const pushPullInfo: PushPullFaceInfo = {
+                    objectId: clickedObjectId,
+                    initialMeshWorldPosition: clickedMesh.position.toArray() as [number, number, number],
+                    initialLocalIntersectPoint: initialLocalIntersectPoint.toArray() as [number,number,number],
+                    localFaceNormal: localFaceNormal.toArray() as [number,number,number],
+                    worldFaceNormal: worldFaceNormal.toArray() as [number,number,number],
+                    originalDimensions: { ...clickedSceneObject.dimensions },
+                    originalPosition: [...clickedSceneObject.position] as [number, number, number],
+                    originalType: clickedSceneObject.type,
+                };
+                setDrawingState({ 
+                    isActive: true, 
+                    tool: 'pushpull', 
+                    pushPullFaceInfo: pushPullInfo 
                 });
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
-
-            } else if (clickedSceneObject) {
-                toast({ 
-                    title: "Push/Pull Tool", 
-                    description: "This tool currently interacts with Cube objects. Select a cube.", 
-                });
+                selectObject(clickedObjectId); // Ensure the object is selected for property panel
+                toast({ title: "Push/Pull Started", description: `Interacting with ${clickedSceneObject.name}. Drag to modify.` });
+            } else {
+                toast({ title: "Push/Pull Tool", description: "Select a face of a Cube or Rectangle (Plane) to push/pull.", variant: "default" });
             }
+        } else {
+             toast({ title: "Push/Pull Tool", description: "Click on a face of a Cube or Rectangle.", variant: "default" });
         }
     }
 
 
-  }, [activeTool, getMousePositionOnXZPlane, setDrawingState, drawingState.startPoint, toast, setActiveTool, objects]);
+  }, [activeTool, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, drawingState, toast, setActiveTool, objects, selectObject]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
     if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current) {
@@ -282,7 +307,7 @@ const SceneViewer: React.FC = () => {
 
         const points = [
             startVec.x, startVec.y, startVec.z,   endVec.x, startVec.y, startVec.z,
-            endVec.x, startVec.y, startVec.z,     endVec.x, startVec.y, endVec.z, // Use startVec.y for flat rectangle on XZ plane
+            endVec.x, startVec.y, startVec.z,     endVec.x, startVec.y, endVec.z, 
             endVec.x, startVec.y, endVec.z,         startVec.x, startVec.y, endVec.z,
             startVec.x, startVec.y, endVec.z,       startVec.x, startVec.y, startVec.z,
         ];
@@ -296,14 +321,77 @@ const SceneViewer: React.FC = () => {
             const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
             tempMeasureLineRef.current.geometry.setFromPoints([startVec, currentMovePoint]);
             tempMeasureLineRef.current.geometry.computeBoundingSphere();
-            // Optionally, display live distance in UI if needed
         }
-    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
-        // Placeholder for push/pull dragging logic (currently just keeps orbit disabled)
+    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && cameraRef.current) {
+        const { objectId, initialMeshWorldPosition, initialLocalIntersectPoint, worldFaceNormal, originalDimensions, originalPosition, originalType } = drawingState.pushPullFaceInfo;
+        
+        const targetPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+            new THREE.Vector3().fromArray(worldFaceNormal),
+            new THREE.Vector3().fromArray(initialMeshWorldPosition).add(new THREE.Vector3().fromArray(initialLocalIntersectPoint)) // This might need adjustment if initialLocalIntersectPoint is already world
+        );
+        
+        const currentIntersection = getMouseIntersection(event, targetPlane);
+
+        if (currentIntersection) {
+            const initialWorldIntersectVec = new THREE.Vector3().fromArray(initialMeshWorldPosition).add(new THREE.Vector3().fromArray(initialLocalIntersectPoint).applyMatrix4(new THREE.Matrix4().setPosition(...initialMeshWorldPosition))); // More robust world intersect point
+            
+            // For push pull, we need to calculate the displacement along the worldFaceNormal
+            // Project the current mouse point (on the interaction plane) onto the worldFaceNormal vector
+            // that originates from the initial intersection point.
+            const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
+            const pushPullAmount = dragVector.dot(new THREE.Vector3().fromArray(worldFaceNormal));
+
+            let newDimensions: SceneObjectDimensions = { ...originalDimensions };
+            let newPositionArray = [...originalPosition] as [number, number, number];
+            let newType: PrimitiveType = originalType;
+            let newRotationArray: [number, number, number] | undefined = undefined;
+
+
+            if (originalType === 'cube') {
+                const localNormal = new THREE.Vector3().fromArray(drawingState.pushPullFaceInfo.localFaceNormal);
+                // Determine dominant axis of local normal
+                const absX = Math.abs(localNormal.x);
+                const absY = Math.abs(localNormal.y);
+                const absZ = Math.abs(localNormal.z);
+
+                if (absX > absY && absX > absZ) { // X-face
+                    newDimensions.width = Math.max(0.01, (originalDimensions.width || 1) + pushPullAmount * Math.sign(localNormal.x));
+                    newPositionArray[0] = originalPosition[0] + (pushPullAmount * Math.sign(localNormal.x) / 2);
+                } else if (absY > absX && absY > absZ) { // Y-face
+                    newDimensions.height = Math.max(0.01, (originalDimensions.height || 1) + pushPullAmount * Math.sign(localNormal.y));
+                    newPositionArray[1] = originalPosition[1] + (pushPullAmount * Math.sign(localNormal.y) / 2);
+                } else { // Z-face
+                    newDimensions.depth = Math.max(0.01, (originalDimensions.depth || 1) + pushPullAmount * Math.sign(localNormal.z));
+                    newPositionArray[2] = originalPosition[2] + (pushPullAmount * Math.sign(localNormal.z) / 2);
+                }
+            } else if (originalType === 'plane') {
+                newType = 'cube';
+                const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount));
+                newDimensions = {
+                    width: originalDimensions.width || 1, // from plane
+                    height: extrusionHeight, // new dimension
+                    depth: originalDimensions.height || 1, // from plane's "height"
+                };
+                 // Adjust position based on extrusion direction (worldFaceNormal)
+                const extrusionOffset = new THREE.Vector3().fromArray(worldFaceNormal).multiplyScalar(pushPullAmount / 2);
+                newPositionArray = [
+                    originalPosition[0] + extrusionOffset.x,
+                    originalPosition[1] + extrusionOffset.y,
+                    originalPosition[2] + extrusionOffset.z,
+                ];
+                // When a plane is extruded, its original rotation (likely to make it XZ) is no longer needed for the cube.
+                newRotationArray = [0,0,0];
+            }
+            
+            const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray };
+            if (newType !== originalType) updates.type = newType;
+            if (newRotationArray) updates.rotation = newRotationArray;
+            
+            updateObject(objectId, updates);
+        }
     }
 
-
-  }, [activeTool, drawingState, getMousePositionOnXZPlane, setDrawingState]);
+  }, [activeTool, drawingState, getMousePositionOnXZPlane, getMouseIntersection, setDrawingState, updateObject, cameraRef]);
 
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
@@ -318,14 +406,14 @@ const SceneViewer: React.FC = () => {
       if (rectWidth > 0.01 && rectDepth > 0.01) { 
         const centerX = (startPointVec.x + endPointVec.x) / 2;
         const centerZ = (startPointVec.z + endPointVec.z) / 2;
-        const planeYPosition = startPointVec.y; // Use Y from startPoint for rectangle plane
+        const planeYPosition = startPointVec.y; 
         
         const count = objects.filter(o => o.type === 'plane' && o.name.startsWith("Rectangle")).length + 1;
         addObject('plane', {
           name: `Rectangle ${count}`,
           position: [centerX, planeYPosition, centerZ], 
-          rotation: [-Math.PI / 2, 0, 0], // Plane is created in XY, rotate to XZ
-          dimensions: { width: rectWidth, height: rectDepth }, // For PlaneGeometry, height becomes depth on XZ
+          rotation: [-Math.PI / 2, 0, 0], 
+          dimensions: { width: rectWidth, height: rectDepth }, 
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
@@ -341,39 +429,24 @@ const SceneViewer: React.FC = () => {
       return; 
     } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance) {
         // This case is mostly handled by onPointerDown for the second click.
-        // If pointerup happens before second click (e.g. drag ends mid-air),
-        // we might want to cancel or finalize based on currentPoint.
-        // For simplicity, we rely on the second click in onPointerDown.
-        // If we want to cancel on mouse up without second click:
-        // setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null });
-        // if (sceneRef.current && tempMeasureLineRef.current) { ... remove line ... }
-        // setActiveTool('select');
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
-        // Finalize push/pull 
+        const { objectId, originalType } = drawingState.pushPullFaceInfo;
+        const finalObject = objects.find(o => o.id === objectId);
+        toast({ 
+            title: "Push/Pull Complete", 
+            description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Rectangle extruded to a cube.' : ''}` 
+        });
         setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-        setActiveTool('select'); // Switch back to select tool
+        setActiveTool('select'); 
         return;
     }
 
 
-    // Existing click logic for selection, paint, eraser (if not drawing or measuring)
     if (!drawingState.isActive && !transformControlsRef.current?.dragging) {
-      if (!mountRef.current || !cameraRef.current || !sceneRef.current) return;
-      
-      const rect = mountRef.current.getBoundingClientRect();
-      mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-      const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls)), true);
-
-      if (intersects.length > 0) {
-        let firstIntersectedObject = intersects[0].object;
-        while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
-            firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
-        }
-        const clickedObjectId = firstIntersectedObject.name;
+      const intersection = getMouseIntersection(event);
+      if (intersection && intersection.object ) {
+        const clickedObjectId = intersection.object.name;
         const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
 
         if (clickedSceneObject) {
@@ -389,7 +462,7 @@ const SceneViewer: React.FC = () => {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
             setActiveTool('select'); 
-          } else { 
+          } else if (activeTool !== 'pushpull') { // Don't auto-select if pushpull tool is active (selection happens onPointerDown)
             selectObject(clickedObjectId);
           }
         } else { 
@@ -403,7 +476,7 @@ const SceneViewer: React.FC = () => {
          }
       }
     }
-  }, [activeTool, drawingState, getMousePositionOnXZPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
+  }, [activeTool, drawingState, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
 
 
   useEffect(() => {
@@ -426,11 +499,11 @@ const SceneViewer: React.FC = () => {
     const tc = transformControlsRef.current;
     if (!tc || !sceneRef.current) return;
 
-    const isDrawingToolActive = activeTool === 'rectangle' || activeTool === 'line' || activeTool === 'arc' || activeTool === 'tape' || activeTool === 'pushpull';
+    const isDrawingOrModToolActive = activeTool === 'rectangle' || activeTool === 'line' || activeTool === 'arc' || activeTool === 'tape' || activeTool === 'pushpull';
 
     const selectedMesh = selectedObjectId ? sceneRef.current.getObjectByName(selectedObjectId) as THREE.Mesh : null;
 
-    if (selectedMesh && !isDrawingToolActive && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale')) {
+    if (selectedMesh && !isDrawingOrModToolActive && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale')) {
       tc.attach(selectedMesh);
       tc.enabled = true;
       tc.visible = true;
@@ -511,10 +584,12 @@ const SceneViewer: React.FC = () => {
 
       if (mesh) { 
         const isTransforming = transformControlsRef.current?.object === mesh && transformControlsRef.current?.dragging;
+        const isPushPulling = drawingState.isActive && drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === objData.id;
         
-        if (!isTransforming) { 
+        if (!isTransforming && !isPushPulling) { 
           updateMeshProperties(mesh, objData);
         }
+        // Always update material in case its properties changed, even during push/pull or transform
         if(Array.isArray(mesh.material)){
             createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
         } else {
@@ -548,7 +623,7 @@ const SceneViewer: React.FC = () => {
       }
     });
 
-  }, [objects, getMaterialById]);
+  }, [objects, getMaterialById, drawingState.isActive, drawingState.tool, drawingState.pushPullFaceInfo?.objectId]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
@@ -556,8 +631,11 @@ const SceneViewer: React.FC = () => {
       if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current?.children[0] && child !== tempMeasureLineRef.current) { 
         const isSelected = child.name === selectedObjectId;
         const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible && transformControlsRef.current.dragging;
+        const isPushPullTarget = drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === child.name && drawingState.isActive;
+
 
         if (Array.isArray(child.material)) {
+          // Handle array materials if necessary, though current setup uses single material
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
             if (child.userData.originalEmissive === undefined) { 
                 child.userData.originalEmissive = child.material.emissive.clone();
@@ -566,9 +644,9 @@ const SceneViewer: React.FC = () => {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
             }
 
-            if (isSelected && !isTransforming) { 
+            if ((isSelected && !isTransforming && !isPushPullTarget) || (isPushPullTarget && drawingState.isActive)) { 
                 child.material.emissive.setHex(0x00B8D9); 
-                child.material.emissiveIntensity = 0.7; 
+                child.material.emissiveIntensity = isPushPullTarget ? 0.9 : 0.7; // Brighter if actively push/pulling
             } else {
                 if (child.userData.originalEmissive) child.material.emissive.copy(child.userData.originalEmissive);
                 child.material.emissiveIntensity = child.userData.originalEmissiveIntensity ?? 0;
@@ -577,7 +655,7 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-  }, [selectedObjectId, activeTool]); 
+  }, [selectedObjectId, activeTool, drawingState]); 
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;
