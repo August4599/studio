@@ -8,10 +8,7 @@ import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-// const IMPORT_CHUNK_SIZE = 50; // No longer needed for single CAD plan object
-// const IMPORT_CHUNK_DELAY = 50; // No longer needed
-
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
@@ -19,6 +16,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   activePaintMaterialId: string | null | undefined;
   drawingState: DrawingState;
   requestedViewPreset: ViewPreset | null | undefined;
+  zoomExtentsTrigger: number; // Expose the trigger timestamp
   setAppMode: (mode: AppMode) => void;
   addObject: (type: Exclude<PrimitiveType, 'cadPlan'>, initialProps?: Partial<Omit<SceneObject, 'id' | 'type' | 'planData'>>) => SceneObject;
   importCadPlan: (parsedPlan: Partial<SceneObject>) => Promise<SceneObject | null>;
@@ -44,6 +42,8 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   setDrawingState: (newState: Partial<DrawingState>) => void;
   getCurrentSceneData: () => SceneData; 
   setCameraViewPreset: (preset: ViewPreset | null) => void;
+  triggerZoomExtents: () => void; // Function to request zoom extents
+  setZoomExtentsTriggered: () => void; // Function to call after zoom extents is handled
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -51,7 +51,10 @@ const SceneContext = createContext<SceneContextType | undefined>(undefined);
 const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 
 export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
-  const [sceneData, setSceneData] = useState<SceneData>(() => initialSceneOverride || initialSceneDataBlueprint);
+  const [sceneData, setSceneData] = useState<SceneData>(() => {
+    const data = initialSceneOverride || initialSceneDataBlueprint;
+    return { ...data, zoomExtentsTrigger: data.zoomExtentsTrigger || 0 };
+  });
 
   const sceneObjectsRef = useRef(sceneData.objects);
   const sceneMaterialsRef = useRef(sceneData.materials);
@@ -60,7 +63,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
   useEffect(() => {
     if (initialSceneOverride) {
-      setSceneData(initialSceneOverride);
+      setSceneData(prev => ({...prev, ...initialSceneOverride, zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || 0 }));
     }
   }, [initialSceneOverride]);
 
@@ -166,7 +169,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         id: parsedPlan.id || uuidv4(),
         type: 'cadPlan',
         name: parsedPlan.name || 'Imported CAD Plan',
-        position: parsedPlan.position || [0, 0.01, 0], // Default Y slightly above ground
+        position: parsedPlan.position || [0, 0.01, 0], // Default Y slightly above grid
         rotation: parsedPlan.rotation || [0,0,0],
         scale: parsedPlan.scale || [1,1,1],
         dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, // Should be accurately set by parser
@@ -198,7 +201,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             updatedObj.dimensions = { ...obj.dimensions, ...updates.dimensions };
           }
           
-          // Auto-adjust Y position for Y-up objects if height/radius changes and position not explicitly set
           const isYUpObject = ['cube', 'cylinder', 'text', 'sphere', 'cone'].includes(updatedObj.type);
           const isTorus = updatedObj.type === 'torus';
           
@@ -209,16 +211,15 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
           const heightChanged = heightLikeDimensionKey ? (updates.dimensions?.[heightLikeDimensionKey] !== undefined && updates.dimensions?.[heightLikeDimensionKey] !== obj.dimensions[heightLikeDimensionKey]) : false;
           const positionNotExplicitlySet = updates.position === undefined;
-          // Check if object is upright (not significantly rotated on X or Z)
           const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
 
           if ((isYUpObject || isTorus) && heightChanged && positionNotExplicitlySet && isUpright) {
-            updatedObj.position = [...updatedObj.position]; // Create new array for state update
+            updatedObj.position = [...updatedObj.position]; 
             let yPos = 0;
             if (updatedObj.type === 'sphere') yPos = updatedObj.dimensions.radius || 0;
-            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0; // Torus origin is at its center, tube radius affects overall height
+            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0; 
             else yPos = (updatedObj.dimensions.height || 0) / 2;
-            updatedObj.position[1] = Math.max(0.001, yPos); // Ensure Y is not negative or zero for ground objects
+            updatedObj.position[1] = Math.max(0.001, yPos); 
           }
           return updatedObj;
         }
@@ -237,7 +238,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
   const selectObject = useCallback((id: string | null) => {
     setSceneData(prev => {
-      // Preserve drawing state if interacting with the selected object or drawing a new one
       const preserveActiveDrawing = prev.drawingState.isActive &&
                                     (
                                       (prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id) ||
@@ -248,7 +248,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       return {
         ...prev,
         selectedObjectId: id,
-        drawingState: preserveActiveDrawing ? prev.drawingState : { ...prev.drawingState, isActive: false } // Reset drawing if selection changes unrelated to current drawing op
+        drawingState: preserveActiveDrawing ? prev.drawingState : { ...prev.drawingState, isActive: false } 
       };
     });
   }, []);
@@ -281,7 +281,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setSceneData(prev => ({
       ...prev,
       materials: prev.materials.filter(mat => mat.id !== id),
-      // Reassign default material to objects that were using the removed material
       objects: prev.objects.map(obj => obj.materialId === id ? { ...obj, materialId: DEFAULT_MATERIAL_ID } : obj),
       activePaintMaterialId: prev.activePaintMaterialId === id ? null : prev.activePaintMaterialId,
     }));
@@ -325,7 +324,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         newLight = { ...baseLightProps, type, position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5 };
         break;
       default:
-        // Should not happen if type is correctly Exclude<...>
         throw new Error(`Unsupported light type: ${type}`);
     }
     
@@ -356,34 +354,32 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
 
   const loadScene = useCallback((data: SceneData) => {
-    // Basic validation
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
       setSceneData({
-        ...getDefaultSceneData(), // Ensure all default fields are present
+        ...getDefaultSceneData(), 
         ...data, 
-        otherLights: data.otherLights || [], // Ensure otherLights is an array
-        drawingState: data.drawingState || getDefaultSceneData().drawingState, // Ensure drawingState exists
+        otherLights: data.otherLights || [], 
+        drawingState: data.drawingState || getDefaultSceneData().drawingState, 
+        zoomExtentsTrigger: data.zoomExtentsTrigger || 0,
       });
     } else {
       console.error("Invalid scene data provided to loadScene, loading default scene.");
-      setSceneData(getDefaultSceneData()); // Fallback to default if data is malformed
+      setSceneData(getDefaultSceneData()); 
     }
   }, []);
 
   const clearCurrentProjectScene = useCallback(() => {
-    // Resets the scene to its initial default state
     setSceneData(getDefaultSceneData());
   }, []);
   
   const getCurrentSceneData = useCallback((): SceneData => {
-    // Return a copy of the current scene data
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset, zoomExtentsTrigger
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset, zoomExtentsTrigger
     };
   }, [sceneData]);
 
@@ -391,20 +387,18 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const setActiveTool = useCallback((tool: ToolType | undefined) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
-      let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState }; // Reset most drawing state when tool changes
+      let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState }; 
       
       if (tool !== 'paint') {
-        newActivePaintMaterialId = null; // Clear paint material if not paint tool
+        newActivePaintMaterialId = null; 
       }
 
-      // If the new tool is a drawing tool, set it in drawingState
       const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor'];
       if (tool && drawingTools.includes(tool)) {
         newDrawingState.tool = tool as DrawingState['tool'];
-        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6; // Preserve polygon sides
+        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6; 
       }
       
-      // Deselect object if tool is not one that operates on selections or preserves it
       const selectionPreservingTools: ToolType[] = ['select', 'move', 'rotate', 'scale', 'paint', 'pushpull', 'orbit', 'pan', 'zoom', 'zoomExtents', 'axes'];
       let newSelectedObjectId = prev.selectedObjectId;
       if (tool && !selectionPreservingTools.includes(tool)) {
@@ -435,6 +429,14 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const setCameraViewPreset = useCallback((preset: ViewPreset | null) => {
     setSceneData(prev => ({ ...prev, requestedViewPreset: preset }));
   }, []);
+
+  const triggerZoomExtents = useCallback(() => {
+    setSceneData(prev => ({ ...prev, zoomExtentsTrigger: Date.now() }));
+  }, []);
+
+  const setZoomExtentsTriggered = useCallback(() => {
+    setSceneData(prev => ({ ...prev, zoomExtentsTrigger: 0 }));
+  }, []);
   
   const contextValue = useMemo(() => ({
     ...sceneData,
@@ -464,7 +466,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     getCurrentSceneData,
     requestedViewPreset: sceneData.requestedViewPreset,
     setCameraViewPreset,
-  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset]);
+    zoomExtentsTrigger: sceneData.zoomExtentsTrigger || 0,
+    triggerZoomExtents,
+    setZoomExtentsTriggered,
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered]);
 
   return (
     <SceneContext.Provider value={contextValue}>

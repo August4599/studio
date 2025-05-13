@@ -218,6 +218,7 @@ export interface SceneData {
   appMode: AppMode; 
   drawingState: DrawingState;
   requestedViewPreset?: ViewPreset | null; 
+  zoomExtentsTrigger?: number; // Timestamp to trigger zoom extents
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';

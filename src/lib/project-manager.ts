@@ -46,17 +46,19 @@ const initialDirectionalLight: DirectionalLightSceneProps = {
 export const getDefaultSceneData = (): SceneData => ({
   objects: [],
   materials: [initialDefaultMaterial],
-  ambientLight: { // Keep ambient light separate for simplicity or merge into `otherLights`
+  ambientLight: { 
     color: '#ffffff',
     intensity: 0.7,
   },
   directionalLight: initialDirectionalLight,
-  otherLights: [], // Initialize with no other lights
+  otherLights: [], 
   selectedObjectId: null,
   activeTool: 'select',
   activePaintMaterialId: null,
   appMode: 'modelling', 
   drawingState: initialDrawingState,
+  requestedViewPreset: null,
+  zoomExtentsTrigger: 0, // Initialize zoomExtentsTrigger
 });
 
 

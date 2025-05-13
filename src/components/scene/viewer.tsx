@@ -27,7 +27,7 @@ const SceneViewer: React.FC = () => {
   const { toast } = useToast();
   
   const { 
-    objects, 
+    objects: sceneContextObjects, // Renamed to avoid conflict with local `objects` variable if any
     ambientLight: ambientLightProps, 
     directionalLight: directionalLightProps,
     otherLights,
@@ -44,6 +44,8 @@ const SceneViewer: React.FC = () => {
     addObject,
     requestedViewPreset,
     setCameraViewPreset,
+    zoomExtentsTrigger,
+    setZoomExtentsTriggered,
   } = useScene();
 
   const raycaster = useRef(new THREE.Raycaster());
@@ -67,9 +69,8 @@ const SceneViewer: React.FC = () => {
     const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls) && !(c.type === 'PointLightHelper' || c.type === 'SpotLightHelper' || c.type === 'RectAreaLightHelper') && !(c === tempDrawingMeshRef.current) && !(c === tempMeasureLineRef.current) && c.userData.objectType !== 'cadPlan'), true); // Exclude cadPlan from general intersection
     if (intersects.length > 0) {
         let firstIntersectedObject = intersects[0].object;
-        // Traverse up to find the named SceneObject parent if part of a complex mesh
         while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
-            firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh; // Assuming meshes for now
+            firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh; 
         }
         return { 
             point: intersects[0].point, 
@@ -83,13 +84,12 @@ const SceneViewer: React.FC = () => {
 
 
   const getMousePositionOnXZPlane = useCallback((event: PointerEvent): THREE.Vector3 | null => {
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // XZ plane at Y=0
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
     const intersection = getMouseIntersection(event, plane);
     return intersection ? intersection.point : null;
   }, [getMouseIntersection]);
 
 
-  // Initialize Three.js scene
   useEffect(() => {
     if (!mountRef.current) return;
     const currentMount = mountRef.current;
@@ -119,14 +119,13 @@ const SceneViewer: React.FC = () => {
       orbitControls.enabled = !event.value;
     });
     transformControls.addEventListener('mouseUp', () => {
-      if (transformControls.object && transformControls.object instanceof THREE.Mesh) { // Ensure it's a mesh
+      if (transformControls.object && transformControls.object instanceof THREE.Mesh) { 
         const obj = transformControls.object as THREE.Mesh; 
-        const sceneObj = objects.find(o => o.id === obj.name); 
+        const sceneObj = sceneContextObjects.find(o => o.id === obj.name); 
         if (sceneObj) {
           const newPosition = obj.position.toArray() as [number, number, number];
           const newRotation = [obj.rotation.x, obj.rotation.y, obj.rotation.z] as [number, number, number];
           const newScale = obj.scale.toArray() as [number, number, number];
-          // Validate scale to prevent zero or negative values that can cause issues
           const validatedScale: [number, number, number] = [
             Math.max(0.001, newScale[0]),
             Math.max(0.001, newScale[1]),
@@ -176,7 +175,6 @@ const SceneViewer: React.FC = () => {
       }
       scene.remove(transformControls);
       
-      // Cleanup temporary drawing/measuring lines
       if (tempDrawingMeshRef.current && sceneRef.current) {
         sceneRef.current.remove(tempDrawingMeshRef.current);
         tempDrawingMeshRef.current.geometry.dispose();
@@ -189,7 +187,6 @@ const SceneViewer: React.FC = () => {
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
       }
-      // Cleanup light helpers
       scene.children
         .filter(obj => obj.name && obj.name.endsWith('_helper')) 
         .forEach(helper => {
@@ -207,18 +204,15 @@ const SceneViewer: React.FC = () => {
       const drawingToolActive = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'].includes(activeTool || '');
       const measureToolActive = ['tape', 'protractor'].includes(activeTool || '');
 
-      // Cleanup temp drawing mesh if tool is no longer active
       if (!drawingToolActive && tempDrawingMeshRef.current) {
         sceneRef.current.remove(tempDrawingMeshRef.current);
         tempDrawingMeshRef.current.geometry.dispose();
         (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         tempDrawingMeshRef.current = null;
-        // Reset drawing state if it was active for a drawing tool
         if (drawingState.isActive && ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'].includes(drawingState.tool || '')) {
           setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
         }
       }
-      // Cleanup temp measure line if tool is no longer active
       if (!measureToolActive && tempMeasureLineRef.current) {
         sceneRef.current.remove(tempMeasureLineRef.current);
         tempMeasureLineRef.current.geometry.dispose();
@@ -296,12 +290,10 @@ const SceneViewer: React.FC = () => {
                     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
                     setActiveTool('select');
                 } else { 
-                    // For protractor, this click sets the first leg.
                     setDrawingState({ 
                       currentPoint: pointOnXZ.toArray() as [number, number, number],
                       measureDistance: distance 
                     });
-                    // Protractor logic for second leg/angle would continue in pointerMove/Up based on this state
                 }
             }
         }
@@ -309,7 +301,7 @@ const SceneViewer: React.FC = () => {
         if (intersection && intersection.object && intersection.face && intersection.normal && sceneRef.current) {
             const clickedMesh = intersection.object as THREE.Mesh;
             const clickedObjectId = clickedMesh.name;
-            const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
+            const clickedSceneObject = sceneContextObjects.find(o => o.id === clickedObjectId);
 
             if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane' || clickedSceneObject.type === 'cylinder' || clickedSceneObject.type === 'polygon')) { 
                 const localFaceNormal = intersection.face.normal.clone(); 
@@ -343,7 +335,7 @@ const SceneViewer: React.FC = () => {
              toast({ title: "Push/Pull Tool", description: "Click on a face of a compatible object.", variant: "default" });
         }
     }
-  }, [activeTool, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, drawingState, toast, setActiveTool, objects, selectObject]);
+  }, [activeTool, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, drawingState, toast, setActiveTool, sceneContextObjects, selectObject]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
     if (drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) {
@@ -370,16 +362,14 @@ const SceneViewer: React.FC = () => {
                 const angle = (i / segments) * Math.PI * 2;
                 points.push(startVec.x + radius * Math.cos(angle), startVec.y, startVec.z + radius * Math.sin(angle));
                 if (i > 0) { 
-                     // Connect to previous point to form segments
                      const prevAngle = ((i - 1) / segments) * Math.PI * 2;
                      points.push(startVec.x + radius * Math.cos(prevAngle), startVec.y, startVec.z + radius * Math.sin(prevAngle));
                 }
             }
-            // Ensure the polygon/circle closes properly by connecting last to first segment point for LineSegments
-            if (points.length > 3 && activeTool === 'polygon') { // For polygon, explicitly connect last point to first
-                points.push(points[points.length-3], points[points.length-2], points[points.length-1]); // Last point
-                points.push(points[0], points[1], points[2]); // First point
-            } else if (points.length > 3 && activeTool === 'circle') { // For circle, last segment point already pushed, needs connection to first.
+            if (points.length > 3 && activeTool === 'polygon') { 
+                points.push(points[points.length-3], points[points.length-2], points[points.length-1]); 
+                points.push(points[0], points[1], points[2]); 
+            } else if (points.length > 3 && activeTool === 'circle') { 
                  points.push(points[points.length-3], points[points.length-2], points[points.length-1]);
                  points.push(points[0], points[1], points[2]);
             }
@@ -387,7 +377,7 @@ const SceneViewer: React.FC = () => {
         
         if (points.length > 0) {
             tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-            tempDrawingMeshRef.current.geometry.computeBoundingSphere(); // Important for visibility
+            tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
         }
       }
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool) {
@@ -411,13 +401,11 @@ const SceneViewer: React.FC = () => {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); 
             
-            // Correct direction if local normal opposes world normal (e.g., inside face)
             if (worldFaceNormalVec.dot(localFaceNormalVec) < 0) {
                  pushPullAmount = -pushPullAmount;
             }
 
-            // Increase sensitivity for more noticeable changes
-            const sensitivityFactor = 1.0; // Adjusted for potentially better user experience
+            const sensitivityFactor = 1.0; 
             pushPullAmount *= sensitivityFactor;
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
@@ -427,23 +415,20 @@ const SceneViewer: React.FC = () => {
 
             if (originalType === 'cube' || originalType === 'cylinder' || originalType === 'polygon') {
                 let dimensionToModify: 'width' | 'height' | 'depth' | 'radius' | undefined;
-                let isAxialPush = false; // True if pushing along the main axis (e.g., height of cylinder)
+                let isAxialPush = false; 
 
-                // Determine which dimension to modify based on face normal
                 if (originalType === 'cube' || ( (originalType === 'cylinder' || originalType === 'polygon') && (Math.abs(localFaceNormalVec.x) > 0.9 || Math.abs(localFaceNormalVec.z) > 0.9) ) ) { 
-                    // For cube, or radial faces of cylinder/polygon
                     const absX = Math.abs(localFaceNormalVec.x);
-                    const absY = Math.abs(localFaceNormalVec.y); // Should be near 0 for side faces
+                    const absY = Math.abs(localFaceNormalVec.y); 
                     const absZ = Math.abs(localFaceNormalVec.z);
                     if (originalType === 'cube') {
-                      if (absX > absY && absX > absZ) dimensionToModify = 'width'; // X-face
-                      else if (absY > absX && absY > absZ) dimensionToModify = 'height'; // Y-face
-                      else if (absZ > absX && absZ > absY) dimensionToModify = 'depth'; // Z-face
-                    } else { // Radial face of cylinder/polygon
+                      if (absX > absY && absX > absZ) dimensionToModify = 'width'; 
+                      else if (absY > absX && absY > absZ) dimensionToModify = 'height'; 
+                      else if (absZ > absX && absZ > absY) dimensionToModify = 'depth'; 
+                    } else { 
                         dimensionToModify = 'radius'; 
                     }
                 } else if ((originalType === 'cylinder' || originalType === 'cone' || originalType === 'polygon') && Math.abs(localFaceNormalVec.y) > 0.9) { 
-                    // Top/bottom face of cylinder/cone/polygon
                     dimensionToModify = 'height';
                     isAxialPush = true;
                 }
@@ -451,23 +436,21 @@ const SceneViewer: React.FC = () => {
                 if (dimensionToModify) {
                   let currentDim: number;
                   if (dimensionToModify === 'radius') { 
-                      // For cylinder/polygon, radius affects both top/bottom or general radius
                       currentDim = (originalType === 'cylinder' ? (originalDimensions.radiusTop ?? originalDimensions.radiusBottom ?? 1) : (originalDimensions.radius ?? 1));
                       const newRadius = Math.max(0.01, currentDim + pushPullAmount); 
                       if (originalType === 'cylinder') {
                           newDimensions.radiusTop = newRadius;
                           newDimensions.radiusBottom = newRadius;
-                      } else { // Polygon
+                      } else { 
                           newDimensions.radius = newRadius;
                       }
-                  } else { // width, height, depth
+                  } else { 
                     currentDim = originalDimensions[dimensionToModify as 'width'|'height'|'depth'] || 1;
                     newDimensions[dimensionToModify as 'width'|'height'|'depth'] = Math.max(0.01, currentDim + pushPullAmount);
                   }
                 }
                 
-                // Adjust position if pushing along an axis (center of object moves)
-                if (isAxialPush || originalType === 'cube') { // Cubes always adjust position
+                if (isAxialPush || originalType === 'cube') { 
                     const positionOffset = localFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                     newPositionArray = [
                         originalPosition[0] + positionOffset.x,
@@ -478,22 +461,19 @@ const SceneViewer: React.FC = () => {
 
 
             } else if (originalType === 'plane') {
-                // Extrude plane into a cube
-                newType = 'cube'; // Convert plane to cube
+                newType = 'cube'; 
                 const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount)); 
                 newDimensions = { 
                     width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, // Plane's 'height' becomes cube's 'depth'
-                    height: extrusionHeight, // Cube's 'height' is the extrusion amount
+                    depth: originalDimensions.height || 1, 
+                    height: extrusionHeight, 
                 };
-                // Offset position by half the extrusion amount along the normal
                 const extrusionOffset = localFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 newPositionArray = [
                     originalPosition[0] + extrusionOffset.x,
                     originalPosition[1] + extrusionOffset.y,
                     originalPosition[2] + extrusionOffset.z,
                 ];
-                // If plane was flat on XZ (rotated -PI/2 on X), reset rotation for cube
                 if(originalRotation[0] === -Math.PI / 2 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01){
                     newRotationArray = [0,0,0];
                 }
@@ -522,22 +502,21 @@ const SceneViewer: React.FC = () => {
         if (rectWidth > 0.01 && rectDepth > 0.01) { 
             primitiveType = 'plane';
             newObjProps = {
-                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], // Center of the plane
-                rotation: [-Math.PI / 2, 0, 0], // Rotate to be flat on XZ plane
-                dimensions: { width: rectWidth, height: rectDepth }, // Plane's height is depth in 3D
+                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], 
+                rotation: [-Math.PI / 2, 0, 0], 
+                dimensions: { width: rectWidth, height: rectDepth }, 
             };
         }
       } else if (tool === 'circle' || tool === 'polygon') {
           const radius = startPointVec.distanceTo(endPointVec);
           if (radius > 0.01) {
-              primitiveType = tool === 'circle' ? 'plane' : 'polygon'; // Use plane for circle, polygon for N-sided
+              primitiveType = tool === 'circle' ? 'plane' : 'polygon'; 
               newObjProps = {
-                  position: [startPointVec.x, 0, startPointVec.z], // Center of the shape
-                  rotation: [-Math.PI / 2, 0, 0], // Rotate to be flat on XZ plane
+                  position: [startPointVec.x, 0, startPointVec.z], 
+                  rotation: [-Math.PI / 2, 0, 0], 
                   dimensions: tool === 'circle' ? { width: radius * 2, height: radius * 2, radialSegments: 32 } : { radius: radius, sides: drawingState.polygonSides || 6 }
-                  // For 'plane' (used for circle), width/height are diameter. For 'polygon', it's radius and sides.
               };
-              if (tool === 'circle') { // Ensure 'plane' used for circle has consistent width/height for its diameter
+              if (tool === 'circle') { 
                 newObjProps.dimensions = { width: radius * 2, height: radius * 2 };
               }
           }
@@ -552,13 +531,10 @@ const SceneViewer: React.FC = () => {
       setActiveTool('select'); 
       return; 
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
-        // For tape/protractor, if this is the first click (measureDistance is null), it sets the start.
-        // The second click (handled in onPointerDown) completes it.
-        // So, pointerUp here for the first point might not need to do much beyond what onPointerDown did.
         return; 
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
-        const finalObject = objects.find(o => o.id === objectId);
+        const finalObject = sceneContextObjects.find(o => o.id === objectId);
         toast({ 
             title: "Push/Pull Complete", 
             description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Plane extruded to a cube.' : ''}` 
@@ -569,12 +545,11 @@ const SceneViewer: React.FC = () => {
     }
 
 
-    // General object selection/interaction if not in an active drawing/modification state
     if (!drawingState.isActive && !transformControlsRef.current?.dragging) {
       const intersection = getMouseIntersection(event);
-      if (intersection && intersection.object && !(intersection.object instanceof THREE.GridHelper) && intersection.object.userData.objectType !== 'cadPlan') { // Ensure not grid or CAD plan
+      if (intersection && intersection.object && !(intersection.object instanceof THREE.GridHelper) && intersection.object.userData.objectType !== 'cadPlan') { 
         const clickedObjectId = intersection.object.name;
-        const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
+        const clickedSceneObject = sceneContextObjects.find(o => o.id === clickedObjectId);
 
         if (clickedSceneObject) {
           if (activeTool === 'paint' && activePaintMaterialId) {
@@ -590,24 +565,20 @@ const SceneViewer: React.FC = () => {
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
             setActiveTool('select'); 
           } else if (activeTool !== 'pushpull' && !['tape', 'protractor', 'rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) { 
-            // Select object if not using a tool that requires specific interaction (like pushpull start)
-            // or a drawing tool.
             selectObject(clickedObjectId);
           }
         } else { 
-          // Clicked on something in scene not in our 'objects' list or it's a CAD plan
           if (activeTool === 'select' || activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') {
-             selectObject(null); // Deselect if clicked on empty space or non-selectable
+             selectObject(null); 
           }
         }
       } else { 
-         // Clicked on empty space
          if (activeTool === 'select' || activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') {
             selectObject(null);
          }
       }
     }
-  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
+  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
 
 
   useEffect(() => {
@@ -626,7 +597,6 @@ const SceneViewer: React.FC = () => {
   }, [onPointerDown, onPointerMove, onPointerUp]);
 
 
-  // Manage Transform Controls
   useEffect(() => {
     const tc = transformControlsRef.current;
     if (!tc || !sceneRef.current) return;
@@ -642,7 +612,7 @@ const SceneViewer: React.FC = () => {
         case 'move': tc.mode = 'translate'; break;
         case 'rotate': tc.mode = 'rotate'; break;
         case 'scale': tc.mode = 'scale'; break;
-        default: break; // Should not happen if conditions met
+        default: break; 
       }
     } else {
       if(tc.object) tc.detach(); 
@@ -651,12 +621,10 @@ const SceneViewer: React.FC = () => {
     }
   }, [activeTool, selectedObjectId]);
 
-  // Manage Lights
   useEffect(() => {
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
 
-    // Ambient Light
     let ambientLight = scene.getObjectByName('ambientLight') as THREE.AmbientLight;
     if (!ambientLight) {
       ambientLight = new THREE.AmbientLight(ambientLightProps.color, ambientLightProps.intensity);
@@ -667,7 +635,6 @@ const SceneViewer: React.FC = () => {
       ambientLight.intensity = ambientLightProps.intensity;
     }
 
-    // Directional Light
     let dirLight = scene.getObjectByName(directionalLightProps.id) as THREE.DirectionalLight;
     let dirLightHelper = scene.getObjectByName(`${directionalLightProps.id}_helper`) as THREE.DirectionalLightHelper;
 
@@ -686,14 +653,13 @@ const SceneViewer: React.FC = () => {
     dirLight.castShadow = directionalLightProps.castShadow;
     dirLight.shadow.bias = directionalLightProps.shadowBias;
     dirLight.visible = directionalLightProps.visible ?? true;
-    if (dirLight.target) dirLight.target.position.set(0,0,0); // Ensure target is at origin or configurable
+    if (dirLight.target) dirLight.target.position.set(0,0,0); 
     
     if (dirLightHelper) {
       dirLightHelper.visible = directionalLightProps.visible ?? true; 
       dirLightHelper.update();
     }
 
-    // Shadow properties for directional light
     if (directionalLightProps.castShadow) {
       dirLight.shadow.mapSize.width = 2048; 
       dirLight.shadow.mapSize.height = 2048;
@@ -707,9 +673,8 @@ const SceneViewer: React.FC = () => {
     }
 
 
-    // Other Lights (Point, Spot, Area)
     const existingLightIdsInThree = scene.children
-      .filter(child => child instanceof THREE.Light && child.name !== 'ambientLight' && child.name !== directionalLightProps.id && !(child instanceof THREE.HemisphereLight) ) // Exclude HemisphereLight if not managed
+      .filter(child => child instanceof THREE.Light && child.name !== 'ambientLight' && child.name !== directionalLightProps.id && !(child instanceof THREE.HemisphereLight) ) 
       .map(child => child.name);
     const contextLightIds = (otherLights || []).map(l => l.id);
 
@@ -728,30 +693,27 @@ const SceneViewer: React.FC = () => {
              if ((lightObject as THREE.SpotLight).target && !(lightObject as THREE.SpotLight).target.parent) scene.add((lightObject as THREE.SpotLight).target);
             helper = new THREE.SpotLightHelper(lightObject as THREE.SpotLight);
             break;
-          case 'area': // RectAreaLight
+          case 'area': 
             lightObject = new THREE.RectAreaLight();
-            // RectAreaLights need a helper from 'three/examples/jsm/helpers/RectAreaLightHelper.js'
             helper = new RectAreaLightHelper(lightObject as THREE.RectAreaLight);
             break;
-          default: return; // Should not happen with typed SceneLight
+          default: return; 
         }
         lightObject.name = lightData.id;
         scene.add(lightObject);
         if (helper) { helper.name = `${lightData.id}_helper`; scene.add(helper); }
       }
 
-      // Common properties
       lightObject.color.set(lightData.color);
       lightObject.intensity = lightData.intensity;
       lightObject.visible = lightData.visible ?? true;
       if(helper) helper.visible = lightData.visible ?? true;
 
 
-      // Type-specific properties
       if (lightObject instanceof THREE.PointLight && lightData.type === 'point') {
         lightObject.position.set(...(lightData as PointLightSceneProps).position);
         lightObject.distance = (lightData as PointLightSceneProps).distance || 0;
-        lightObject.decay = (lightData as PointLightSceneProps).decay || 2; // Physical decay for point/spot
+        lightObject.decay = (lightData as PointLightSceneProps).decay || 2; 
         lightObject.castShadow = (lightData as PointLightSceneProps).castShadow || false;
         if (lightObject.castShadow) lightObject.shadow.bias = (lightData as PointLightSceneProps).shadowBias || 0;
       } else if (lightObject instanceof THREE.SpotLight && lightData.type === 'spot') {
@@ -768,12 +730,10 @@ const SceneViewer: React.FC = () => {
         if ((lightData as AreaLightSceneProps).rotation) lightObject.rotation.set(...((lightData as AreaLightSceneProps).rotation!));
         lightObject.width = (lightData as AreaLightSceneProps).width || 1;
         lightObject.height = (lightData as AreaLightSceneProps).height || 1;
-        // RectAreaLights do not cast shadows in standard Three.js
       }
       if (typeof (helper as any)?.update === 'function') (helper as any).update();
     });
 
-    // Remove lights from Three.js scene that are no longer in context
     existingLightIdsInThree.forEach(id => {
       if (!contextLightIds.includes(id)) {
         const lightToRemove = scene.getObjectByName(id);
@@ -789,7 +749,6 @@ const SceneViewer: React.FC = () => {
   }, [ambientLightProps, directionalLightProps, otherLights]);
 
 
-  // Manage Scene Objects (Meshes and CAD Plans)
   useEffect(() => {
     if (!sceneRef.current || !getMaterialById) return;
     const scene = sceneRef.current;
@@ -798,24 +757,22 @@ const SceneViewer: React.FC = () => {
       .filter(child => child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current) )
       .map(child => child.name);
       
-    const contextObjectIds = objects.map(obj => obj.id);
+    const contextObjectIds = sceneContextObjects.map(obj => obj.id);
 
-    objects.forEach(objData => {
+    sceneContextObjects.forEach(objData => {
       let meshOrGroup = scene.getObjectByName(objData.id) as THREE.Mesh | THREE.Group;
       const materialProps = getMaterialById(objData.materialId);
       
-      if (!materialProps && objData.type !== 'cadPlan') { // CAD plan might use default line color logic
+      if (!materialProps && objData.type !== 'cadPlan') { 
         console.warn(`Material ${objData.materialId} not found for object ${objData.id}, using default or skipping.`);
-        // return; // Or apply a fallback if critical
       }
 
-      if (meshOrGroup) { // Object exists in Three.js scene
+      if (meshOrGroup) { 
         if (objData.type === 'cadPlan') {
             meshOrGroup.visible = objData.visible ?? true;
             meshOrGroup.position.set(...objData.position);
             meshOrGroup.rotation.set(...objData.rotation);
             meshOrGroup.scale.set(...objData.scale);
-            // Update line color if material changes
             if (materialProps && meshOrGroup instanceof THREE.Group) {
                 meshOrGroup.children.forEach(child => {
                     if (child instanceof THREE.LineSegments && child.material instanceof THREE.LineBasicMaterial) {
@@ -824,9 +781,7 @@ const SceneViewer: React.FC = () => {
                     }
                 });
             }
-            // Note: If objData.planData changes, the geometry needs to be rebuilt. 
-            // This is complex for an update; typically CAD plans are static once imported.
-        } else if (meshOrGroup instanceof THREE.Mesh) { // Standard 3D primitive
+        } else if (meshOrGroup instanceof THREE.Mesh) { 
             const isTransforming = transformControlsRef.current?.object === meshOrGroup && transformControlsRef.current?.dragging;
             const isPushPulling = drawingState.isActive && drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === objData.id;
             
@@ -845,27 +800,26 @@ const SceneViewer: React.FC = () => {
               }
             }
         }
-      } else { // Object needs to be created
+      } else { 
         if (objData.type === 'cadPlan' && objData.planData) {
             const planGroup = new THREE.Group();
             planGroup.name = objData.id;
-            planGroup.userData = { objectType: 'cadPlan' }; // Mark for easy identification
+            planGroup.userData = { objectType: 'cadPlan' }; 
 
             const cadMaterial = new THREE.LineBasicMaterial({
-                color: materialProps?.color || 0x888888, // Default to gray if material not found
-                linewidth: 1, // Note: linewidth > 1 might not be supported on all systems/drivers
-                depthTest: true, // Render with depth considerations
+                color: materialProps?.color || 0x888888, 
+                linewidth: 1, 
+                depthTest: true, 
             });
 
             const points: THREE.Vector3[] = [];
             objData.planData.lines.forEach(line => {
-                // Lines are already normalized to plan's local origin, Y is 0
                 points.push(new THREE.Vector3(line.start[0], 0, line.start[1]));
                 points.push(new THREE.Vector3(line.end[0], 0, line.end[1]));
             });
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             const lineSegments = new THREE.LineSegments(geometry, cadMaterial);
-            lineSegments.renderOrder = 0; // Render with other opaque objects
+            lineSegments.renderOrder = 0; 
             
             planGroup.add(lineSegments);
             planGroup.position.set(...objData.position);
@@ -873,7 +827,7 @@ const SceneViewer: React.FC = () => {
             planGroup.scale.set(...objData.scale);
             planGroup.visible = objData.visible ?? true;
             scene.add(planGroup);
-        } else if (objData.type !== 'cadPlan' && materialProps) { // Standard 3D primitive
+        } else if (objData.type !== 'cadPlan' && materialProps) { 
             const material = createOrUpdateMaterial(materialProps);
             const newMesh = createPrimitive(objData, material);
             scene.add(newMesh);
@@ -881,7 +835,6 @@ const SceneViewer: React.FC = () => {
       }
     });
 
-    // Remove objects from Three.js scene that are no longer in context
     existingObjectIdsInThree.forEach(id => {
       if (!contextObjectIds.includes(id)) {
         const objectToRemove = scene.getObjectByName(id);
@@ -897,7 +850,6 @@ const SceneViewer: React.FC = () => {
               objectToRemove.material.dispose();
             }
           } else if (objectToRemove instanceof THREE.Group && objectToRemove.userData.objectType === 'cadPlan') {
-            // Cleanup CAD Plan group
             objectToRemove.children.forEach(child => {
                 if (child instanceof THREE.LineSegments) {
                     child.geometry.dispose();
@@ -911,9 +863,8 @@ const SceneViewer: React.FC = () => {
       }
     });
 
-  }, [objects, getMaterialById, drawingState.isActive, drawingState.tool, drawingState.pushPullFaceInfo?.objectId]);
+  }, [sceneContextObjects, getMaterialById, drawingState.isActive, drawingState.tool, drawingState.pushPullFaceInfo?.objectId]);
 
-  // Selection Highlighting Effect
   useEffect(() => {
     if (!sceneRef.current) return;
     sceneRef.current.children.forEach(child => {
@@ -924,9 +875,7 @@ const SceneViewer: React.FC = () => {
 
 
         if (Array.isArray(child.material)) {
-          // Handle array materials if necessary (e.g., MultiMaterialObject)
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
-            // Store original emissive if not already stored
             if (child.userData.originalEmissive === undefined) { 
                 child.userData.originalEmissive = child.material.emissive.getHex(); 
             }
@@ -934,12 +883,11 @@ const SceneViewer: React.FC = () => {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
             }
 
-            if ((isSelected && !isTransforming && !isPushPullTarget) || (isPushPullTarget && drawingState.isActive)) { // Highlight conditions
-                child.material.emissive.setHex(0x00B8D9); // Example highlight color
+            if ((isSelected && !isTransforming && !isPushPullTarget) || (isPushPullTarget && drawingState.isActive)) { 
+                child.material.emissive.setHex(0x00B8D9); 
                 child.material.emissiveIntensity = isPushPullTarget ? 0.9 : 0.7;
             } else {
-                // Restore original emissive properties
-                const originalMaterial = getMaterialById(objects.find(o => o.id === child.name)?.materialId || DEFAULT_MATERIAL_ID);
+                const originalMaterial = getMaterialById(sceneContextObjects.find(o => o.id === child.name)?.materialId || DEFAULT_MATERIAL_ID);
                 if (originalMaterial?.emissive && originalMaterial.emissive !== '#000000') {
                     child.material.emissive.set(originalMaterial.emissive);
                     child.material.emissiveIntensity = originalMaterial.emissiveIntensity ?? 0;
@@ -952,9 +900,8 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-  }, [selectedObjectId, activeTool, drawingState, objects, getMaterialById]); 
+  }, [selectedObjectId, activeTool, drawingState, sceneContextObjects, getMaterialById]); 
 
-  // Camera View Preset Handler
   useEffect(() => {
     if (!requestedViewPreset || !cameraRef.current || !orbitControlsRef.current) return;
 
@@ -1005,6 +952,60 @@ const SceneViewer: React.FC = () => {
     controls.update();
     setCameraViewPreset(null); 
   }, [requestedViewPreset, setCameraViewPreset, cameraRef, orbitControlsRef]);
+
+  useEffect(() => {
+    if (zoomExtentsTrigger > 0 && cameraRef.current && orbitControlsRef.current && sceneRef.current) {
+      const scene = sceneRef.current;
+      const camera = cameraRef.current;
+      const controls = orbitControlsRef.current;
+
+      const overallBoundingBox = new THREE.Box3();
+      let objectsFound = false;
+
+      sceneContextObjects.forEach(objData => {
+        const threeObject = scene.getObjectByName(objData.id);
+        if (threeObject && threeObject.visible && 
+            threeObject !== tempDrawingMeshRef.current &&
+            threeObject !== tempMeasureLineRef.current &&
+            threeObject.name !== 'gridHelper'
+           ) {
+          const objectBox = new THREE.Box3().setFromObject(threeObject);
+          if (!objectBox.isEmpty()) {
+            overallBoundingBox.expandByObject(threeObject); 
+            objectsFound = true;
+          }
+        }
+      });
+
+      if (!objectsFound || overallBoundingBox.isEmpty()) {
+        camera.position.set(10, 10, 10);
+        controls.target.set(0, 0, 0);
+      } else {
+        const center = new THREE.Vector3();
+        overallBoundingBox.getCenter(center);
+
+        const sphere = new THREE.Sphere();
+        overallBoundingBox.getBoundingSphere(sphere);
+        const radius = sphere.radius;
+
+        const fov = camera.fov * (Math.PI / 180);
+        let distance = radius / Math.sin(fov / 2);
+        
+        distance = Math.max(distance * 1.5, Math.max(5, radius * 1.1)); // Ensure camera is far enough, 1.1 for tighter fit if radius is large
+
+        const direction = camera.position.clone().sub(controls.target).normalize();
+        if (direction.lengthSq() === 0 || (Math.abs(direction.x) < 0.01 && Math.abs(direction.y) < 0.01 && Math.abs(direction.z) < 0.01)) {
+            direction.set(0.577, 0.577, 0.577); 
+        }
+        
+        camera.position.copy(center).addScaledVector(direction, distance);
+        controls.target.copy(center);
+      }
+
+      controls.update();
+      setZoomExtentsTriggered(); // Reset the trigger
+    }
+  }, [zoomExtentsTrigger, sceneContextObjects, setZoomExtentsTriggered]);
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;

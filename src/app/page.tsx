@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect }from 'react';
@@ -20,7 +21,7 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide } from "lucide-react"; 
+import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide, ZoomIn } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode, PrimitiveType, ToolType } from '@/types';
 import {
@@ -89,7 +90,7 @@ interface NodeEditorSectionProps {
 }
 
 const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen, setIsNodeEditorOpen }) => {
-  const getNodeEditorTitle = () => "Procedural Editor"; // Renamed for clarity
+  const getNodeEditorTitle = () => "Procedural Editor"; 
   
   const getNodeEditorPlaceholder = () => {
     return "Create complex geometries, custom materials, and advanced rendering effects using a node-based workflow. Define procedural rules, link parameters, and build sophisticated shaders. (Coming Soon)";
@@ -124,8 +125,8 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
 }
 
 const ArchiVisionLayout: React.FC = () => {
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); // Node editor closed by default
-  const { appMode, setActiveTool, addObject } = useScene();
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); 
+  const { appMode, setActiveTool, addObject, triggerZoomExtents } = useScene();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -150,6 +151,10 @@ const ArchiVisionLayout: React.FC = () => {
           case 'B': toolToSet = 'paint'; toolLabel = 'Paint'; break;
           case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
           case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
+          case 'F': 
+            triggerZoomExtents();
+            toast({ title: "View Reset", description: "Zoomed to fit all objects." });
+            return;
           case ' ': 
             event.preventDefault(); 
             toolToSet = 'select'; 
@@ -173,8 +178,11 @@ const ArchiVisionLayout: React.FC = () => {
                 toolToSet = 'circle';
                 toolLabel = 'Circle Tool';
                 break;
-            // 'R' for rectangle would conflict with 'R' for scale tool.
-            // Consider a different key or a modal for adding shapes if Shift+A opens a menu.
+            case 'R': 
+                event.preventDefault();
+                toolToSet = 'rectangle';
+                toolLabel = 'Rectangle Tool';
+                break;
         }
       }
 
@@ -191,7 +199,7 @@ const ArchiVisionLayout: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setActiveTool, addObject, toast]);
+  }, [setActiveTool, addObject, toast, triggerZoomExtents]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
