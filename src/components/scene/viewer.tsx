@@ -9,7 +9,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions } from '@/types';
+import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
 const SceneViewer: React.FC = () => {
@@ -21,7 +21,7 @@ const SceneViewer: React.FC = () => {
   const transformControlsRef = useRef<TransformControls | null>(null);
   
   const tempDrawingMeshRef = useRef<THREE.LineSegments | null>(null);
-  const tempMeasureLineRef = useRef<THREE.Line | null>(null); // For tape measure tool
+  const tempMeasureLineRef = useRef<THREE.Line | null>(null); 
 
   const { toast } = useToast();
   
@@ -187,6 +187,30 @@ const SceneViewer: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
+  // Cleanup temporary drawing/measuring aids if tool changes
+  useEffect(() => {
+    if (sceneRef.current) {
+      if (activeTool !== 'rectangle' && tempDrawingMeshRef.current) {
+        sceneRef.current.remove(tempDrawingMeshRef.current);
+        tempDrawingMeshRef.current.geometry.dispose();
+        (tempDrawingMeshRef.current.material as THREE.Material).dispose();
+        tempDrawingMeshRef.current = null;
+        if (drawingState.tool === 'rectangle' && drawingState.isActive) {
+          setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
+        }
+      }
+      if (activeTool !== 'tape' && tempMeasureLineRef.current) {
+        sceneRef.current.remove(tempMeasureLineRef.current);
+        tempMeasureLineRef.current.geometry.dispose();
+        (tempMeasureLineRef.current.material as THREE.Material).dispose();
+        tempMeasureLineRef.current = null;
+        if (drawingState.tool === 'tape' && drawingState.isActive) {
+           setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null });
+        }
+      }
+    }
+  }, [activeTool, drawingState.isActive, drawingState.tool, setDrawingState]);
+
 
   const onPointerDown = useCallback((event: PointerEvent) => {
     if (transformControlsRef.current?.dragging) return;
@@ -211,14 +235,15 @@ const SceneViewer: React.FC = () => {
         sceneRef.current.add(tempDrawingMeshRef.current);
       }
     } else if (activeTool === 'tape') {
-        const point = getMousePositionOnXZPlane(event); // For simplicity, tape measure on XZ plane. Can be extended.
+        const point = getMousePositionOnXZPlane(event); 
         if (point && sceneRef.current) {
-            if (!drawingState.startPoint) { 
+            if (!drawingState.startPoint || drawingState.tool !== 'tape') { 
                 setDrawingState({ 
                     isActive: true, 
                     startPoint: point.toArray() as [number,number,number], 
                     currentPoint: point.toArray() as [number,number,number],
-                    tool: 'tape' 
+                    tool: 'tape',
+                    measureDistance: null,
                 });
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
@@ -228,19 +253,13 @@ const SceneViewer: React.FC = () => {
                     (tempMeasureLineRef.current.material as THREE.Material).dispose();
                 }
                 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true, opacity: 0.9 });
-                lineMaterial.renderOrder = 1000; 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints([point, point.clone()]);
                 tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
+                tempMeasureLineRef.current.renderOrder = 1000; // Ensure line is visible
                 sceneRef.current.add(tempMeasureLineRef.current);
-
             } else { 
                 const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
                 const distance = startVec.distanceTo(point);
-                setDrawingState({ 
-                    isActive: false, 
-                    currentPoint: point.toArray() as [number,number,number], 
-                    measureDistance: distance 
-                });
                 
                 toast({
                     title: "Measurement Complete",
@@ -253,7 +272,7 @@ const SceneViewer: React.FC = () => {
                      (tempMeasureLineRef.current.material as THREE.Material).dispose();
                      tempMeasureLineRef.current = null;
                  }
-                setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null }); 
+                setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: distance }); 
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
                 setActiveTool('select');
             }
@@ -265,20 +284,15 @@ const SceneViewer: React.FC = () => {
             const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
 
             if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane')) {
-                const localFaceNormal = intersection.face.normal.clone(); // Normal is in geometry's local space
-                // Transform localFaceNormal to object's local space if geometry is offset/rotated within object
-                // For simple BoxGeometry/PlaneGeometry, this is often identity if not transformed.
-                // Then transform to world space:
-                const worldFaceNormal = localFaceNormal.clone().applyMatrix3(clickedMesh.normalMatrix).normalize();
-                
-                // Initial intersection point in object's local space
+                const localFaceNormal = intersection.face.normal.clone(); 
+                const worldFaceNormal = localFaceNormal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(clickedMesh.matrixWorld)).normalize();
                 const initialLocalIntersectPoint = clickedMesh.worldToLocal(intersection.point.clone());
 
                 const pushPullInfo: PushPullFaceInfo = {
                     objectId: clickedObjectId,
                     initialMeshWorldPosition: clickedMesh.position.toArray() as [number, number, number],
                     initialLocalIntersectPoint: initialLocalIntersectPoint.toArray() as [number,number,number],
-                    initialWorldIntersectionPoint: intersection.point.toArray() as [number, number, number], // Store this
+                    initialWorldIntersectionPoint: intersection.point.toArray() as [number, number, number], 
                     localFaceNormal: localFaceNormal.toArray() as [number,number,number],
                     worldFaceNormal: worldFaceNormal.toArray() as [number,number,number],
                     originalDimensions: { ...clickedSceneObject.dimensions },
@@ -323,7 +337,7 @@ const SceneViewer: React.FC = () => {
         tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
         tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
       }
-    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current) {
+    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === 'tape') {
         const currentMovePoint = getMousePositionOnXZPlane(event);
         if (currentMovePoint) {
             setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
@@ -346,35 +360,43 @@ const SceneViewer: React.FC = () => {
 
         if (currentIntersection) {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
-            let pushPullAmount = dragVector.dot(worldFaceNormalVec); // Signed displacement
+            let pushPullAmount = dragVector.dot(worldFaceNormalVec); 
 
-            const sensitivityFactor = 45; // Increased sensitivity for more visible change
+            const sensitivityFactor = 1.0; // Keep sensitivity at 1.0 as a baseline
             pushPullAmount *= sensitivityFactor;
 
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
             let newPositionArray = [...originalPosition] as [number, number, number];
-            let newRotationArray: [number, number, number] | undefined = [...originalRotation] as [number,number,number]; // Keep original rotation by default
+            let newRotationArray: [number, number, number] | undefined = [...originalRotation] as [number,number,number]; 
             let newType: PrimitiveType = originalType;
 
             if (originalType === 'cube') {
                 const localNormalVec = new THREE.Vector3().fromArray(drawingState.pushPullFaceInfo.localFaceNormal);
                 
+                // Determine which dimension to change based on local face normal
+                // This logic assumes standard cube orientation relative to its local axes
                 const absX = Math.abs(localNormalVec.x);
                 const absY = Math.abs(localNormalVec.y);
                 const absZ = Math.abs(localNormalVec.z);
 
-                if (absX > absY && absX > absZ) { // X-face
-                    newDimensions.width = Math.max(0.01, (originalDimensions.width || 1) + pushPullAmount * Math.sign(localNormalVec.x) );
-                } else if (absY > absX && absY > absZ) { // Y-face
-                    newDimensions.height = Math.max(0.01, (originalDimensions.height || 1) + pushPullAmount * Math.sign(localNormalVec.y));
-                } else { // Z-face
-                    newDimensions.depth = Math.max(0.01, (originalDimensions.depth || 1) + pushPullAmount * Math.sign(localNormalVec.z));
+                let dimensionToModify: 'width' | 'height' | 'depth' | undefined;
+                if (absX > absY && absX > absZ) dimensionToModify = 'width';
+                else if (absY > absX && absY > absZ) dimensionToModify = 'height';
+                else if (absZ > absX && absZ > absY) dimensionToModify = 'depth';
+
+                if (dimensionToModify) {
+                  const currentDim = originalDimensions[dimensionToModify] || 1;
+                  // If the worldFaceNormal and localNormal components have opposite signs, subtract pushPullAmount
+                  let effectivePushPullAmount = pushPullAmount;
+                  if (dimensionToModify === 'width' && localNormalVec.x * worldFaceNormalVec.x < 0) effectivePushPullAmount = -pushPullAmount;
+                  if (dimensionToModify === 'height' && localNormalVec.y * worldFaceNormalVec.y < 0) effectivePushPullAmount = -pushPullAmount;
+                  if (dimensionToModify === 'depth' && localNormalVec.z * worldFaceNormalVec.z < 0) effectivePushPullAmount = -pushPullAmount;
+                  
+                  newDimensions[dimensionToModify] = Math.max(0.01, currentDim + effectivePushPullAmount);
                 }
                 
-                // Adjust position so the opposite face stays anchored
-                const offsetDir = localNormalVec.clone().applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...originalRotation))).normalize();
-                const positionOffset = offsetDir.multiplyScalar(pushPullAmount / 2);
+                const positionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 
                 newPositionArray = [
                     originalPosition[0] + positionOffset.x,
@@ -383,38 +405,26 @@ const SceneViewer: React.FC = () => {
                 ];
 
             } else if (originalType === 'plane') {
-                newType = 'cube';
-                const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount));
+                newType = 'cube'; // Extruding a plane creates a cube
+                const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount)); 
                 
-                // Assuming plane created by rectangle tool is XZ, so its 'height' dimension is along Z
-                newDimensions = {
+                newDimensions = { // Width and depth come from original plane's width/height
                     width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, // Using plane's "height" as depth for the new cube
-                    height: extrusionHeight, 
+                    depth: originalDimensions.height || 1, // Plane's "height" dimension becomes cube's depth
+                    height: extrusionHeight, // Cube's height is the extrusion amount
                 };
                 
-                // Adjust position based on extrusion direction (worldFaceNormal)
-                // The offset is half the signed pushPullAmount along the world normal
+                // Offset position by half the extrusion amount along the world face normal
                 const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 newPositionArray = [
                     originalPosition[0] + extrusionOffset.x,
                     originalPosition[1] + extrusionOffset.y,
                     originalPosition[2] + extrusionOffset.z,
                 ];
-                // When a plane is extruded, its original rotation (likely to make it XZ) is no longer needed for the cube.
-                // The cube should be aligned with world axes.
-                // However, if the plane itself was rotated (other than for XZ alignment), we might want to preserve that.
-                // For now, resetting to [0,0,0] for simplicity when extruding from a rectangle tool plane.
-                // If the original plane was XZ (rotation [-PI/2, 0, 0]), the new cube will be axis aligned.
-                // If the original plane had arbitrary rotation, this might need more complex handling.
+                
+                // If the original plane was flat on XZ (rotated -PI/2 on X), reset rotation for the new cube
                 if(originalRotation[0] === -Math.PI / 2 && originalRotation[1] === 0 && originalRotation[2] === 0){
                     newRotationArray = [0,0,0];
-                } else {
-                    // Try to maintain original orientation for the new cube's base
-                    // This can be tricky. For now, if it wasn't a simple XZ plane, keep its rotation.
-                    // This means the extrusion happens along the plane's original local Y, but transformed to world.
-                    // This part could be refined. For simplicity, if it's a rect-tool plane, assume it becomes an axis-aligned cube.
-                    // If it was an arbitrarily rotated plane to start, the concept of push/pull on it is more complex.
                 }
             }
             
@@ -430,7 +440,7 @@ const SceneViewer: React.FC = () => {
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
 
-    if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && drawingState.currentPoint) {
+    if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && drawingState.tool === 'rectangle') {
       const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
       const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);
 
@@ -447,33 +457,21 @@ const SceneViewer: React.FC = () => {
           name: `Rectangle ${count}`,
           position: [centerX, planeYPosition, centerZ], 
           rotation: [-Math.PI / 2, 0, 0], 
-          dimensions: { width: rectWidth, height: rectDepth }, // For plane, height maps to one dimension on the plane.
+          dimensions: { width: rectWidth, height: rectDepth }, 
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
       }
       setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
-      if (sceneRef.current && tempDrawingMeshRef.current) {
-        sceneRef.current.remove(tempDrawingMeshRef.current);
-        tempDrawingMeshRef.current.geometry.dispose();
-        (tempDrawingMeshRef.current.material as THREE.Material).dispose();
-        tempDrawingMeshRef.current = null;
-      }
+      // tempDrawingMeshRef cleanup is now handled by useEffect watching activeTool
       setActiveTool('select'); 
       return; 
-    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance) {
-        // This case is mostly handled by onPointerDown for the second click if a point was already set.
-        // If user releases mouse after first click (without second click), reset.
-        if (tempMeasureLineRef.current && sceneRef.current) {
-             sceneRef.current.remove(tempMeasureLineRef.current);
-             tempMeasureLineRef.current.geometry.dispose();
-            (tempMeasureLineRef.current.material as THREE.Material).dispose();
-             tempMeasureLineRef.current = null;
-        }
-        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null }); 
-        setActiveTool('select');
-        return;
-    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
+    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === 'tape') {
+        // Do not reset tape tool on pointer up after first click.
+        // Let the second onPointerDown complete the action or tool change useEffect clean up.
+        // Orbit controls are re-enabled at the start of this function, which is fine.
+        return; // Explicitly do nothing further for tape tool here
+    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
         const finalObject = objects.find(o => o.id === objectId);
         toast({ 
@@ -481,7 +479,6 @@ const SceneViewer: React.FC = () => {
             description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Rectangle extruded to a cube.' : ''}` 
         });
         setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
-        if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
         setActiveTool('select'); 
         return;
     }
@@ -635,7 +632,6 @@ const SceneViewer: React.FC = () => {
         }
         
         if(Array.isArray(mesh.material)){
-            // This case should ideally not happen with current setup, but to be safe:
             (mesh.material as THREE.Material[]).forEach(m => {
                 if (m instanceof THREE.MeshStandardMaterial) createOrUpdateMaterial(materialProps, m);
             });
@@ -685,7 +681,7 @@ const SceneViewer: React.FC = () => {
           // Handle array materials if necessary
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
             if (child.userData.originalEmissive === undefined) { 
-                child.userData.originalEmissive = child.material.emissive.getHex(); // Store as hex
+                child.userData.originalEmissive = child.material.emissive.getHex(); 
             }
              if (child.userData.originalEmissiveIntensity === undefined) {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
@@ -709,6 +705,3 @@ const SceneViewer: React.FC = () => {
 };
 
 export default SceneViewer;
-
-
-
