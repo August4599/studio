@@ -348,7 +348,7 @@ const SceneViewer: React.FC = () => {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); // Signed displacement
 
-            const sensitivityFactor = 5; // Adjust this value for more/less sensitivity
+            const sensitivityFactor = 15; // Increased sensitivity
             pushPullAmount *= sensitivityFactor;
 
 
@@ -389,7 +389,7 @@ const SceneViewer: React.FC = () => {
                 // Assuming plane created by rectangle tool is XZ, so its 'height' dimension is along Z
                 newDimensions = {
                     width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, 
+                    depth: originalDimensions.height || 1, // Using plane's "height" as depth for the new cube
                     height: extrusionHeight, 
                 };
                 
@@ -403,7 +403,19 @@ const SceneViewer: React.FC = () => {
                 ];
                 // When a plane is extruded, its original rotation (likely to make it XZ) is no longer needed for the cube.
                 // The cube should be aligned with world axes.
-                newRotationArray = [0,0,0];
+                // However, if the plane itself was rotated (other than for XZ alignment), we might want to preserve that.
+                // For now, resetting to [0,0,0] for simplicity when extruding from a rectangle tool plane.
+                // If the original plane was XZ (rotation [-PI/2, 0, 0]), the new cube will be axis aligned.
+                // If the original plane had arbitrary rotation, this might need more complex handling.
+                if(originalRotation[0] === -Math.PI / 2 && originalRotation[1] === 0 && originalRotation[2] === 0){
+                    newRotationArray = [0,0,0];
+                } else {
+                    // Try to maintain original orientation for the new cube's base
+                    // This can be tricky. For now, if it wasn't a simple XZ plane, keep its rotation.
+                    // This means the extrusion happens along the plane's original local Y, but transformed to world.
+                    // This part could be refined. For simplicity, if it's a rect-tool plane, assume it becomes an axis-aligned cube.
+                    // If it was an arbitrarily rotated plane to start, the concept of push/pull on it is more complex.
+                }
             }
             
             const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray, rotation: newRotationArray };
@@ -435,7 +447,7 @@ const SceneViewer: React.FC = () => {
           name: `Rectangle ${count}`,
           position: [centerX, planeYPosition, centerZ], 
           rotation: [-Math.PI / 2, 0, 0], 
-          dimensions: { width: rectWidth, height: rectDepth }, 
+          dimensions: { width: rectWidth, height: rectDepth }, // For plane, height maps to one dimension on the plane.
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
