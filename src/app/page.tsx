@@ -20,7 +20,7 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2 } from "lucide-react"; 
+import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { AppMode } from '@/types';
 import {
@@ -66,7 +66,7 @@ const AppModeSwitcher: React.FC = () => {
     <Tabs value={currentMode} onValueChange={handleModeChange} className="w-full bg-card border-b shadow-sm flex-none">
       <TabsList className="grid w-full grid-cols-2 h-12 rounded-none border-b-0 p-0">
         <TabsTrigger value="modelling" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
-          <Layers3 size={16} /> Shape & Surface
+          <Layers3 size={16} /> Shape & Material
         </TabsTrigger>
         <TabsTrigger value="rendering" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
           <Orbit size={16} /> Visualize & Export
@@ -137,7 +137,9 @@ const ArchiVisionLayout: React.FC = () => {
               
               <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-card z-20 shadow-sm h-12">
                 <div className="flex items-center gap-2">
-                  <Workflow className="w-5 h-5 text-primary" />
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-primary">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                  </svg>
                   <h1 className="text-lg font-semibold">ArchiVision</h1>
                 </div>
                 {appMode === 'modelling' && ( 

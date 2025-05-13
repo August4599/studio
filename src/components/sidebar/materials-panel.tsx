@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
 import type { MaterialProperties } from "@/types";
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from "@/types";
-import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush } from "lucide-react";
+import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush, Sparkles, Eye, Layers } from "lucide-react"; // Added Sparkles for Emission, Eye for Opacity, Layers for Displacement
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -37,6 +37,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { fileToDataURL } from "@/lib/three-utils";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +52,7 @@ const TextureInput: React.FC<{
 
   useEffect(() => {
     if (currentUrl) {
-      setFileName(currentUrl.substring(currentUrl.lastIndexOf('/') + 1) || "Texture Applied");
+      setFileName(currentUrl.substring(currentUrl.lastIndexOf('/') + 1).substring(0, 20) + (currentUrl.length > 20 ? "..." : "") || "Texture Applied");
     } else {
       setFileName(null);
     }
@@ -63,7 +64,7 @@ const TextureInput: React.FC<{
       try {
         const dataUrl = await fileToDataURL(file);
         onTextureUpload(dataUrl);
-        setFileName(file.name);
+        setFileName(file.name.substring(0, 20) + (file.name.length > 20 ? "..." : ""));
       } catch (error) {
         console.error("Error converting file to data URL:", error);
       }
@@ -79,41 +80,39 @@ const TextureInput: React.FC<{
   };
 
   return (
-    <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor={`mat-${label.toLowerCase()}`} className="text-right text-xs">
-        {label}
-      </Label>
-      <div className="col-span-3 space-y-1">
-        <Input
-          id={`mat-${label.toLowerCase()}`}
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="h-8 text-xs file:mr-2 file:text-xs file:font-medium file:text-primary file:bg-primary-foreground file:border-0 file:rounded file:py-1 file:px-2 hover:file:bg-primary/90 hidden"
-          accept="image/png, image/jpeg, image/webp"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full text-xs"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <UploadCloud size={14} className="mr-2" /> Upload {label}
-        </Button>
-        {fileName && (
-          <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 p-1 bg-muted/50 rounded">
-            <span className="truncate flex-grow" title={fileName}>
-              <CheckCircle2 size={12} className="inline mr-1 text-green-500" />
-              {fileName}
-            </span>
-            <Button variant="ghost" size="icon" className="h-5 w-5 opacity-70 hover:opacity-100" onClick={handleClearTexture}>
-              <Trash2 size={10} />
+    <div className="space-y-1">
+        <Label htmlFor={`mat-${label.toLowerCase()}`} className="text-xs font-medium">{label}</Label>
+        <div className="flex items-center gap-2">
+            <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full text-xs flex-1"
+            onClick={() => fileInputRef.current?.click()}
+            >
+            <UploadCloud size={14} className="mr-2" /> Upload
             </Button>
-          </div>
+            <Input
+            id={`mat-${label.toLowerCase()}`}
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="image/png, image/jpeg, image/webp, image/hdr, image/exr"
+            />
+            {fileName && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-70 hover:opacity-100 shrink-0" onClick={handleClearTexture} title="Clear texture">
+                <Trash2 size={12} />
+            </Button>
+            )}
+        </div>
+         {fileName && (
+            <div className="text-xs text-muted-foreground mt-1 p-1.5 bg-muted/30 rounded flex items-center">
+                <CheckCircle2 size={12} className="inline mr-1.5 text-green-500 shrink-0" />
+                <span className="truncate" title={fileName}>{fileName}</span>
+            </div>
         )}
       </div>
-    </div>
   );
 };
 
@@ -126,14 +125,19 @@ const MaterialEditorDialog: React.FC<{
   const [editedMaterial, setEditedMaterial] = useState<MaterialProperties>(material);
 
   useEffect(() => {
-    setEditedMaterial(material);
+    // Ensure all potentially optional fields have defaults from the incoming material
+    const fullMaterial = {
+        ...getDefaultSceneData().materials[0], // Base defaults
+        ...material // Actual material data
+    };
+    setEditedMaterial(fullMaterial);
   }, [material]);
 
   const handleChange = (field: keyof MaterialProperties, value: any) => {
     setEditedMaterial(prev => ({ ...prev, [field]: value }));
   };
   
-  const handleSliderChange = (field: 'roughness' | 'metalness', value: number[]) => {
+  const handleSliderChange = (field: 'roughness' | 'metalness' | 'opacity' | 'ior' | 'emissiveIntensity' | 'displacementScale' | 'displacementBias', value: number[]) => {
     setEditedMaterial(prev => ({ ...prev, [field]: value[0] }));
   };
 
@@ -154,9 +158,9 @@ const MaterialEditorDialog: React.FC<{
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Material: {editedMaterial.name || "Unnamed Material"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Palette size={18}/> Edit Material: {editedMaterial.name || "Unnamed Material"}</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh] p-1 pr-3">
+        <ScrollArea className="max-h-[70vh] p-1 pr-3">
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="mat-name" className="text-right text-xs">Name</Label>
@@ -167,44 +171,90 @@ const MaterialEditorDialog: React.FC<{
               <Input id="mat-color" type="color" value={editedMaterial.color} onChange={(e) => handleChange('color', e.target.value)} className="col-span-3 h-8" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="mat-roughness" className="text-xs">Roughness: {editedMaterial.roughness.toFixed(2)}</Label>
-              <Slider id="mat-roughness" min={0} max={1} step={0.01} value={[editedMaterial.roughness]} onValueChange={(val) => handleSliderChange('roughness', val)} />
+              <Label htmlFor="mat-roughness" className="text-xs">Roughness: {(editedMaterial.roughness ?? 0).toFixed(2)}</Label>
+              <Slider id="mat-roughness" min={0} max={1} step={0.01} value={[editedMaterial.roughness ?? 0]} onValueChange={(val) => handleSliderChange('roughness', val)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="mat-metalness" className="text-xs">Metalness: {editedMaterial.metalness.toFixed(2)}</Label>
-              <Slider id="mat-metalness" min={0} max={1} step={0.01} value={[editedMaterial.metalness]} onValueChange={(val) => handleSliderChange('metalness', val)} />
+              <Label htmlFor="mat-metalness" className="text-xs">Metalness: {(editedMaterial.metalness ?? 0).toFixed(2)}</Label>
+              <Slider id="mat-metalness" min={0} max={1} step={0.01} value={[editedMaterial.metalness ?? 0]} onValueChange={(val) => handleSliderChange('metalness', val)} />
             </div>
             
-            <TextureInput 
-              label="Albedo" 
-              currentUrl={editedMaterial.map}
-              onTextureUpload={(dataUrl) => handleTextureUpload('map', dataUrl)}
-              onTextureClear={() => handleTextureClear('map')}
-            />
-             <TextureInput 
-              label="Normal" 
-              currentUrl={editedMaterial.normalMap}
-              onTextureUpload={(dataUrl) => handleTextureUpload('normalMap', dataUrl)}
-              onTextureClear={() => handleTextureClear('normalMap')}
-            />
-             <TextureInput 
-              label="Roughness" 
-              currentUrl={editedMaterial.roughnessMap}
-              onTextureUpload={(dataUrl) => handleTextureUpload('roughnessMap', dataUrl)}
-              onTextureClear={() => handleTextureClear('roughnessMap')}
-            />
-             <TextureInput 
-              label="Metalness" 
-              currentUrl={editedMaterial.metalnessMap}
-              onTextureUpload={(dataUrl) => handleTextureUpload('metalnessMap', dataUrl)}
-              onTextureClear={() => handleTextureClear('metalnessMap')}
-            />
-             <TextureInput 
-              label="AO Map" 
-              currentUrl={editedMaterial.aoMap}
-              onTextureUpload={(dataUrl) => handleTextureUpload('aoMap', dataUrl)}
-              onTextureClear={() => handleTextureClear('aoMap')}
-            />
+            <div className="border-t pt-3 mt-2 space-y-3">
+                <h4 className="text-sm font-medium flex items-center gap-2"><Sparkles size={14}/> Emission</h4>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="mat-emissive" className="text-right text-xs">Emissive Color</Label>
+                    <Input id="mat-emissive" type="color" value={editedMaterial.emissive || '#000000'} onChange={(e) => handleChange('emissive', e.target.value)} className="col-span-3 h-8" />
+                </div>
+                <div className="space-y-1">
+                    <Label htmlFor="mat-emissiveIntensity" className="text-xs">Intensity: {(editedMaterial.emissiveIntensity ?? 0).toFixed(2)}</Label>
+                    <Slider id="mat-emissiveIntensity" min={0} max={10} step={0.1} value={[editedMaterial.emissiveIntensity ?? 0]} onValueChange={(val) => handleSliderChange('emissiveIntensity', val)} />
+                </div>
+            </div>
+
+            <div className="border-t pt-3 mt-2 space-y-3">
+                <h4 className="text-sm font-medium flex items-center gap-2"><Eye size={14}/> Transparency</h4>
+                 <div className="flex items-center space-x-2">
+                    <Checkbox id="mat-transparent" checked={editedMaterial.transparent} onCheckedChange={(checked) => handleChange('transparent', !!checked)} />
+                    <Label htmlFor="mat-transparent" className="text-xs font-normal">Enable Transparency</Label>
+                </div>
+                <div className="space-y-1">
+                    <Label htmlFor="mat-opacity" className="text-xs">Opacity: {(editedMaterial.opacity ?? 1).toFixed(2)}</Label>
+                    <Slider id="mat-opacity" min={0} max={1} step={0.01} value={[editedMaterial.opacity ?? 1]} onValueChange={(val) => handleSliderChange('opacity', val)} disabled={!editedMaterial.transparent}/>
+                </div>
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-ior" className="text-xs">IOR (Refraction): {(editedMaterial.ior ?? 1.5).toFixed(2)}</Label>
+                    <Slider id="mat-ior" min={1} max={2.5} step={0.01} value={[editedMaterial.ior ?? 1.5]} onValueChange={(val) => handleSliderChange('ior', val)} disabled={!editedMaterial.transparent}/>
+                </div>
+            </div>
+
+             <div className="border-t pt-3 mt-2 space-y-3">
+                 <h4 className="text-sm font-medium flex items-center gap-2"><Layers size={14}/> Texture Maps</h4>
+                <TextureInput 
+                label="Albedo Map" 
+                currentUrl={editedMaterial.map}
+                onTextureUpload={(dataUrl) => handleTextureUpload('map', dataUrl)}
+                onTextureClear={() => handleTextureClear('map')}
+                />
+                <TextureInput 
+                label="Normal Map" 
+                currentUrl={editedMaterial.normalMap}
+                onTextureUpload={(dataUrl) => handleTextureUpload('normalMap', dataUrl)}
+                onTextureClear={() => handleTextureClear('normalMap')}
+                />
+                <TextureInput 
+                label="Roughness Map" 
+                currentUrl={editedMaterial.roughnessMap}
+                onTextureUpload={(dataUrl) => handleTextureUpload('roughnessMap', dataUrl)}
+                onTextureClear={() => handleTextureClear('roughnessMap')}
+                />
+                <TextureInput 
+                label="Metalness Map" 
+                currentUrl={editedMaterial.metalnessMap}
+                onTextureUpload={(dataUrl) => handleTextureUpload('metalnessMap', dataUrl)}
+                onTextureClear={() => handleTextureClear('metalnessMap')}
+                />
+                <TextureInput 
+                label="Ambient Occlusion (AO) Map" 
+                currentUrl={editedMaterial.aoMap}
+                onTextureUpload={(dataUrl) => handleTextureUpload('aoMap', dataUrl)}
+                onTextureClear={() => handleTextureClear('aoMap')}
+                />
+                <TextureInput 
+                label="Displacement Map" 
+                currentUrl={editedMaterial.displacementMap}
+                onTextureUpload={(dataUrl) => handleTextureUpload('displacementMap', dataUrl)}
+                onTextureClear={() => handleTextureClear('displacementMap')}
+                />
+                <div className="space-y-1">
+                    <Label htmlFor="mat-displacementScale" className="text-xs">Displacement Scale: {(editedMaterial.displacementScale ?? 1).toFixed(3)}</Label>
+                    <Slider id="mat-displacementScale" min={0} max={5} step={0.001} value={[editedMaterial.displacementScale ?? 1]} onValueChange={(val) => handleSliderChange('displacementScale', val)} disabled={!editedMaterial.displacementMap}/>
+                </div>
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-displacementBias" className="text-xs">Displacement Bias: {(editedMaterial.displacementBias ?? 0).toFixed(3)}</Label>
+                    <Slider id="mat-displacementBias" min={-2} max={2} step={0.001} value={[editedMaterial.displacementBias ?? 0]} onValueChange={(val) => handleSliderChange('displacementBias', val)} disabled={!editedMaterial.displacementMap}/>
+                </div>
+             </div>
+
           </div>
         </ScrollArea>
         <DialogFooter>
@@ -232,7 +282,8 @@ const MaterialsPanel = () => {
     updateObject,
     activeTool,
     activePaintMaterialId,
-    setActivePaintMaterialId
+    setActivePaintMaterialId,
+    getMaterialById
   } = useScene();
   const { toast } = useToast();
   const [selectedMaterialForList, setSelectedMaterialForList] = useState<string | null>(null);
@@ -249,7 +300,7 @@ const MaterialsPanel = () => {
   const handleAddNewMaterial = () => {
     const newMat = addMaterial({ name: `New Material ${materials.length + 1}` });
     toast({ title: "Material Added", description: `${newMat.name} created.` });
-    handleMaterialClick(newMat.id); // Select it and set for paint if paint tool is active
+    handleMaterialClick(newMat.id); 
   };
 
   const handleRemoveMaterial = (materialId: string) => {
@@ -282,7 +333,8 @@ const MaterialsPanel = () => {
     toast({ title: "Material Assigned", description: `${materialName} assigned to ${objectName}.`});
   }
 
-  const materialForEditingDialog = materials.find(m => m.id === selectedMaterialForList);
+  const materialForEditingDialog = getMaterialById(selectedMaterialForList || '');
+
 
   return (
     <AccordionItem value="item-materials">
@@ -313,7 +365,7 @@ const MaterialsPanel = () => {
                 onClick={() => handleMaterialClick(material.id)}
               >
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <div style={{ backgroundColor: material.color }} className="w-4 h-4 rounded-sm border shrink-0" />
+                  <div style={{ backgroundColor: material.color, opacity: material.opacity ?? 1 }} className="w-4 h-4 rounded-sm border shrink-0" />
                   <span className="truncate flex-grow" title={material.name || material.id}>{material.name || material.id}</span>
                    {activePaintMaterialId === material.id && activeTool === 'paint' && (
                     <Paintbrush size={12} className="text-primary shrink-0" />
@@ -328,7 +380,7 @@ const MaterialsPanel = () => {
                             toast({title: "Material Updated", description: `${updatedMat.name} saved.`});
                         }}
                         trigger={
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100" disabled={material.id === DEFAULT_MATERIAL_ID && material.name === DEFAULT_MATERIAL_NAME}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100" disabled={material.id === DEFAULT_MATERIAL_ID && material.name === DEFAULT_MATERIAL_NAME && !Object.keys(material).some(key => key !== 'id' && key !== 'name' && (material as any)[key] !== (getDefaultSceneData().materials[0] as any)[key])}>
                                 <Edit3 size={12} />
                             </Button>
                         }

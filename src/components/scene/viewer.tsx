@@ -6,10 +6,11 @@ import { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper.js';
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType } from '@/types';
+import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType, PointLightSceneProps, SpotLightSceneProps, AreaLightSceneProps, SceneLight, DrawingState } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
 const SceneViewer: React.FC = () => {
@@ -29,6 +30,7 @@ const SceneViewer: React.FC = () => {
     objects, 
     ambientLight: ambientLightProps, 
     directionalLight: directionalLightProps,
+    otherLights,
     selectedObjectId,
     selectObject,
     getMaterialById,
@@ -60,10 +62,9 @@ const SceneViewer: React.FC = () => {
         return null;
     }
 
-    const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls) && !(c === tempDrawingMeshRef.current) && !(c === tempMeasureLineRef.current) ), true);
+    const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls) && !(c.type === 'PointLightHelper' || c.type === 'SpotLightHelper' || c.type === 'RectAreaLightHelper') && !(c === tempDrawingMeshRef.current) && !(c === tempMeasureLineRef.current) ), true);
     if (intersects.length > 0) {
         let firstIntersectedObject = intersects[0].object;
-        // Traverse up to find the named scene object (the direct child of the scene)
         while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
             firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
         }
@@ -116,7 +117,7 @@ const SceneViewer: React.FC = () => {
     });
     transformControls.addEventListener('mouseUp', () => {
       if (transformControls.object) {
-        const obj = transformControls.object as THREE.Mesh;
+        const obj = transformControls.object as THREE.Mesh; // Assuming meshes for now, lights would be different
         const sceneObj = objects.find(o => o.id === obj.name); 
         if (sceneObj) {
           const newPosition = obj.position.toArray() as [number, number, number];
@@ -183,28 +184,38 @@ const SceneViewer: React.FC = () => {
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
       }
+      scene.children
+        .filter(obj => obj.name && obj.name.endsWith('_helper')) // Identify helpers by naming convention
+        .forEach(helper => {
+          scene.remove(helper);
+          if (typeof (helper as any).dispose === 'function') { // Check if dispose exists and is a function
+            (helper as any).dispose();
+          }
+        });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  // Cleanup temporary drawing/measuring aids if tool changes
   useEffect(() => {
     if (sceneRef.current) {
-      if (activeTool !== 'rectangle' && tempDrawingMeshRef.current) {
+      const drawingToolActive = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'].includes(activeTool || '');
+      const measureToolActive = ['tape', 'protractor'].includes(activeTool || '');
+
+      if (!drawingToolActive && tempDrawingMeshRef.current) {
         sceneRef.current.remove(tempDrawingMeshRef.current);
         tempDrawingMeshRef.current.geometry.dispose();
         (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         tempDrawingMeshRef.current = null;
-        if (drawingState.tool === 'rectangle' && drawingState.isActive) {
+        if (drawingState.isActive && ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'].includes(drawingState.tool || '')) {
           setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
         }
       }
-      if (activeTool !== 'tape' && tempMeasureLineRef.current) {
+      if (!measureToolActive && tempMeasureLineRef.current) {
         sceneRef.current.remove(tempMeasureLineRef.current);
         tempMeasureLineRef.current.geometry.dispose();
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
-        if (drawingState.tool === 'tape' && drawingState.isActive) {
+        if (drawingState.isActive && ['tape', 'protractor'].includes(drawingState.tool || '')) {
            setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null });
         }
       }
@@ -216,11 +227,11 @@ const SceneViewer: React.FC = () => {
     if (transformControlsRef.current?.dragging) return;
 
     const intersection = getMouseIntersection(event);
+    const pointOnXZ = getMousePositionOnXZPlane(event);
 
-    if (activeTool === 'rectangle') {
-      const point = getMousePositionOnXZPlane(event);
-      if (point && sceneRef.current) {
-        setDrawingState({ isActive: true, startPoint: point.toArray() as [number,number,number], currentPoint: point.toArray() as [number,number,number], tool: 'rectangle' });
+    if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'polygon' || activeTool === 'line' || activeTool === 'freehand' || activeTool === 'arc') {
+      if (pointOnXZ && sceneRef.current) {
+        setDrawingState({ isActive: true, startPoint: pointOnXZ.toArray() as [number,number,number], currentPoint: pointOnXZ.toArray() as [number,number,number], tool: activeTool as DrawingState['tool'] });
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
         if (tempDrawingMeshRef.current) {
@@ -234,15 +245,14 @@ const SceneViewer: React.FC = () => {
         tempDrawingMeshRef.current.renderOrder = 999; 
         sceneRef.current.add(tempDrawingMeshRef.current);
       }
-    } else if (activeTool === 'tape') {
-        const point = getMousePositionOnXZPlane(event); 
-        if (point && sceneRef.current) {
-            if (!drawingState.startPoint || drawingState.tool !== 'tape') { 
+    } else if (activeTool === 'tape' || activeTool === 'protractor') { 
+        if (pointOnXZ && sceneRef.current) { 
+            if (!drawingState.startPoint || drawingState.tool !== activeTool) { 
                 setDrawingState({ 
                     isActive: true, 
-                    startPoint: point.toArray() as [number,number,number], 
-                    currentPoint: point.toArray() as [number,number,number],
-                    tool: 'tape',
+                    startPoint: pointOnXZ.toArray() as [number,number,number], 
+                    currentPoint: pointOnXZ.toArray() as [number,number,number],
+                    tool: activeTool as 'tape' | 'protractor',
                     measureDistance: null,
                 });
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
@@ -253,28 +263,43 @@ const SceneViewer: React.FC = () => {
                     (tempMeasureLineRef.current.material as THREE.Material).dispose();
                 }
                 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true, opacity: 0.9 });
-                const lineGeometry = new THREE.BufferGeometry().setFromPoints([point, point.clone()]);
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([pointOnXZ, pointOnXZ.clone()]);
                 tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
-                tempMeasureLineRef.current.renderOrder = 1000; // Ensure line is visible
+                tempMeasureLineRef.current.renderOrder = 1000;
                 sceneRef.current.add(tempMeasureLineRef.current);
             } else { 
                 const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
-                const distance = startVec.distanceTo(point);
+                const distance = startVec.distanceTo(pointOnXZ);
                 
                 toast({
-                    title: "Measurement Complete",
-                    description: `Distance: ${distance.toFixed(3)} units`,
+                    title: activeTool === 'tape' ? "Measurement Complete" : "Protractor (First Leg)",
+                    description: activeTool === 'tape' ? `Distance: ${distance.toFixed(3)} units` : `Length: ${distance.toFixed(3)}. Click for angle.`,
                 });
                 
-                 if (tempMeasureLineRef.current && sceneRef.current) {
-                     sceneRef.current.remove(tempMeasureLineRef.current);
-                     tempMeasureLineRef.current.geometry.dispose();
-                     (tempMeasureLineRef.current.material as THREE.Material).dispose();
-                     tempMeasureLineRef.current = null;
-                 }
-                setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: distance }); 
-                if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-                setActiveTool('select');
+                if (activeTool === 'tape') {
+                    if (tempMeasureLineRef.current && sceneRef.current) {
+                        sceneRef.current.remove(tempMeasureLineRef.current);
+                        tempMeasureLineRef.current.geometry.dispose();
+                        (tempMeasureLineRef.current.material as THREE.Material).dispose();
+                        tempMeasureLineRef.current = null;
+                    }
+                    setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: distance }); 
+                    if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                    setActiveTool('select');
+                } else { 
+                    // For protractor, this click sets the first leg. The user needs to click again to define the angle or second leg.
+                    // This state update allows the pointerMove to continue updating a visual (e.g. an angle arc)
+                    setDrawingState({ 
+                      // startPoint remains the same (origin of angle)
+                      // currentPoint becomes the end of the first leg
+                      currentPoint: pointOnXZ.toArray() as [number, number, number],
+                      // We might need a third point for the angle, or a different state structure for protractor
+                      // For now, let's just update measureDistance to show the length of the first leg
+                      measureDistance: distance 
+                      // The tool remains 'protractor' and isActive remains true
+                    });
+                    // Add specific UI feedback or next step instruction for protractor
+                }
             }
         }
     } else if (activeTool === 'pushpull') {
@@ -283,7 +308,7 @@ const SceneViewer: React.FC = () => {
             const clickedObjectId = clickedMesh.name;
             const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
 
-            if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane')) {
+            if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane' || clickedSceneObject.type === 'cylinder' || clickedSceneObject.type === 'polygon')) { 
                 const localFaceNormal = intersection.face.normal.clone(); 
                 const worldFaceNormal = localFaceNormal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(clickedMesh.matrixWorld)).normalize();
                 const initialLocalIntersectPoint = clickedMesh.worldToLocal(intersection.point.clone());
@@ -309,174 +334,224 @@ const SceneViewer: React.FC = () => {
                 selectObject(clickedObjectId); 
                 toast({ title: "Push/Pull Started", description: `Interacting with ${clickedSceneObject.name}. Drag to modify.` });
             } else {
-                toast({ title: "Push/Pull Tool", description: "Select a face of a Cube or Rectangle (Plane) to push/pull.", variant: "default" });
+                toast({ title: "Push/Pull Tool", description: "Select a face of a Cube, Plane, Cylinder, or Polygon to push/pull.", variant: "default" });
             }
         } else {
-             toast({ title: "Push/Pull Tool", description: "Click on a face of a Cube or Rectangle.", variant: "default" });
+             toast({ title: "Push/Pull Tool", description: "Click on a face of a compatible object.", variant: "default" });
         }
     }
-
-
   }, [activeTool, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, drawingState, toast, setActiveTool, objects, selectObject]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
-    if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current) {
+    if (drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) {
       const currentMovePoint = getMousePositionOnXZPlane(event);
       if (currentMovePoint) {
         setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
-        
         const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
         const endVec = currentMovePoint;
+        let points: number[] = [];
 
-        const points = [
-            startVec.x, startVec.y, startVec.z,   endVec.x, startVec.y, startVec.z,
-            endVec.x, startVec.y, startVec.z,     endVec.x, startVec.y, endVec.z, 
-            endVec.x, startVec.y, endVec.z,         startVec.x, startVec.y, endVec.z,
-            startVec.x, startVec.y, endVec.z,       startVec.x, startVec.y, startVec.z,
-        ];
-        tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-        tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
+        if (activeTool === 'rectangle') {
+          points = [
+              startVec.x, startVec.y, startVec.z,   endVec.x, startVec.y, startVec.z,
+              endVec.x, startVec.y, startVec.z,     endVec.x, startVec.y, endVec.z, 
+              endVec.x, startVec.y, endVec.z,       startVec.x, startVec.y, endVec.z,
+              startVec.x, startVec.y, endVec.z,     startVec.x, startVec.y, startVec.z,
+          ];
+        } else if (activeTool === 'line' || activeTool === 'freehand') { 
+            points = [startVec.x, startVec.y, startVec.z, endVec.x, endVec.y, endVec.z];
+        } else if (activeTool === 'circle' || activeTool === 'polygon') {
+            const radius = startVec.distanceTo(endVec);
+            const segments = activeTool === 'circle' ? 32 : (drawingState.polygonSides || 6);
+            for (let i = 0; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                points.push(startVec.x + radius * Math.cos(angle), startVec.y, startVec.z + radius * Math.sin(angle));
+                if (i > 0) { 
+                     const prevAngle = ((i - 1) / segments) * Math.PI * 2;
+                     points.push(startVec.x + radius * Math.cos(prevAngle), startVec.y, startVec.z + radius * Math.sin(prevAngle));
+                }
+            }
+            if (points.length > 3 && activeTool === 'polygon') {
+                points.push(points[points.length-3], points[points.length-2], points[points.length-1]);
+                points.push(points[0], points[1], points[2]);
+            }
+        }
+        
+        if (points.length > 0) {
+            tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+            tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
+        }
       }
-    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === 'tape') {
+    } else if (activeTool && ['tape', 'protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool) {
         const currentMovePoint = getMousePositionOnXZPlane(event);
         if (currentMovePoint) {
             setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
             const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
             tempMeasureLineRef.current.geometry.setFromPoints([startVec, currentMovePoint]);
             tempMeasureLineRef.current.geometry.computeBoundingSphere();
+            // For protractor, you might want to draw an arc or angle lines here as feedback
         }
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && cameraRef.current && sceneRef.current) {
-        const { objectId, initialWorldIntersectionPoint, worldFaceNormal, originalDimensions, originalPosition, originalRotation, originalType } = drawingState.pushPullFaceInfo;
-        
+        const { objectId, initialWorldIntersectionPoint, worldFaceNormal, originalDimensions, originalPosition, originalRotation, originalType, localFaceNormal } = drawingState.pushPullFaceInfo;
         const initialWorldIntersectVec = new THREE.Vector3().fromArray(initialWorldIntersectionPoint);
         const worldFaceNormalVec = new THREE.Vector3().fromArray(worldFaceNormal);
+        const localFaceNormalVec = new THREE.Vector3().fromArray(localFaceNormal);
 
-        const targetPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-            worldFaceNormalVec,
-            initialWorldIntersectVec
-        );
-        
+        const targetPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(worldFaceNormalVec, initialWorldIntersectVec);
         const currentIntersection = getMouseIntersection(event, targetPlane);
 
         if (currentIntersection) {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); 
+            
+            // Ensure pushPullAmount sign aligns with local normal for intuitive direction
+            // If world normal and local normal point in roughly opposite directions (dot product is negative), flip the amount.
+            if (worldFaceNormalVec.dot(localFaceNormalVec) < 0) {
+                pushPullAmount = -pushPullAmount;
+            }
 
-            const sensitivityFactor = 1.0; // Keep sensitivity at 1.0 as a baseline
+            const sensitivityFactor = 1.0; 
             pushPullAmount *= sensitivityFactor;
-
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
             let newPositionArray = [...originalPosition] as [number, number, number];
             let newRotationArray: [number, number, number] | undefined = [...originalRotation] as [number,number,number]; 
             let newType: PrimitiveType = originalType;
 
-            if (originalType === 'cube') {
-                const localNormalVec = new THREE.Vector3().fromArray(drawingState.pushPullFaceInfo.localFaceNormal);
-                
-                // Determine which dimension to change based on local face normal
-                // This logic assumes standard cube orientation relative to its local axes
-                const absX = Math.abs(localNormalVec.x);
-                const absY = Math.abs(localNormalVec.y);
-                const absZ = Math.abs(localNormalVec.z);
+            if (originalType === 'cube' || originalType === 'cylinder' || originalType === 'polygon') {
+                let dimensionToModify: 'width' | 'height' | 'depth' | 'radius' | undefined;
+                let isAxialPush = false; 
 
-                let dimensionToModify: 'width' | 'height' | 'depth' | undefined;
-                if (absX > absY && absX > absZ) dimensionToModify = 'width';
-                else if (absY > absX && absY > absZ) dimensionToModify = 'height';
-                else if (absZ > absX && absZ > absY) dimensionToModify = 'depth';
-
-                if (dimensionToModify) {
-                  const currentDim = originalDimensions[dimensionToModify] || 1;
-                  // If the worldFaceNormal and localNormal components have opposite signs, subtract pushPullAmount
-                  let effectivePushPullAmount = pushPullAmount;
-                  if (dimensionToModify === 'width' && localNormalVec.x * worldFaceNormalVec.x < 0) effectivePushPullAmount = -pushPullAmount;
-                  if (dimensionToModify === 'height' && localNormalVec.y * worldFaceNormalVec.y < 0) effectivePushPullAmount = -pushPullAmount;
-                  if (dimensionToModify === 'depth' && localNormalVec.z * worldFaceNormalVec.z < 0) effectivePushPullAmount = -pushPullAmount;
-                  
-                  newDimensions[dimensionToModify] = Math.max(0.01, currentDim + effectivePushPullAmount);
+                if (originalType === 'cube' || ( (originalType === 'cylinder' || originalType === 'polygon') && (Math.abs(localFaceNormalVec.x) > 0.9 || Math.abs(localFaceNormalVec.z) > 0.9) ) ) { 
+                    const absX = Math.abs(localFaceNormalVec.x);
+                    const absY = Math.abs(localFaceNormalVec.y); 
+                    const absZ = Math.abs(localFaceNormalVec.z);
+                    if (originalType === 'cube') {
+                      if (absX > absY && absX > absZ) dimensionToModify = 'width';
+                      else if (absY > absX && absY > absZ) dimensionToModify = 'height'; 
+                      else if (absZ > absX && absZ > absY) dimensionToModify = 'depth';
+                    } else { 
+                        dimensionToModify = 'radius'; 
+                    }
+                } else if ((originalType === 'cylinder' || originalType === 'cone' || originalType === 'polygon') && Math.abs(localFaceNormalVec.y) > 0.9) { 
+                    dimensionToModify = 'height';
+                    isAxialPush = true;
                 }
                 
-                const positionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
+                if (dimensionToModify) {
+                  let currentDim: number;
+                  if (dimensionToModify === 'radius') { 
+                      currentDim = (originalType === 'cylinder' ? (originalDimensions.radiusTop ?? originalDimensions.radiusBottom ?? 1) : (originalDimensions.radius ?? 1));
+                      const newRadius = Math.max(0.01, currentDim + pushPullAmount); // Directly use pushPullAmount
+                      if (originalType === 'cylinder') {
+                          newDimensions.radiusTop = newRadius;
+                          newDimensions.radiusBottom = newRadius;
+                      } else { 
+                          newDimensions.radius = newRadius;
+                      }
+                  } else { 
+                    currentDim = originalDimensions[dimensionToModify as 'width'|'height'|'depth'] || 1;
+                    newDimensions[dimensionToModify as 'width'|'height'|'depth'] = Math.max(0.01, currentDim + pushPullAmount); // Directly use pushPullAmount
+                  }
+                }
                 
-                newPositionArray = [
-                    originalPosition[0] + positionOffset.x,
-                    originalPosition[1] + positionOffset.y,
-                    originalPosition[2] + positionOffset.z,
-                ];
+                if (isAxialPush || originalType === 'cube') {
+                    const positionOffset = localFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
+                    newPositionArray = [
+                        originalPosition[0] + positionOffset.x,
+                        originalPosition[1] + positionOffset.y,
+                        originalPosition[2] + positionOffset.z,
+                    ];
+                }
+
 
             } else if (originalType === 'plane') {
-                newType = 'cube'; // Extruding a plane creates a cube
+                newType = 'cube'; // Convert plane to cube
                 const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount)); 
-                
-                newDimensions = { // Width and depth come from original plane's width/height
+                newDimensions = { 
                     width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, // Plane's "height" dimension becomes cube's depth
+                    depth: originalDimensions.height || 1, // Plane's height is depth for cube
                     height: extrusionHeight, // Cube's height is the extrusion amount
                 };
-                
-                // Offset position by half the extrusion amount along the world face normal
-                const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
+                // Offset position by half the extrusion in the direction of the local normal
+                const extrusionOffset = localFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 newPositionArray = [
                     originalPosition[0] + extrusionOffset.x,
                     originalPosition[1] + extrusionOffset.y,
                     originalPosition[2] + extrusionOffset.z,
                 ];
-                
-                // If the original plane was flat on XZ (rotated -PI/2 on X), reset rotation for the new cube
-                if(originalRotation[0] === -Math.PI / 2 && originalRotation[1] === 0 && originalRotation[2] === 0){
+                // If plane was initially rotated (e.g. flat on XZ), reset rotation for the new cube
+                // This specific check is for a plane lying flat (rotated -PI/2 on X)
+                if(originalRotation[0] === -Math.PI / 2 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01){
                     newRotationArray = [0,0,0];
                 }
             }
             
             const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray, rotation: newRotationArray };
             if (newType !== originalType) updates.type = newType;
-            
             updateObject(objectId, updates);
         }
     }
-
   }, [activeTool, drawingState, getMousePositionOnXZPlane, getMouseIntersection, setDrawingState, updateObject, cameraRef]);
 
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
 
-    if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && drawingState.tool === 'rectangle') {
+    if (drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(drawingState.tool || '')) {
       const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
       const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);
+      const tool = drawingState.tool;
+      let newObjProps: Partial<Omit<SceneObject, 'id' | 'type'>> = {};
+      let primitiveType: PrimitiveType | null = null;
 
-      const rectWidth = Math.abs(endPointVec.x - startPointVec.x);
-      const rectDepth = Math.abs(endPointVec.z - startPointVec.z);
-      
-      if (rectWidth > 0.01 && rectDepth > 0.01) { 
-        const centerX = (startPointVec.x + endPointVec.x) / 2;
-        const centerZ = (startPointVec.z + endPointVec.z) / 2;
-        const planeYPosition = startPointVec.y; 
-        
-        const count = objects.filter(o => o.type === 'plane' && o.name.startsWith("Rectangle")).length + 1;
-        addObject('plane', {
-          name: `Rectangle ${count}`,
-          position: [centerX, planeYPosition, centerZ], 
-          rotation: [-Math.PI / 2, 0, 0], 
-          dimensions: { width: rectWidth, height: rectDepth }, 
-          materialId: DEFAULT_MATERIAL_ID, 
-        });
-        toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
+      if (tool === 'rectangle') {
+        const rectWidth = Math.abs(endPointVec.x - startPointVec.x);
+        const rectDepth = Math.abs(endPointVec.z - startPointVec.z);
+        if (rectWidth > 0.01 && rectDepth > 0.01) { 
+            primitiveType = 'plane';
+            newObjProps = {
+                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], // Set Y to 0 for XZ plane
+                rotation: [-Math.PI / 2, 0, 0], 
+                dimensions: { width: rectWidth, height: rectDepth }, // Plane's height is effectively its depth on XZ
+            };
+        }
+      } else if (tool === 'circle' || tool === 'polygon') {
+          const radius = startPointVec.distanceTo(endPointVec);
+          if (radius > 0.01) {
+              primitiveType = tool === 'circle' ? 'plane' : 'polygon'; 
+              newObjProps = {
+                  position: [startPointVec.x, 0, startPointVec.z], // Y to 0 for XZ plane
+                  rotation: [-Math.PI / 2, 0, 0], 
+                  dimensions: tool === 'circle' ? { width: radius * 2, height: radius * 2, radialSegments: 32 } : { radius: radius, sides: drawingState.polygonSides || 6 }
+              };
+              if (tool === 'circle') {
+                // For a 'circle' tool that creates a flat circle, we use a Plane with width/height = diameter
+                // Or, a Cylinder with very small height. For simplicity with current 'plane' type:
+                newObjProps.dimensions = { width: radius * 2, height: radius * 2 };
+              }
+          }
       }
+      
+      if (primitiveType && newObjProps.dimensions) {
+        const newObj = addObject(primitiveType, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
+        toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
+      }
+      
       setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
-      // tempDrawingMeshRef cleanup is now handled by useEffect watching activeTool
       setActiveTool('select'); 
       return; 
-    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === 'tape') {
-        // Do not reset tape tool on pointer up after first click.
-        // Let the second onPointerDown complete the action or tool change useEffect clean up.
-        // Orbit controls are re-enabled at the start of this function, which is fine.
-        return; // Explicitly do nothing further for tape tool here
+    } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
+        // For tape/protractor, this up might be the first point click, or the second.
+        // If it's the first, do nothing on up, wait for second down.
+        // If it's the second click (meaning measureDistance would have been set by onPointerDown logic), the onPointerDown already handled it.
+        // So, typically, this 'up' after a 'down' that set startPoint for measure tools does not finalize anything yet.
+        return; 
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
         const finalObject = objects.find(o => o.id === objectId);
         toast({ 
             title: "Push/Pull Complete", 
-            description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Rectangle extruded to a cube.' : ''}` 
+            description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Plane extruded to a cube.' : ''}` 
         });
         setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
         setActiveTool('select'); 
@@ -503,7 +578,7 @@ const SceneViewer: React.FC = () => {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
             setActiveTool('select'); 
-          } else if (activeTool !== 'pushpull' && activeTool !== 'tape' && activeTool !== 'rectangle') { 
+          } else if (activeTool !== 'pushpull' && !['tape', 'protractor', 'rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) { 
             selectObject(clickedObjectId);
           }
         } else { 
@@ -540,8 +615,7 @@ const SceneViewer: React.FC = () => {
     const tc = transformControlsRef.current;
     if (!tc || !sceneRef.current) return;
 
-    const isDrawingOrModToolActive = activeTool === 'rectangle' || activeTool === 'line' || activeTool === 'arc' || activeTool === 'tape' || activeTool === 'pushpull';
-
+    const isDrawingOrModToolActive = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand', 'tape', 'protractor', 'pushpull'].includes(activeTool || '');
     const selectedMesh = selectedObjectId ? sceneRef.current.getObjectByName(selectedObjectId) as THREE.Mesh : null;
 
     if (selectedMesh && !isDrawingOrModToolActive && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale')) {
@@ -561,10 +635,12 @@ const SceneViewer: React.FC = () => {
     }
   }, [activeTool, selectedObjectId]);
 
+  // Manage Lights
   useEffect(() => {
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
 
+    // Ambient Light
     let ambientLight = scene.getObjectByName('ambientLight') as THREE.AmbientLight;
     if (!ambientLight) {
       ambientLight = new THREE.AmbientLight(ambientLightProps.color, ambientLightProps.intensity);
@@ -575,35 +651,123 @@ const SceneViewer: React.FC = () => {
       ambientLight.intensity = ambientLightProps.intensity;
     }
 
-    let directionalLight = scene.getObjectByName('directionalLight') as THREE.DirectionalLight;
-    if (!directionalLight) {
-      directionalLight = new THREE.DirectionalLight(directionalLightProps.color, directionalLightProps.intensity);
-      directionalLight.name = 'directionalLight';
-      scene.add(directionalLight);
-      
-      directionalLight.castShadow = directionalLightProps.castShadow;
-      directionalLight.shadow.mapSize.width = 2048; 
-      directionalLight.shadow.mapSize.height = 2048;
-      directionalLight.shadow.camera.near = 0.5;
-      directionalLight.shadow.camera.far = 50; 
-      directionalLight.shadow.camera.left = -25;
-      directionalLight.shadow.camera.right = 25;
-      directionalLight.shadow.camera.top = 25;
-      directionalLight.shadow.camera.bottom = -25;
-      directionalLight.shadow.bias = directionalLightProps.shadowBias;
-    } else {
-      directionalLight.color.set(directionalLightProps.color);
-      directionalLight.intensity = directionalLightProps.intensity;
-      directionalLight.castShadow = directionalLightProps.castShadow;
-      directionalLight.shadow.bias = directionalLightProps.shadowBias; 
+    // Directional Light
+    let dirLight = scene.getObjectByName(directionalLightProps.id) as THREE.DirectionalLight;
+    let dirLightHelper = scene.getObjectByName(`${directionalLightProps.id}_helper`) as THREE.DirectionalLightHelper;
+
+    if (!dirLight) {
+      dirLight = new THREE.DirectionalLight(directionalLightProps.color, directionalLightProps.intensity);
+      dirLight.name = directionalLightProps.id; // Use ID as name for easier lookup
+      scene.add(dirLight);
+      if (dirLight.target && !dirLight.target.parent) scene.add(dirLight.target); 
+      dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 1);
+      dirLightHelper.name = `${directionalLightProps.id}_helper`;
+      scene.add(dirLightHelper);
     }
-    directionalLight.position.set(...directionalLightProps.position);
-    if (!directionalLight.target.parent) {
-        scene.add(directionalLight.target);
+    dirLight.color.set(directionalLightProps.color);
+    dirLight.intensity = directionalLightProps.intensity;
+    dirLight.position.set(...directionalLightProps.position);
+    dirLight.castShadow = directionalLightProps.castShadow;
+    dirLight.shadow.bias = directionalLightProps.shadowBias;
+    dirLight.visible = directionalLightProps.visible ?? true;
+    if (dirLight.target) dirLight.target.position.set(0,0,0); 
+    
+    if (dirLightHelper) {
+      dirLightHelper.visible = directionalLightProps.visible ?? true; // Toggle helper visibility with light
+      dirLightHelper.update();
     }
-    directionalLight.target.position.set(0, 0, 0); 
-    directionalLight.shadow.camera.updateProjectionMatrix();
-  }, [ambientLightProps, directionalLightProps]);
+
+    if (directionalLightProps.castShadow) {
+      dirLight.shadow.mapSize.width = 2048; 
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 0.5;
+      dirLight.shadow.camera.far = 50; 
+      const shadowCamSize = 25;
+      dirLight.shadow.camera.left = -shadowCamSize;
+      dirLight.shadow.camera.right = shadowCamSize;
+      dirLight.shadow.camera.top = shadowCamSize;
+      dirLight.shadow.camera.bottom = -shadowCamSize;
+    }
+
+
+    // Other Lights (Point, Spot, Area)
+    const existingLightIdsInThree = scene.children
+      .filter(child => child instanceof THREE.Light && child.name !== 'ambientLight' && child.name !== directionalLightProps.id && !(child instanceof THREE.HemisphereLight) ) 
+      .map(child => child.name);
+    const contextLightIds = (otherLights || []).map(l => l.id);
+
+    (otherLights || []).forEach(lightData => {
+      let lightObject = scene.getObjectByName(lightData.id) as THREE.Light;
+      let helper = scene.getObjectByName(`${lightData.id}_helper`);
+
+      if (!lightObject) {
+        switch (lightData.type) {
+          case 'point':
+            lightObject = new THREE.PointLight();
+            helper = new THREE.PointLightHelper(lightObject as THREE.PointLight, 0.5); // Increased helper size
+            break;
+          case 'spot':
+            lightObject = new THREE.SpotLight();
+             if ((lightObject as THREE.SpotLight).target && !(lightObject as THREE.SpotLight).target.parent) scene.add((lightObject as THREE.SpotLight).target);
+            helper = new THREE.SpotLightHelper(lightObject as THREE.SpotLight);
+            break;
+          case 'area':
+            lightObject = new THREE.RectAreaLight();
+            helper = new RectAreaLightHelper(lightObject as THREE.RectAreaLight);
+            break;
+          default: return; 
+        }
+        lightObject.name = lightData.id;
+        scene.add(lightObject);
+        if (helper) { helper.name = `${lightData.id}_helper`; scene.add(helper); }
+      }
+
+      // Common properties
+      lightObject.color.set(lightData.color);
+      lightObject.intensity = lightData.intensity;
+      lightObject.visible = lightData.visible ?? true;
+      if(helper) helper.visible = lightData.visible ?? true;
+
+
+      // Type-specific properties
+      if (lightObject instanceof THREE.PointLight && lightData.type === 'point') {
+        lightObject.position.set(...(lightData as PointLightSceneProps).position);
+        lightObject.distance = (lightData as PointLightSceneProps).distance || 0;
+        lightObject.decay = (lightData as PointLightSceneProps).decay || 2; 
+        lightObject.castShadow = (lightData as PointLightSceneProps).castShadow || false;
+        if (lightObject.castShadow) lightObject.shadow.bias = (lightData as PointLightSceneProps).shadowBias || 0;
+      } else if (lightObject instanceof THREE.SpotLight && lightData.type === 'spot') {
+        lightObject.position.set(...(lightData as SpotLightSceneProps).position);
+        if((lightData as SpotLightSceneProps).targetPosition) lightObject.target.position.set(...((lightData as SpotLightSceneProps).targetPosition!));
+        lightObject.angle = (lightData as SpotLightSceneProps).angle || Math.PI / 3;
+        lightObject.penumbra = (lightData as SpotLightSceneProps).penumbra || 0;
+        lightObject.distance = (lightData as SpotLightSceneProps).distance || 0;
+        lightObject.decay = (lightData as SpotLightSceneProps).decay || 2;
+        lightObject.castShadow = (lightData as SpotLightSceneProps).castShadow || false;
+        if (lightObject.castShadow) lightObject.shadow.bias = (lightData as SpotLightSceneProps).shadowBias || 0;
+      } else if (lightObject instanceof THREE.RectAreaLight && lightData.type === 'area') {
+        lightObject.position.set(...(lightData as AreaLightSceneProps).position);
+        if ((lightData as AreaLightSceneProps).rotation) lightObject.rotation.set(...((lightData as AreaLightSceneProps).rotation!));
+        lightObject.width = (lightData as AreaLightSceneProps).width || 1;
+        lightObject.height = (lightData as AreaLightSceneProps).height || 1;
+      }
+      if (typeof (helper as any)?.update === 'function') (helper as any).update();
+    });
+
+    existingLightIdsInThree.forEach(id => {
+      if (!contextLightIds.includes(id)) {
+        const lightToRemove = scene.getObjectByName(id);
+        if (lightToRemove) scene.remove(lightToRemove);
+        const helperToRemove = scene.getObjectByName(`${id}_helper`);
+        if (helperToRemove) {
+          scene.remove(helperToRemove);
+          if (typeof (helperToRemove as any).dispose === 'function') (helperToRemove as any).dispose();
+        }
+      }
+    });
+
+  }, [ambientLightProps, directionalLightProps, otherLights]);
+
 
   useEffect(() => {
     if (!sceneRef.current || !getMaterialById) return;
@@ -688,17 +852,23 @@ const SceneViewer: React.FC = () => {
             }
 
             if ((isSelected && !isTransforming && !isPushPullTarget) || (isPushPullTarget && drawingState.isActive)) { 
-                child.material.emissive.setHex(0x00B8D9); 
+                child.material.emissive.setHex(0x00B8D9); // Highlight color
                 child.material.emissiveIntensity = isPushPullTarget ? 0.9 : 0.7;
             } else {
-                child.material.emissive.setHex(child.userData.originalEmissive ?? 0x000000);
-                child.material.emissiveIntensity = child.userData.originalEmissiveIntensity ?? 0;
+                const originalMaterial = getMaterialById(objects.find(o => o.id === child.name)?.materialId || DEFAULT_MATERIAL_ID);
+                if (originalMaterial?.emissive && originalMaterial.emissive !== '#000000') {
+                    child.material.emissive.set(originalMaterial.emissive);
+                    child.material.emissiveIntensity = originalMaterial.emissiveIntensity ?? 0;
+                } else {
+                    child.material.emissive.setHex(child.userData.originalEmissive ?? 0x000000);
+                    child.material.emissiveIntensity = child.userData.originalEmissiveIntensity ?? 0;
+                }
             }
             child.material.needsUpdate = true;
         }
       }
     });
-  }, [selectedObjectId, activeTool, drawingState]); 
+  }, [selectedObjectId, activeTool, drawingState, objects, getMaterialById]); 
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;

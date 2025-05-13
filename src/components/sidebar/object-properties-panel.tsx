@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -31,7 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
-import { Textarea } from "@/components/ui/textarea"; // For text content input
+import { Textarea } from "@/components/ui/textarea";
 
 const VectorInput: React.FC<{
   label: string;
@@ -54,8 +55,6 @@ const VectorInput: React.FC<{
           onChange={(e) => {
             let numValue = parseFloat(e.target.value);
             if (isNaN(numValue)) {
-              // If input is not a number (e.g., cleared or "abc"), default to 0.
-              // The handleVectorChange callback will perform final validation, especially for scale.
               numValue = 0;
             }
             onChange(idx, isDegrees ? numValue * Math.PI / 180 : numValue);
@@ -130,13 +129,14 @@ const ObjectPropertiesPanel = () => {
         const MIN_SCALE = 0.01;
         if (validatedValue <= 0) {
           validatedValue = MIN_SCALE;
+          toast({title: "Scale Adjusted", description: "Scale cannot be zero or negative. Set to minimum.", variant: "default", duration: 2000});
         }
       }
       const currentVector = [...selectedObject[field]] as [number, number, number];
       currentVector[index] = validatedValue; 
       updateObject(selectedObject.id, { [field]: currentVector });
     }
-  }, [selectedObject, updateObject]);
+  }, [selectedObject, updateObject, toast]);
 
   const handleDimensionChange = useCallback((dimField: keyof SceneObject['dimensions'], newValue: number) => {
     if (selectedObject) {
@@ -217,6 +217,36 @@ const ObjectPropertiesPanel = () => {
           <>
             <DimensionInput label="Width" value={selectedObject.dimensions.width} onChange={val => handleDimensionChange('width', val)} />
             <DimensionInput label="Height" value={selectedObject.dimensions.height} onChange={val => handleDimensionChange('height', val)} />
+          </>
+        )}
+        {selectedObject.type === 'sphere' && (
+          <>
+            <DimensionInput label="Radius" value={selectedObject.dimensions.radius} onChange={val => handleDimensionChange('radius', val)} />
+            <DimensionInput label="Width Segments" value={selectedObject.dimensions.radialSegments} onChange={val => handleDimensionChange('radialSegments', Math.max(3, Math.round(val)))} step={1} min={3} max={128}/>
+            <DimensionInput label="Height Segments" value={selectedObject.dimensions.heightSegments} onChange={val => handleDimensionChange('heightSegments', Math.max(2, Math.round(val)))} step={1} min={2} max={64}/>
+          </>
+        )}
+        {selectedObject.type === 'cone' && (
+          <>
+            <DimensionInput label="Radius" value={selectedObject.dimensions.radius} onChange={val => handleDimensionChange('radius', val)} />
+            <DimensionInput label="Height" value={selectedObject.dimensions.height} onChange={val => handleDimensionChange('height', val)} />
+            <DimensionInput label="Radial Segments" value={selectedObject.dimensions.radialSegments} onChange={val => handleDimensionChange('radialSegments', Math.max(3, Math.round(val)))} step={1} min={3} max={128}/>
+          </>
+        )}
+        {selectedObject.type === 'torus' && (
+          <>
+            <DimensionInput label="Major Radius" value={selectedObject.dimensions.radius} onChange={val => handleDimensionChange('radius', val)} />
+            <DimensionInput label="Tube Radius" value={selectedObject.dimensions.tube} onChange={val => handleDimensionChange('tube', val)} />
+            <DimensionInput label="Radial Segments" value={selectedObject.dimensions.radialSegments} onChange={val => handleDimensionChange('radialSegments', Math.max(3, Math.round(val)))} step={1} min={3} max={64}/>
+            <DimensionInput label="Tubular Segments" value={selectedObject.dimensions.tubularSegments} onChange={val => handleDimensionChange('tubularSegments', Math.max(3, Math.round(val)))} step={1} min={3} max={128}/>
+          </>
+        )}
+         {selectedObject.type === 'polygon' && (
+          <>
+            <DimensionInput label="Radius" value={selectedObject.dimensions.radius} onChange={val => handleDimensionChange('radius', val)} />
+            <DimensionInput label="Sides" value={selectedObject.dimensions.sides} onChange={val => handleDimensionChange('sides', Math.max(3, Math.round(val)))} step={1} min={3} max={32}/>
+            {/* Placeholder for potential future extrusion/depth for polygons */}
+            {/* <DimensionInput label="Depth (Extrusion)" value={selectedObject.dimensions.depth} onChange={val => handleDimensionChange('depth', val)} /> */}
           </>
         )}
         {selectedObject.type === 'text' && (

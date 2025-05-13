@@ -20,15 +20,13 @@ const MainSidebar = () => {
     const hasSelection = !!selectedObjectId;
 
     switch (mode) {
-      case 'modelling': // Shape & Surface
+      case 'modelling': // Shape & Material
         return (
           <>
             {hasSelection && <ObjectPropertiesPanel />}
             <MaterialsPanel />
-            {/* LightingPanel removed from modelling, more relevant to rendering */}
-            {/* CameraSettingsPanel removed from modelling */}
             <WorldSettingsPanel /> 
-            <ScenePanel />
+            <ScenePanel /> {/* Project & Scene Management */}
             {!hasSelection && <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>}
           </>
         );
@@ -39,9 +37,9 @@ const MainSidebar = () => {
             <CameraSettingsPanel />
             <LightingPanel />
             <WorldSettingsPanel />
-            {hasSelection && <ObjectPropertiesPanel />}
-            <MaterialsPanel /> 
-            <ScenePanel />
+            {hasSelection && <ObjectPropertiesPanel />} {/* Still show object props if selected */}
+            <MaterialsPanel /> {/* Materials are relevant for rendering too */}
+            <ScenePanel /> {/* Project & Scene Management */}
           </>
         );
       default:
@@ -55,13 +53,13 @@ const MainSidebar = () => {
 
     switch (mode) {
       case 'modelling':
-        items = [...objectPropsOpen, 'item-materials', 'item-world-settings'];
-        if (!selectedObjectId) items.push('item-scene'); // Open scene if no selection
+        items = [...objectPropsOpen, 'item-materials', 'item-world-settings', 'item-scene'];
+        if (!selectedObjectId) items.push('item-scene'); 
         break;
       case 'rendering':
-        items = ['item-render-settings', 'item-camera-settings', 'item-lighting', 'item-world-settings'];
+        items = ['item-render-settings', 'item-camera-settings', 'item-lighting', 'item-world-settings', 'item-scene'];
         if (selectedObjectId) items.push('item-object-props');
-        items.push('item-materials', 'item-scene'); 
+        items.push('item-materials'); 
         break;
       default:
         items = [];
@@ -75,7 +73,7 @@ const MainSidebar = () => {
         type="multiple" 
         defaultValue={getDefaultOpenItems(appMode)} 
         className="w-full" 
-        key={`${appMode}-${selectedObjectId || 'no-selection'}`} // Key helps re-render accordion defaults
+        key={`${appMode}-${selectedObjectId || 'no-selection'}`} 
       >
         {getPanelsForMode(appMode)}
       </Accordion>

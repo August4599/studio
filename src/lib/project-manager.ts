@@ -1,5 +1,5 @@
 
-import type { Project, ProjectSummary, SceneData } from '@/types';
+import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 
@@ -11,6 +11,13 @@ const initialDefaultMaterial: MaterialProperties = {
   color: '#B0B0B0',
   roughness: 0.6,
   metalness: 0.3,
+  opacity: 1.0,
+  transparent: false,
+  ior: 1.5,
+  emissive: '#000000',
+  emissiveIntensity: 0,
+  displacementScale: 1,
+  displacementBias: 0,
 };
 
 const initialDrawingState: DrawingState = {
@@ -20,26 +27,35 @@ const initialDrawingState: DrawingState = {
   currentPoint: null,
   measureDistance: null,
   pushPullFaceInfo: null,
+  polygonSides: 6,
 };
+
+const initialDirectionalLight: DirectionalLightSceneProps = {
+  id: uuidv4(),
+  type: 'directional',
+  name: 'Default Directional Light',
+  color: '#ffffff',
+  intensity: 1.5,
+  position: [5, 10, 7.5],
+  castShadow: true,
+  shadowBias: -0.0005,
+  visible: true,
+};
+
 
 export const getDefaultSceneData = (): SceneData => ({
   objects: [],
   materials: [initialDefaultMaterial],
-  ambientLight: {
+  ambientLight: { // Keep ambient light separate for simplicity or merge into `otherLights`
     color: '#ffffff',
     intensity: 0.7,
   },
-  directionalLight: {
-    color: '#ffffff',
-    intensity: 1.5,
-    position: [5, 10, 7.5],
-    castShadow: true,
-    shadowBias: -0.0005,
-  },
+  directionalLight: initialDirectionalLight,
+  otherLights: [], // Initialize with no other lights
   selectedObjectId: null,
   activeTool: 'select',
   activePaintMaterialId: null,
-  appMode: 'modelling', // Default app mode for new projects
+  appMode: 'modelling', 
   drawingState: initialDrawingState,
 });
 
