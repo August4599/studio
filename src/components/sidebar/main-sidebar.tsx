@@ -20,27 +20,27 @@ const MainSidebar = () => {
     const hasSelection = !!selectedObjectId;
 
     switch (mode) {
-      case 'modelling': // Combined Modelling & Texturing panels
+      case 'modelling': // Shape & Surface
         return (
           <>
             {hasSelection && <ObjectPropertiesPanel />}
             <MaterialsPanel />
-            <LightingPanel />
-            <CameraSettingsPanel /> 
+            {/* LightingPanel removed from modelling, more relevant to rendering */}
+            {/* CameraSettingsPanel removed from modelling */}
             <WorldSettingsPanel /> 
             <ScenePanel />
+            {!hasSelection && <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>}
           </>
         );
-      // 'texturing' case removed
-      case 'rendering':
+      case 'rendering': // Visualize & Export
         return (
           <>
             <RenderSettingsPanel />
             <CameraSettingsPanel />
+            <LightingPanel />
             <WorldSettingsPanel />
             {hasSelection && <ObjectPropertiesPanel />}
             <MaterialsPanel /> 
-            {/* LightingPanel deliberately not shown in rendering for now, can be added if needed */}
             <ScenePanel />
           </>
         );
@@ -54,16 +54,14 @@ const MainSidebar = () => {
     const objectPropsOpen = selectedObjectId ? ['item-object-props'] : [];
 
     switch (mode) {
-      case 'modelling': // Combined Modelling & Texturing defaults
-        items = [...objectPropsOpen, 'item-materials', 'item-lighting', 'item-camera-settings', 'item-world-settings'];
-        if (!selectedObjectId) items.push('item-scene');
+      case 'modelling':
+        items = [...objectPropsOpen, 'item-materials', 'item-world-settings'];
+        if (!selectedObjectId) items.push('item-scene'); // Open scene if no selection
         break;
-      // 'texturing' case removed
       case 'rendering':
-        items = ['item-render-settings', 'item-camera-settings', 'item-world-settings'];
+        items = ['item-render-settings', 'item-camera-settings', 'item-lighting', 'item-world-settings'];
         if (selectedObjectId) items.push('item-object-props');
-        items.push('item-materials'); 
-        if (!selectedObjectId) items.push('item-scene');
+        items.push('item-materials', 'item-scene'); 
         break;
       default:
         items = [];
@@ -77,7 +75,7 @@ const MainSidebar = () => {
         type="multiple" 
         defaultValue={getDefaultOpenItems(appMode)} 
         className="w-full" 
-        key={`${appMode}-${selectedObjectId || 'no-selection'}`} // Key helps re-render accordion defaults when mode/selection changes
+        key={`${appMode}-${selectedObjectId || 'no-selection'}`} // Key helps re-render accordion defaults
       >
         {getPanelsForMode(appMode)}
       </Accordion>
