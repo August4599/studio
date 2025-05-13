@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -8,7 +9,6 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-// import { v4 as uuidv4 } from 'uuid'; // No longer directly used here
 import type { SceneObject } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
@@ -19,7 +19,9 @@ const SceneViewer: React.FC = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const orbitControlsRef = useRef<OrbitControls | null>(null);
   const transformControlsRef = useRef<TransformControls | null>(null);
-  const tempDrawingMeshRef = useRef<THREE.LineSegments | null>(null); // For visual feedback
+  
+  const tempDrawingMeshRef = useRef<THREE.LineSegments | null>(null);
+  const tempMeasureLineRef = useRef<THREE.Line | null>(null); // For tape measure tool
 
   const { toast } = useToast();
   
@@ -49,7 +51,6 @@ const SceneViewer: React.FC = () => {
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-    // Plane is XZ at Y=0, normal pointing up along +Y
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
     const intersectionPoint = new THREE.Vector3();
     if (raycaster.current.ray.intersectPlane(plane, intersectionPoint)) {
@@ -59,7 +60,7 @@ const SceneViewer: React.FC = () => {
   }, []);
 
 
-  // Initialize Three.js scene, camera, renderer, controls (runs once)
+  // Initialize Three.js scene
   useEffect(() => {
     if (!mountRef.current) return;
     const currentMount = mountRef.current;
@@ -91,7 +92,7 @@ const SceneViewer: React.FC = () => {
     transformControls.addEventListener('mouseUp', () => {
       if (transformControls.object) {
         const obj = transformControls.object as THREE.Mesh;
-        const sceneObj = objects.find(o => o.id === obj.name); // `objects` in closure
+        const sceneObj = objects.find(o => o.id === obj.name); 
         if (sceneObj) {
           const newPosition = obj.position.toArray() as [number, number, number];
           const newRotation = [obj.rotation.x, obj.rotation.y, obj.rotation.z] as [number, number, number];
@@ -101,7 +102,6 @@ const SceneViewer: React.FC = () => {
             Math.max(0.001, newScale[1]),
             Math.max(0.001, newScale[2]),
           ];
-          // `updateObject` in closure, uses setSceneData(prev => ...) so it's safe
           updateObject(obj.name, { position: newPosition, rotation: newRotation, scale: validatedScale });
         }
       }
@@ -111,7 +111,7 @@ const SceneViewer: React.FC = () => {
     scene.add(transformControls);
     transformControlsRef.current = transformControls;
     
-    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444); // Grid is on XZ plane
+    const gridHelper = new THREE.GridHelper(50, 50, 0x555555, 0x444444); 
     gridHelper.name = 'gridHelper';
     scene.add(gridHelper);
 
@@ -134,7 +134,7 @@ const SceneViewer: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       orbitControls.dispose();
-      transformControls.dispose(); // Listeners on it are also implicitly removed
+      transformControls.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === currentMount) {
         currentMount.removeChild(renderer.domElement);
@@ -150,16 +150,22 @@ const SceneViewer: React.FC = () => {
         (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         tempDrawingMeshRef.current = null;
       }
+      if (tempMeasureLineRef.current && sceneRef.current) {
+        sceneRef.current.remove(tempMeasureLineRef.current);
+        tempMeasureLineRef.current.geometry.dispose();
+        (tempMeasureLineRef.current.material as THREE.Material).dispose();
+        tempMeasureLineRef.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // `objects` and `updateObject` are used in TC listener, but updateObject uses functional update.
+  }, []); 
 
 
   const onPointerDown = useCallback((event: PointerEvent) => {
     if (transformControlsRef.current?.dragging) return;
 
     if (activeTool === 'rectangle') {
-      const point = getMousePositionOnXZPlane(event); // Use XZ plane
+      const point = getMousePositionOnXZPlane(event);
       if (point && sceneRef.current) {
         setDrawingState({ isActive: true, startPoint: point.toArray() as [number,number,number], currentPoint: point.toArray() as [number,number,number], tool: 'rectangle' });
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
@@ -175,52 +181,150 @@ const SceneViewer: React.FC = () => {
         tempDrawingMeshRef.current.renderOrder = 999; 
         sceneRef.current.add(tempDrawingMeshRef.current);
       }
+    } else if (activeTool === 'tape') {
+        const point = getMousePositionOnXZPlane(event);
+        if (point && sceneRef.current) {
+            if (!drawingState.startPoint) { // First click: set start point
+                setDrawingState({ 
+                    isActive: true, 
+                    startPoint: point.toArray() as [number,number,number], 
+                    currentPoint: point.toArray() as [number,number,number],
+                    tool: 'tape' 
+                });
+                if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
+
+                if (tempMeasureLineRef.current) { // Remove old line if any
+                    sceneRef.current.remove(tempMeasureLineRef.current);
+                    tempMeasureLineRef.current.geometry.dispose();
+                    (tempMeasureLineRef.current.material as THREE.Material).dispose();
+                }
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true, opacity: 0.9 });
+                lineMaterial.renderOrder = 1000; // Ensure it's on top
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([point, point.clone()]);
+                tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
+                sceneRef.current.add(tempMeasureLineRef.current);
+
+            } else { // Second click: set end point, finalize measurement
+                const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
+                const distance = startVec.distanceTo(point);
+                setDrawingState({ 
+                    isActive: false, 
+                    currentPoint: point.toArray() as [number,number,number], 
+                    measureDistance: distance 
+                });
+                
+                toast({
+                    title: "Measurement Complete",
+                    description: `Distance: ${distance.toFixed(3)} units`,
+                });
+                
+                // Optionally keep the line or remove it after a delay / on next tool use
+                 if (tempMeasureLineRef.current && sceneRef.current) {
+                     sceneRef.current.remove(tempMeasureLineRef.current);
+                     tempMeasureLineRef.current.geometry.dispose();
+                     (tempMeasureLineRef.current.material as THREE.Material).dispose();
+                     tempMeasureLineRef.current = null;
+                 }
+                setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null }); // Reset for next measurement
+                if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                setActiveTool('select');
+            }
+        }
+    } else if (activeTool === 'pushpull') {
+        // Basic placeholder logic for push/pull
+        // Raycast to find an object
+        if (!mountRef.current || !cameraRef.current || !sceneRef.current) return;
+        const rect = mountRef.current.getBoundingClientRect();
+        mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.current.setFromCamera(mouse.current, cameraRef.current);
+        const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper'), true);
+
+        if (intersects.length > 0) {
+            let firstIntersectedObject = intersects[0].object;
+            while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
+                firstIntersectedObject = firstIntersectedObject.parent as THREE.Mesh;
+            }
+            const clickedObjectId = firstIntersectedObject.name;
+            const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
+
+            if (clickedSceneObject && clickedSceneObject.type === 'cube') {
+                // For now, just show a toast. Actual push/pull is complex.
+                toast({
+                    title: "Push/Pull Tool",
+                    description: `Selected ${clickedSceneObject.name}. True push/pull functionality is WIP.`,
+                });
+                setDrawingState({
+                    isActive: true, // Placeholder to potentially disable orbit controls
+                    tool: 'pushpull',
+                    pushPullFaceInfo: { objectId: clickedObjectId }
+                });
+                if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
+
+            } else if (clickedSceneObject) {
+                toast({ title: "Push/Pull Tool", description: "Push/Pull currently only supports Cube objects (WIP).", variant: "destructive" });
+            }
+        }
     }
-  }, [activeTool, getMousePositionOnXZPlane, setDrawingState]);
+
+
+  }, [activeTool, getMousePositionOnXZPlane, setDrawingState, drawingState.startPoint, toast, setActiveTool, objects]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
     if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current) {
-      const currentMovePoint = getMousePositionOnXZPlane(event); // Use XZ plane
+      const currentMovePoint = getMousePositionOnXZPlane(event);
       if (currentMovePoint) {
         setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
         
-        const startVec = new THREE.Vector3().fromArray(drawingState.startPoint); // e.g. [sx, 0, sz]
-        const endVec = currentMovePoint; // e.g. [ex, 0, ez]
+        const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
+        const endVec = currentMovePoint;
 
-        // Points are on the XZ plane (Y is constant, usually 0)
         const points = [
             startVec.x, startVec.y, startVec.z,   endVec.x, startVec.y, startVec.z,
-            endVec.x, startVec.y, startVec.z,     endVec.x, endVec.y, endVec.z, // endVec.y is same as startVec.y
+            endVec.x, startVec.y, startVec.z,     endVec.x, endVec.y, endVec.z,
             endVec.x, endVec.y, endVec.z,         startVec.x, endVec.y, endVec.z,
             startVec.x, endVec.y, endVec.z,       startVec.x, startVec.y, startVec.z,
         ];
         tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
         tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
       }
+    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current) {
+        const currentMovePoint = getMousePositionOnXZPlane(event);
+        if (currentMovePoint) {
+            setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
+            const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
+            tempMeasureLineRef.current.geometry.setFromPoints([startVec, currentMovePoint]);
+            tempMeasureLineRef.current.geometry.computeBoundingSphere();
+            // Optionally, display live distance in UI if needed
+        }
+    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
+        // Placeholder for push/pull dragging logic (currently just keeps orbit disabled)
     }
+
+
   }, [activeTool, drawingState, getMousePositionOnXZPlane, setDrawingState]);
 
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
 
     if (activeTool === 'rectangle' && drawingState.isActive && drawingState.startPoint && drawingState.currentPoint) {
-      const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint); // [x1, yPlane, z1]
-      const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);   // [x2, yPlane, z2]
+      const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
+      const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);
 
-      const rectWidth = Math.abs(endPointVec.x - startPointVec.x); // Extent along world X
-      const rectDepth = Math.abs(endPointVec.z - startPointVec.z); // Extent along world Z
+      const rectWidth = Math.abs(endPointVec.x - startPointVec.x);
+      const rectDepth = Math.abs(endPointVec.z - startPointVec.z);
       
       if (rectWidth > 0.01 && rectDepth > 0.01) { 
         const centerX = (startPointVec.x + endPointVec.x) / 2;
         const centerZ = (startPointVec.z + endPointVec.z) / 2;
-        const planeYPosition = startPointVec.y; // Y position of the XZ plane, typically 0
+        const planeYPosition = startPointVec.y;
         
         const count = objects.filter(o => o.type === 'plane' && o.name.startsWith("Rectangle")).length + 1;
         addObject('plane', {
           name: `Rectangle ${count}`,
           position: [centerX, planeYPosition, centerZ], 
-          rotation: [-Math.PI / 2, 0, 0],      // Rotate default XY plane to lie on XZ
-          dimensions: { width: rectWidth, height: rectDepth }, // PlaneGeometry's width -> world X, height -> world Z
+          rotation: [-Math.PI / 2, 0, 0],
+          dimensions: { width: rectWidth, height: rectDepth },
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
@@ -234,9 +338,25 @@ const SceneViewer: React.FC = () => {
       }
       setActiveTool('select'); 
       return; 
+    } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance) {
+        // This case is mostly handled by onPointerDown for the second click.
+        // If pointerup happens before second click (e.g. drag ends mid-air),
+        // we might want to cancel or finalize based on currentPoint.
+        // For simplicity, we rely on the second click in onPointerDown.
+        // If we want to cancel on mouse up without second click:
+        // setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null });
+        // if (sceneRef.current && tempMeasureLineRef.current) { ... remove line ... }
+        // setActiveTool('select');
+    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
+        // Finalize push/pull (currently nothing to finalize as it's WIP)
+        setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
+        if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+        setActiveTool('select'); // Switch back to select tool
+        return;
     }
 
-    // Existing click logic for selection, paint, eraser (if not drawing)
+
+    // Existing click logic for selection, paint, eraser (if not drawing or measuring)
     if (!drawingState.isActive && !transformControlsRef.current?.dragging) {
       if (!mountRef.current || !cameraRef.current || !sceneRef.current) return;
       
@@ -268,16 +388,15 @@ const SceneViewer: React.FC = () => {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
             setActiveTool('select'); 
-          } else { // Includes 'select', 'move', 'rotate', 'scale'
+          } else { 
             selectObject(clickedObjectId);
-            // Transform controls attachment is handled by a separate useEffect
           }
-        } else { // Clicked on empty space
+        } else { 
           if (activeTool === 'select' || activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') {
              selectObject(null);
           }
         }
-      } else { // Clicked on empty space
+      } else { 
          if (activeTool === 'select' || activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') {
             selectObject(null);
          }
@@ -286,7 +405,6 @@ const SceneViewer: React.FC = () => {
   }, [activeTool, drawingState, getMousePositionOnXZPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
 
 
-  // Effect for attaching and managing pointer event listeners
   useEffect(() => {
     const currentMount = mountRef.current;
     if (!currentMount) return;
@@ -303,12 +421,11 @@ const SceneViewer: React.FC = () => {
   }, [onPointerDown, onPointerMove, onPointerUp]);
 
 
-  // Update TransformControls based on activeTool and selectedObjectId
   useEffect(() => {
     const tc = transformControlsRef.current;
     if (!tc || !sceneRef.current) return;
 
-    const isDrawingToolActive = activeTool === 'rectangle' || activeTool === 'line' || activeTool === 'arc';
+    const isDrawingToolActive = activeTool === 'rectangle' || activeTool === 'line' || activeTool === 'arc' || activeTool === 'tape' || activeTool === 'pushpull';
 
     const selectedMesh = selectedObjectId ? sceneRef.current.getObjectByName(selectedObjectId) as THREE.Mesh : null;
 
@@ -329,7 +446,6 @@ const SceneViewer: React.FC = () => {
     }
   }, [activeTool, selectedObjectId]);
 
-  // Update lights
   useEffect(() => {
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
@@ -374,13 +490,12 @@ const SceneViewer: React.FC = () => {
     directionalLight.shadow.camera.updateProjectionMatrix();
   }, [ambientLightProps, directionalLightProps]);
 
-  // Manage scene objects based on context
   useEffect(() => {
     if (!sceneRef.current || !getMaterialById) return;
     const scene = sceneRef.current;
 
     const existingObjectIdsInThree = scene.children
-      .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current)
+      .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current && child !== tempMeasureLineRef.current)
       .map(child => child.name);
       
     const contextObjectIds = objects.map(obj => obj.id);
@@ -394,13 +509,11 @@ const SceneViewer: React.FC = () => {
       }
 
       if (mesh) { 
-        // Check if this mesh is being transformed
         const isTransforming = transformControlsRef.current?.object === mesh && transformControlsRef.current?.dragging;
         
-        if (!isTransforming) { // Only update if not actively being transformed by TransformControls
+        if (!isTransforming) { 
           updateMeshProperties(mesh, objData);
         }
-        // Always update material, even if transforming, in case material itself changed
         if(Array.isArray(mesh.material)){
             createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
         } else {
@@ -434,26 +547,23 @@ const SceneViewer: React.FC = () => {
       }
     });
 
-  }, [objects, getMaterialById]); // Removed transformControlsRef.current from deps to avoid loop, transformation updates are handled by TC mouseUp
+  }, [objects, getMaterialById]);
 
-  // Highlight selected object
   useEffect(() => {
     if (!sceneRef.current) return;
     sceneRef.current.children.forEach(child => {
-      if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current) { 
+      if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current && child !== tempMeasureLineRef.current) { 
         const isSelected = child.name === selectedObjectId;
         const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible && transformControlsRef.current.dragging;
 
         if (Array.isArray(child.material)) {
-            // Multi-material highlight needs more specific logic if desired
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
-            if (child.userData.originalEmissive === undefined) { // Check if undefined, not just falsy
+            if (child.userData.originalEmissive === undefined) { 
                 child.userData.originalEmissive = child.material.emissive.clone();
             }
              if (child.userData.originalEmissiveIntensity === undefined) {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
             }
-
 
             if (isSelected && !isTransforming) { 
                 child.material.emissive.setHex(0x00B8D9); 
@@ -466,7 +576,7 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-  }, [selectedObjectId, activeTool]); // Re-evaluate selection highlight when selectedObjectId or activeTool changes
+  }, [selectedObjectId, activeTool]); 
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;

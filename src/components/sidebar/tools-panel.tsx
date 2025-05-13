@@ -12,23 +12,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, // Select
+  MousePointer2, 
   Move, 
   RotateCcw, 
-  Maximize2, // Scale
-  Construction, // Tools section icon
-  Box, // For Add Cube
-  Circle as LucideCircle, // For Add Cylinder (renamed to avoid conflict)
-  LayoutPanelLeft, // For Add Plane
-  Type as TextIcon, // Text tool (Lucide 'Type' icon)
-  Square, // Rectangle tool (Shapes was too generic)
-  PenTool, // Line/Freehand tool
-  Spline, // Arc tool
-  Eraser, // Eraser tool
-  ChevronsUpDown, // Push/Pull tool
-  PaintBucket, // Paint Bucket tool
-  Copy, // Offset tool
-  Ruler, // Tape Measure / Protractor
+  Maximize2, 
+  Construction, 
+  Box, 
+  Circle as LucideCircle, 
+  LayoutPanelLeft, 
+  Type as TextIcon, 
+  Square, 
+  PenTool, 
+  Spline, 
+  Eraser, 
+  ChevronsUpDown, 
+  PaintBucket, 
+  Copy, 
+  Ruler, 
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +39,7 @@ interface ToolConfig {
   label: string;
   icon: React.ElementType;
   action?: () => void;
-  isPlaceholder?: boolean; 
+  isWip?: boolean; 
 }
 
 const ToolsPanel = () => {
@@ -52,7 +52,6 @@ const ToolsPanel = () => {
       title: "Object Added",
       description: `${newObj.name} added and selected.`,
     });
-     // setActiveTool('select'); // Done by addObject now
   };
   
   const handleAddTextPlaceholder = () => {
@@ -61,18 +60,17 @@ const ToolsPanel = () => {
       title: "3D Text Added",
       description: `${newObj.name} (placeholder) added. Full text geometry is a future feature.`,
     });
-    // setActiveTool('select'); // Done by addObject now
   };
 
-  const placeholderToolAction = (toolLabel: string, toolId: ToolType) => {
-    setActiveTool(toolId); // Still activate the tool
+  const wipToolAction = (toolLabel: string, toolId: ToolType) => {
+    setActiveTool(toolId); 
     toast({
-      title: `${toolLabel} Selected`,
-      description: "This tool's drawing functionality is under development. Tool selected.",
+      title: `${toolLabel} Selected (WIP)`,
+      description: "This tool's full functionality is under development.",
       duration: 3000,
     });
   };
-
+  
   const handleEraserToolActivate = () => {
     setActiveTool('eraser');
     toast({
@@ -89,6 +87,14 @@ const ToolsPanel = () => {
     });
   };
 
+  const handleMeasureToolActivate = () => {
+    setActiveTool('tape');
+    toast({
+      title: "Measure Tool Active",
+      description: "Click two points on the XZ plane to measure the distance.",
+    });
+  };
+
 
   const primitiveTools: ToolConfig[] = [
     { id: 'addCube', label: 'Cube', icon: Box, action: () => handleAddPrimitive('cube') },
@@ -98,8 +104,8 @@ const ToolsPanel = () => {
 
   const drawingTools: ToolConfig[] = [
     { id: 'select', label: 'Select', icon: MousePointer2, action: () => setActiveTool('select') },
-    { id: 'line', label: 'Line', icon: PenTool, action: () => placeholderToolAction('Line', 'line') }, // Keep as placeholder action
-    { id: 'arc', label: 'Arc', icon: Spline, action: () => placeholderToolAction('Arc', 'arc') }, 
+    { id: 'line', label: 'Line', icon: PenTool, action: () => wipToolAction('Line Tool', 'line'), isWip: true }, 
+    { id: 'arc', label: 'Arc', icon: Spline, action: () => wipToolAction('Arc Tool', 'arc'), isWip: true }, 
     { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => setActiveTool('rectangle') }, 
   ];
 
@@ -107,12 +113,12 @@ const ToolsPanel = () => {
     { id: 'move', label: 'Move', icon: Move, action: () => setActiveTool('move') }, 
     { id: 'rotate', label: 'Rotate', icon: RotateCcw, action: () => setActiveTool('rotate') }, 
     { id: 'scale', label: 'Scale', icon: Maximize2, action: () => setActiveTool('scale') },   
-    { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, isPlaceholder: true, action: () => placeholderToolAction('Push/Pull', 'pushpull') },
-    { id: 'offset', label: 'Offset', icon: Copy, isPlaceholder: true, action: () => placeholderToolAction('Offset', 'offset') }, 
+    { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => wipToolAction('Push/Pull Tool', 'pushpull'), isWip: true },
+    { id: 'offset', label: 'Offset', icon: Copy, action: () => wipToolAction('Offset Tool', 'offset'), isWip: true }, 
   ];
   
   const utilityTools: ToolConfig[] = [
-    { id: 'tape', label: 'Measure', icon: Ruler, isPlaceholder: true, action: () => placeholderToolAction('Measure', 'tape') }, 
+    { id: 'tape', label: 'Measure', icon: Ruler, action: handleMeasureToolActivate }, 
     { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
     { id: 'paint', label: 'Paint', icon: PaintBucket, action: handlePaintToolActivate },
     { id: 'eraser', label: 'Eraser', icon: Eraser, action: handleEraserToolActivate },
@@ -132,10 +138,10 @@ const ToolsPanel = () => {
                 onClick={() => {
                   if (tool.action) {
                      tool.action();
-                  } else if (tool.id) { // Fallback for tools without specific action, just set active
+                  } else if (tool.id) { 
                      setActiveTool(tool.id);
-                     if (tool.isPlaceholder) { // Should be covered by placeholderToolAction now
-                       placeholderToolAction(tool.label, tool.id);
+                     if (tool.isWip) { 
+                       wipToolAction(tool.label, tool.id);
                      }
                   }
                 }}
@@ -147,7 +153,7 @@ const ToolsPanel = () => {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>{tool.label}{tool.isPlaceholder ? " (WIP)" : ""}</p>
+              <p>{tool.label}{tool.isWip ? " (WIP)" : ""}</p>
             </TooltipContent>
           </Tooltip>
         ))}

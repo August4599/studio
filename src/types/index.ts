@@ -52,15 +52,15 @@ export interface DirectionalLightProps {
 
 export type ToolType = 
   | 'select' 
-  | 'line' // Placeholder, will activate tool
-  | 'rectangle' // Will be made functional for drawing
-  | 'arc' // Placeholder, will activate tool
-  | 'pushpull' // Placeholder
+  | 'line' 
+  | 'rectangle' 
+  | 'arc' 
+  | 'pushpull' 
   | 'move' 
   | 'rotate' 
   | 'scale' 
-  | 'offset' // Placeholder
-  | 'tape' // Placeholder
+  | 'offset' 
+  | 'tape' // Measure tool
   | 'addText'
   | 'paint'
   | 'eraser'
@@ -68,29 +68,31 @@ export type ToolType =
   | 'addCylinder'
   | 'addPlane';
 
-// Specific tool types for drawing actions if needed for state differentiation
-// For now, 'rectangle' tool itself will manage its drawing state internally or via context.
-
 export interface DrawingState {
   isActive: boolean;
-  tool: 'rectangle' | 'line' | 'arc' | null;
-  startPoint: [number, number, number] | null; // Using array for consistency with SceneObject
-  currentPoint?: [number, number, number] | null; // For live preview
-  // Add other tool-specific drawing properties here
+  tool: 'rectangle' | 'line' | 'arc' | 'tape' | 'pushpull' | null;
+  startPoint: [number, number, number] | null;
+  currentPoint?: [number, number, number] | null;
+  measureDistance?: number | null; // For Tape Measure tool
+  pushPullFaceInfo?: { // For Push/Pull tool (simplified initial state)
+    objectId: string;
+    // More details will be needed for actual geometry manipulation
+    // e.g., face index, initial mouse projection on face normal
+  } | null;
 }
 
 
 export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.ElementType }[] = [
   { id: 'select', label: 'Select' },
-  { id: 'line', label: 'Line' }, // WIP removed
-  { id: 'rectangle', label: 'Rectangle' }, // WIP removed
-  { id: 'arc', label: 'Arc' }, // WIP removed
+  { id: 'line', label: 'Line' }, 
+  { id: 'rectangle', label: 'Rectangle' }, 
+  { id: 'arc', label: 'Arc' }, 
   { id: 'pushpull', label: 'Push/Pull' },
   { id: 'move', label: 'Move' },
   { id: 'rotate', label: 'Rotate' },
   { id: 'scale', label: 'Scale' },
   { id: 'offset', label: 'Offset' },
-  { id: 'tape', label: 'Tape Measure' },
+  { id: 'tape', label: 'Measure' },
   { id: 'addText', label: '3D Text' },
   { id: 'paint', label: 'Paint Bucket' },
   { id: 'eraser', label: 'Eraser' },
@@ -110,7 +112,7 @@ export interface SceneData {
   activeTool?: ToolType;
   activePaintMaterialId?: string | null;
   appMode: AppMode;
-  drawingState: DrawingState; // Added for managing drawing operations
+  drawingState: DrawingState; 
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
