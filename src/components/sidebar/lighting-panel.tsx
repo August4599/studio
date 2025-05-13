@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   AccordionContent,
   AccordionItem,
@@ -191,7 +191,7 @@ const LightEditorDialog: React.FC<{
 
 const LightingPanel = () => {
   const { 
-    ambientLight, directionalLight, otherLights, 
+    ambientLight, directionalLight, otherLights = [], 
     updateAmbientLight, updateDirectionalLight, 
     addLight, updateLight, removeLight, getLightById
   } = useScene();
