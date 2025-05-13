@@ -67,10 +67,16 @@ const AppModeSwitcher: React.FC = () => {
   return (
     <Tabs value={currentMode} onValueChange={handleModeChange} className="w-full bg-card border-b shadow-sm flex-none">
       <TabsList className="grid w-full grid-cols-2 h-12 rounded-none border-b-0 p-0">
-        <TabsTrigger value="modelling" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
+        <TabsTrigger 
+          value="modelling" 
+          className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary flex items-center gap-2 text-sm font-medium"
+        >
           <Layers3 size={16} /> Shape & Material
         </TabsTrigger>
-        <TabsTrigger value="rendering" className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 flex items-center gap-2 text-sm font-medium">
+        <TabsTrigger 
+          value="rendering" 
+          className="h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-muted/50 data-[state=active]:text-primary flex items-center gap-2 text-sm font-medium"
+        >
           <Orbit size={16} /> Visualize & Export
         </TabsTrigger>
       </TabsList>
@@ -87,7 +93,7 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
   const getNodeEditorTitle = () => "Advanced Operations";
   
   const getNodeEditorPlaceholder = () => {
-    return "Future: Procedural Geometry (Geometry Nodes), Advanced Materials (Shader Nodes), Post-Processing (Compositing Nodes).";
+    return "Unlock advanced architectural workflows with node-based procedural modeling, custom material shaders, and rendering composites. Coming soon to ArchiVision!";
   }
 
   return (
@@ -146,7 +152,11 @@ const ArchiVisionLayout: React.FC = () => {
           case 'B': toolToSet = 'paint'; toolLabel = 'Paint'; break;
           case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
           case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
-          case 'SPACE': toolToSet = 'select'; toolLabel = 'Select (Space)'; event.preventDefault(); break; // Common for select
+          case ' ': // Space key
+            event.preventDefault(); // Prevent default space behavior (like scrolling)
+            toolToSet = 'select'; 
+            toolLabel = 'Select'; 
+            break;
           case 'ESCAPE': // Escape key to revert to select tool or clear drawing state
             setActiveTool('select'); // Default to select tool
             toast({ title: "Tool Reset", description: "Switched to Select tool." });
@@ -166,11 +176,11 @@ const ArchiVisionLayout: React.FC = () => {
                 toolToSet = 'circle';
                 toolLabel = 'Circle Tool';
                 break;
-            case 'R': // Shift + R for Rectangle tool
-                event.preventDefault();
-                toolToSet = 'rectangle';
-                toolLabel = 'Rectangle Tool';
-                break;
+            // case 'R': // Shift + R for Rectangle tool - 'R' is already scale tool
+            //     event.preventDefault();
+            //     toolToSet = 'rectangle';
+            //     toolLabel = 'Rectangle Tool';
+            //     break;
         }
       }
 
@@ -299,3 +309,4 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
+
