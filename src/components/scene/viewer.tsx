@@ -70,7 +70,7 @@ const SceneViewer: React.FC = () => {
         return { 
             point: intersects[0].point, 
             object: firstIntersectedObject, 
-            face: intersects[0].face || undefined, // face can be null if not intersecting a mesh with faces
+            face: intersects[0].face || undefined, 
             normal: intersects[0].face?.normal || undefined
         };
     }
@@ -161,12 +161,14 @@ const SceneViewer: React.FC = () => {
       orbitControls.dispose();
       transformControls.dispose();
       renderer.dispose();
-      if (renderer.domElement.parentNode === currentMount) {
+      if (currentMount && renderer.domElement.parentNode === currentMount) {
         currentMount.removeChild(renderer.domElement);
       }
-      scene.remove(gridHelper);
-      gridHelper.geometry.dispose();
-      (gridHelper.material as THREE.Material).dispose();
+      if (gridHelper) {
+        scene.remove(gridHelper);
+        gridHelper.geometry.dispose();
+        (gridHelper.material as THREE.Material).dispose();
+      }
       scene.remove(transformControls);
       
       if (tempDrawingMeshRef.current && sceneRef.current) {
@@ -209,9 +211,9 @@ const SceneViewer: React.FC = () => {
         sceneRef.current.add(tempDrawingMeshRef.current);
       }
     } else if (activeTool === 'tape') {
-        const point = getMousePositionOnXZPlane(event);
+        const point = getMousePositionOnXZPlane(event); // For simplicity, tape measure on XZ plane. Can be extended.
         if (point && sceneRef.current) {
-            if (!drawingState.startPoint) { // First click: set start point
+            if (!drawingState.startPoint) { 
                 setDrawingState({ 
                     isActive: true, 
                     startPoint: point.toArray() as [number,number,number], 
@@ -231,7 +233,7 @@ const SceneViewer: React.FC = () => {
                 tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
                 sceneRef.current.add(tempMeasureLineRef.current);
 
-            } else { // Second click: set end point, finalize measurement
+            } else { 
                 const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
                 const distance = startVec.distanceTo(point);
                 setDrawingState({ 
@@ -263,18 +265,25 @@ const SceneViewer: React.FC = () => {
             const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
 
             if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane')) {
-                const localFaceNormal = intersection.normal.clone(); // Normal is in local space of the intersected object part
+                const localFaceNormal = intersection.face.normal.clone(); // Normal is in geometry's local space
+                // Transform localFaceNormal to object's local space if geometry is offset/rotated within object
+                // For simple BoxGeometry/PlaneGeometry, this is often identity if not transformed.
+                // Then transform to world space:
                 const worldFaceNormal = localFaceNormal.clone().applyMatrix3(clickedMesh.normalMatrix).normalize();
+                
+                // Initial intersection point in object's local space
                 const initialLocalIntersectPoint = clickedMesh.worldToLocal(intersection.point.clone());
 
                 const pushPullInfo: PushPullFaceInfo = {
                     objectId: clickedObjectId,
                     initialMeshWorldPosition: clickedMesh.position.toArray() as [number, number, number],
                     initialLocalIntersectPoint: initialLocalIntersectPoint.toArray() as [number,number,number],
+                    initialWorldIntersectionPoint: intersection.point.toArray() as [number, number, number], // Store this
                     localFaceNormal: localFaceNormal.toArray() as [number,number,number],
                     worldFaceNormal: worldFaceNormal.toArray() as [number,number,number],
                     originalDimensions: { ...clickedSceneObject.dimensions },
                     originalPosition: [...clickedSceneObject.position] as [number, number, number],
+                    originalRotation: [...clickedSceneObject.rotation] as [number, number, number],
                     originalType: clickedSceneObject.type,
                 };
                 setDrawingState({ 
@@ -283,7 +292,7 @@ const SceneViewer: React.FC = () => {
                     pushPullFaceInfo: pushPullInfo 
                 });
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
-                selectObject(clickedObjectId); // Ensure the object is selected for property panel
+                selectObject(clickedObjectId); 
                 toast({ title: "Push/Pull Started", description: `Interacting with ${clickedSceneObject.name}. Drag to modify.` });
             } else {
                 toast({ title: "Push/Pull Tool", description: "Select a face of a Cube or Rectangle (Plane) to push/pull.", variant: "default" });
@@ -322,70 +331,79 @@ const SceneViewer: React.FC = () => {
             tempMeasureLineRef.current.geometry.setFromPoints([startVec, currentMovePoint]);
             tempMeasureLineRef.current.geometry.computeBoundingSphere();
         }
-    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && cameraRef.current) {
-        const { objectId, initialMeshWorldPosition, initialLocalIntersectPoint, worldFaceNormal, originalDimensions, originalPosition, originalType } = drawingState.pushPullFaceInfo;
+    } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && cameraRef.current && sceneRef.current) {
+        const { objectId, initialWorldIntersectionPoint, worldFaceNormal, originalDimensions, originalPosition, originalRotation, originalType } = drawingState.pushPullFaceInfo;
         
+        const initialWorldIntersectVec = new THREE.Vector3().fromArray(initialWorldIntersectionPoint);
+        const worldFaceNormalVec = new THREE.Vector3().fromArray(worldFaceNormal);
+
         const targetPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-            new THREE.Vector3().fromArray(worldFaceNormal),
-            new THREE.Vector3().fromArray(initialMeshWorldPosition).add(new THREE.Vector3().fromArray(initialLocalIntersectPoint)) // This might need adjustment if initialLocalIntersectPoint is already world
+            worldFaceNormalVec,
+            initialWorldIntersectVec
         );
         
         const currentIntersection = getMouseIntersection(event, targetPlane);
 
         if (currentIntersection) {
-            const initialWorldIntersectVec = new THREE.Vector3().fromArray(initialMeshWorldPosition).add(new THREE.Vector3().fromArray(initialLocalIntersectPoint).applyMatrix4(new THREE.Matrix4().setPosition(...initialMeshWorldPosition))); // More robust world intersect point
-            
-            // For push pull, we need to calculate the displacement along the worldFaceNormal
-            // Project the current mouse point (on the interaction plane) onto the worldFaceNormal vector
-            // that originates from the initial intersection point.
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
-            const pushPullAmount = dragVector.dot(new THREE.Vector3().fromArray(worldFaceNormal));
+            const pushPullAmount = dragVector.dot(worldFaceNormalVec); // Signed displacement
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
             let newPositionArray = [...originalPosition] as [number, number, number];
+            let newRotationArray: [number, number, number] | undefined = [...originalRotation] as [number,number,number]; // Keep original rotation by default
             let newType: PrimitiveType = originalType;
-            let newRotationArray: [number, number, number] | undefined = undefined;
-
 
             if (originalType === 'cube') {
-                const localNormal = new THREE.Vector3().fromArray(drawingState.pushPullFaceInfo.localFaceNormal);
-                // Determine dominant axis of local normal
-                const absX = Math.abs(localNormal.x);
-                const absY = Math.abs(localNormal.y);
-                const absZ = Math.abs(localNormal.z);
+                const localNormalVec = new THREE.Vector3().fromArray(drawingState.pushPullFaceInfo.localFaceNormal);
+                
+                const absX = Math.abs(localNormalVec.x);
+                const absY = Math.abs(localNormalVec.y);
+                const absZ = Math.abs(localNormalVec.z);
 
                 if (absX > absY && absX > absZ) { // X-face
-                    newDimensions.width = Math.max(0.01, (originalDimensions.width || 1) + pushPullAmount * Math.sign(localNormal.x));
-                    newPositionArray[0] = originalPosition[0] + (pushPullAmount * Math.sign(localNormal.x) / 2);
+                    newDimensions.width = Math.max(0.01, (originalDimensions.width || 1) + pushPullAmount * Math.sign(localNormalVec.x) );
                 } else if (absY > absX && absY > absZ) { // Y-face
-                    newDimensions.height = Math.max(0.01, (originalDimensions.height || 1) + pushPullAmount * Math.sign(localNormal.y));
-                    newPositionArray[1] = originalPosition[1] + (pushPullAmount * Math.sign(localNormal.y) / 2);
+                    newDimensions.height = Math.max(0.01, (originalDimensions.height || 1) + pushPullAmount * Math.sign(localNormalVec.y));
                 } else { // Z-face
-                    newDimensions.depth = Math.max(0.01, (originalDimensions.depth || 1) + pushPullAmount * Math.sign(localNormal.z));
-                    newPositionArray[2] = originalPosition[2] + (pushPullAmount * Math.sign(localNormal.z) / 2);
+                    newDimensions.depth = Math.max(0.01, (originalDimensions.depth || 1) + pushPullAmount * Math.sign(localNormalVec.z));
                 }
+                
+                // Adjust position so the opposite face stays anchored
+                const offsetDir = localNormalVec.clone().applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...originalRotation))).normalize();
+                const positionOffset = offsetDir.multiplyScalar(pushPullAmount / 2);
+                
+                newPositionArray = [
+                    originalPosition[0] + positionOffset.x,
+                    originalPosition[1] + positionOffset.y,
+                    originalPosition[2] + positionOffset.z,
+                ];
+
             } else if (originalType === 'plane') {
                 newType = 'cube';
                 const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount));
+                
+                // Assuming plane created by rectangle tool is XZ, so its 'height' dimension is along Z
                 newDimensions = {
-                    width: originalDimensions.width || 1, // from plane
-                    height: extrusionHeight, // new dimension
-                    depth: originalDimensions.height || 1, // from plane's "height"
+                    width: originalDimensions.width || 1, 
+                    depth: originalDimensions.height || 1, 
+                    height: extrusionHeight, 
                 };
-                 // Adjust position based on extrusion direction (worldFaceNormal)
-                const extrusionOffset = new THREE.Vector3().fromArray(worldFaceNormal).multiplyScalar(pushPullAmount / 2);
+                
+                // Adjust position based on extrusion direction (worldFaceNormal)
+                // The offset is half the signed pushPullAmount along the world normal
+                const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 newPositionArray = [
                     originalPosition[0] + extrusionOffset.x,
                     originalPosition[1] + extrusionOffset.y,
                     originalPosition[2] + extrusionOffset.z,
                 ];
                 // When a plane is extruded, its original rotation (likely to make it XZ) is no longer needed for the cube.
+                // The cube should be aligned with world axes.
                 newRotationArray = [0,0,0];
             }
             
-            const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray };
+            const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray, rotation: newRotationArray };
             if (newType !== originalType) updates.type = newType;
-            if (newRotationArray) updates.rotation = newRotationArray;
             
             updateObject(objectId, updates);
         }
@@ -428,7 +446,17 @@ const SceneViewer: React.FC = () => {
       setActiveTool('select'); 
       return; 
     } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance) {
-        // This case is mostly handled by onPointerDown for the second click.
+        // This case is mostly handled by onPointerDown for the second click if a point was already set.
+        // If user releases mouse after first click (without second click), reset.
+        if (tempMeasureLineRef.current && sceneRef.current) {
+             sceneRef.current.remove(tempMeasureLineRef.current);
+             tempMeasureLineRef.current.geometry.dispose();
+            (tempMeasureLineRef.current.material as THREE.Material).dispose();
+             tempMeasureLineRef.current = null;
+        }
+        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: null }); 
+        setActiveTool('select');
+        return;
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
         const finalObject = objects.find(o => o.id === objectId);
@@ -462,7 +490,7 @@ const SceneViewer: React.FC = () => {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
             setActiveTool('select'); 
-          } else if (activeTool !== 'pushpull') { // Don't auto-select if pushpull tool is active (selection happens onPointerDown)
+          } else if (activeTool !== 'pushpull' && activeTool !== 'tape' && activeTool !== 'rectangle') { 
             selectObject(clickedObjectId);
           }
         } else { 
@@ -476,7 +504,7 @@ const SceneViewer: React.FC = () => {
          }
       }
     }
-  }, [activeTool, drawingState, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
+  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, objects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, setActiveTool]);
 
 
   useEffect(() => {
@@ -569,7 +597,7 @@ const SceneViewer: React.FC = () => {
     const scene = sceneRef.current;
 
     const existingObjectIdsInThree = scene.children
-      .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current?.children[0] && child !== tempMeasureLineRef.current)
+      .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current) )
       .map(child => child.name);
       
     const contextObjectIds = objects.map(obj => obj.id);
@@ -589,9 +617,12 @@ const SceneViewer: React.FC = () => {
         if (!isTransforming && !isPushPulling) { 
           updateMeshProperties(mesh, objData);
         }
-        // Always update material in case its properties changed, even during push/pull or transform
+        
         if(Array.isArray(mesh.material)){
-            createOrUpdateMaterial(materialProps, mesh.material[0] as THREE.MeshStandardMaterial);
+            // This case should ideally not happen with current setup, but to be safe:
+            (mesh.material as THREE.Material[]).forEach(m => {
+                if (m instanceof THREE.MeshStandardMaterial) createOrUpdateMaterial(materialProps, m);
+            });
         } else {
             createOrUpdateMaterial(materialProps, mesh.material as THREE.MeshStandardMaterial);
         }
@@ -628,17 +659,17 @@ const SceneViewer: React.FC = () => {
   useEffect(() => {
     if (!sceneRef.current) return;
     sceneRef.current.children.forEach(child => {
-      if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current?.children[0] && child !== tempMeasureLineRef.current) { 
+      if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current)) { 
         const isSelected = child.name === selectedObjectId;
         const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible && transformControlsRef.current.dragging;
         const isPushPullTarget = drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === child.name && drawingState.isActive;
 
 
         if (Array.isArray(child.material)) {
-          // Handle array materials if necessary, though current setup uses single material
+          // Handle array materials if necessary
         } else if (child.material instanceof THREE.MeshStandardMaterial) {
             if (child.userData.originalEmissive === undefined) { 
-                child.userData.originalEmissive = child.material.emissive.clone();
+                child.userData.originalEmissive = child.material.emissive.getHex(); // Store as hex
             }
              if (child.userData.originalEmissiveIntensity === undefined) {
                 child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
@@ -646,9 +677,9 @@ const SceneViewer: React.FC = () => {
 
             if ((isSelected && !isTransforming && !isPushPullTarget) || (isPushPullTarget && drawingState.isActive)) { 
                 child.material.emissive.setHex(0x00B8D9); 
-                child.material.emissiveIntensity = isPushPullTarget ? 0.9 : 0.7; // Brighter if actively push/pulling
+                child.material.emissiveIntensity = isPushPullTarget ? 0.9 : 0.7;
             } else {
-                if (child.userData.originalEmissive) child.material.emissive.copy(child.userData.originalEmissive);
+                child.material.emissive.setHex(child.userData.originalEmissive ?? 0x000000);
                 child.material.emissiveIntensity = child.userData.originalEmissiveIntensity ?? 0;
             }
             child.material.needsUpdate = true;

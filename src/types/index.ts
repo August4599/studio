@@ -72,11 +72,13 @@ export type ToolType =
 export interface PushPullFaceInfo {
   objectId: string;
   initialMeshWorldPosition: [number, number, number]; // Mesh's world position at drag start
-  initialLocalIntersectPoint: [number, number, number]; // Intersection point in local coords
-  localFaceNormal: [number, number, number]; // Face normal in local coords
+  initialLocalIntersectPoint: [number,number,number]; // Intersection point in local coords of the mesh geometry
+  initialWorldIntersectionPoint: [number, number, number]; // Intersection point in world coords
+  localFaceNormal: [number, number, number]; // Face normal in local coords of the mesh geometry
   worldFaceNormal: [number, number, number]; // Face normal in world coords, normalized
   originalDimensions: SceneObjectDimensions;
   originalPosition: [number, number, number];
+  originalRotation: [number, number, number]; // Store original rotation for reference
   originalType: PrimitiveType; // To know if we are extruding a plane
 }
 
@@ -109,7 +111,7 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
   { id: 'addPlane', label: 'Add Plane'},
 ];
 
-export type AppMode = 'modelling' | 'rendering'; // 'texturing' mode removed
+export type AppMode = 'modelling' | 'rendering';
 
 export interface SceneData {
   objects: SceneObject[];
