@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -249,10 +248,9 @@ const SceneViewer: React.FC = () => {
             const clickedSceneObject = objects.find(o => o.id === clickedObjectId);
 
             if (clickedSceneObject && clickedSceneObject.type === 'cube') {
-                // For now, just show a toast. Actual push/pull is complex.
                 toast({
-                    title: "Push/Pull Tool",
-                    description: `Selected ${clickedSceneObject.name}. True push/pull functionality is WIP.`,
+                    title: "Push/Pull: Cube Selected",
+                    description: `Object: ${clickedSceneObject.name}. Further face interaction is planned.`,
                 });
                 setDrawingState({
                     isActive: true, // Placeholder to potentially disable orbit controls
@@ -262,7 +260,10 @@ const SceneViewer: React.FC = () => {
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
             } else if (clickedSceneObject) {
-                toast({ title: "Push/Pull Tool", description: "Push/Pull currently only supports Cube objects (WIP).", variant: "destructive" });
+                toast({ 
+                    title: "Push/Pull Tool", 
+                    description: "This tool currently interacts with Cube objects. Select a cube.", 
+                });
             }
         }
     }
@@ -281,9 +282,9 @@ const SceneViewer: React.FC = () => {
 
         const points = [
             startVec.x, startVec.y, startVec.z,   endVec.x, startVec.y, startVec.z,
-            endVec.x, startVec.y, startVec.z,     endVec.x, endVec.y, endVec.z,
-            endVec.x, endVec.y, endVec.z,         startVec.x, endVec.y, endVec.z,
-            startVec.x, endVec.y, endVec.z,       startVec.x, startVec.y, startVec.z,
+            endVec.x, startVec.y, startVec.z,     endVec.x, startVec.y, endVec.z, // Use startVec.y for flat rectangle on XZ plane
+            endVec.x, startVec.y, endVec.z,         startVec.x, startVec.y, endVec.z,
+            startVec.x, startVec.y, endVec.z,       startVec.x, startVec.y, startVec.z,
         ];
         tempDrawingMeshRef.current.geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
         tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
@@ -317,14 +318,14 @@ const SceneViewer: React.FC = () => {
       if (rectWidth > 0.01 && rectDepth > 0.01) { 
         const centerX = (startPointVec.x + endPointVec.x) / 2;
         const centerZ = (startPointVec.z + endPointVec.z) / 2;
-        const planeYPosition = startPointVec.y;
+        const planeYPosition = startPointVec.y; // Use Y from startPoint for rectangle plane
         
         const count = objects.filter(o => o.type === 'plane' && o.name.startsWith("Rectangle")).length + 1;
         addObject('plane', {
           name: `Rectangle ${count}`,
           position: [centerX, planeYPosition, centerZ], 
-          rotation: [-Math.PI / 2, 0, 0],
-          dimensions: { width: rectWidth, height: rectDepth },
+          rotation: [-Math.PI / 2, 0, 0], // Plane is created in XY, rotate to XZ
+          dimensions: { width: rectWidth, height: rectDepth }, // For PlaneGeometry, height becomes depth on XZ
           materialId: DEFAULT_MATERIAL_ID, 
         });
         toast({ title: "Rectangle Drawn", description: `Rectangle ${count} added to scene.` });
@@ -348,7 +349,7 @@ const SceneViewer: React.FC = () => {
         // if (sceneRef.current && tempMeasureLineRef.current) { ... remove line ... }
         // setActiveTool('select');
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo) {
-        // Finalize push/pull (currently nothing to finalize as it's WIP)
+        // Finalize push/pull 
         setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
         setActiveTool('select'); // Switch back to select tool
@@ -495,7 +496,7 @@ const SceneViewer: React.FC = () => {
     const scene = sceneRef.current;
 
     const existingObjectIdsInThree = scene.children
-      .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current && child !== tempMeasureLineRef.current)
+      .filter(child => child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current?.children[0] && child !== tempMeasureLineRef.current)
       .map(child => child.name);
       
     const contextObjectIds = objects.map(obj => obj.id);
@@ -552,7 +553,7 @@ const SceneViewer: React.FC = () => {
   useEffect(() => {
     if (!sceneRef.current) return;
     sceneRef.current.children.forEach(child => {
-      if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current && child !== tempMeasureLineRef.current) { 
+      if (child instanceof THREE.Mesh && child.name && child.name !== 'gridHelper' && child !== tempDrawingMeshRef.current?.children[0] && child !== tempMeasureLineRef.current) { 
         const isSelected = child.name === selectedObjectId;
         const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible && transformControlsRef.current.dragging;
 

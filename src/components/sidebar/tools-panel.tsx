@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -39,7 +38,6 @@ interface ToolConfig {
   label: string;
   icon: React.ElementType;
   action?: () => void;
-  isWip?: boolean; 
 }
 
 const ToolsPanel = () => {
@@ -59,15 +57,6 @@ const ToolsPanel = () => {
     toast({
       title: "3D Text Added",
       description: `${newObj.name} (placeholder) added. Full text geometry is a future feature.`,
-    });
-  };
-
-  const wipToolAction = (toolLabel: string, toolId: ToolType) => {
-    setActiveTool(toolId); 
-    toast({
-      title: `${toolLabel} Selected (WIP)`,
-      description: "This tool's full functionality is under development.",
-      duration: 3000,
     });
   };
   
@@ -95,6 +84,23 @@ const ToolsPanel = () => {
     });
   };
 
+  const activateGenericTool = (toolId: ToolType, toolLabel: string, message?: string) => {
+    setActiveTool(toolId);
+    toast({
+      title: `${toolLabel} Selected`,
+      description: message || `The ${toolLabel.toLowerCase()} is now active.`,
+      duration: 3000,
+    });
+  };
+  
+  const handlePushPullActivate = () => {
+    setActiveTool('pushpull');
+    toast({
+      title: "Push/Pull Tool Active",
+      description: "Select a cube to interact. Full geometry modification is planned for future updates.",
+    });
+  };
+
 
   const primitiveTools: ToolConfig[] = [
     { id: 'addCube', label: 'Cube', icon: Box, action: () => handleAddPrimitive('cube') },
@@ -104,8 +110,8 @@ const ToolsPanel = () => {
 
   const drawingTools: ToolConfig[] = [
     { id: 'select', label: 'Select', icon: MousePointer2, action: () => setActiveTool('select') },
-    { id: 'line', label: 'Line', icon: PenTool, action: () => wipToolAction('Line Tool', 'line'), isWip: true }, 
-    { id: 'arc', label: 'Arc', icon: Spline, action: () => wipToolAction('Arc Tool', 'arc'), isWip: true }, 
+    { id: 'line', label: 'Line', icon: PenTool, action: () => activateGenericTool('line', 'Line Tool', 'Line drawing functionality is under development.') }, 
+    { id: 'arc', label: 'Arc', icon: Spline, action: () => activateGenericTool('arc', 'Arc Tool', 'Arc drawing functionality is under development.') }, 
     { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => setActiveTool('rectangle') }, 
   ];
 
@@ -113,8 +119,8 @@ const ToolsPanel = () => {
     { id: 'move', label: 'Move', icon: Move, action: () => setActiveTool('move') }, 
     { id: 'rotate', label: 'Rotate', icon: RotateCcw, action: () => setActiveTool('rotate') }, 
     { id: 'scale', label: 'Scale', icon: Maximize2, action: () => setActiveTool('scale') },   
-    { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => wipToolAction('Push/Pull Tool', 'pushpull'), isWip: true },
-    { id: 'offset', label: 'Offset', icon: Copy, action: () => wipToolAction('Offset Tool', 'offset'), isWip: true }, 
+    { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: handlePushPullActivate },
+    { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Offset functionality is under development.') }, 
   ];
   
   const utilityTools: ToolConfig[] = [
@@ -140,9 +146,6 @@ const ToolsPanel = () => {
                      tool.action();
                   } else if (tool.id) { 
                      setActiveTool(tool.id);
-                     if (tool.isWip) { 
-                       wipToolAction(tool.label, tool.id);
-                     }
                   }
                 }}
                 aria-label={tool.label}
@@ -153,7 +156,7 @@ const ToolsPanel = () => {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>{tool.label}{tool.isWip ? " (WIP)" : ""}</p>
+              <p>{tool.label}</p>
             </TooltipContent>
           </Tooltip>
         ))}
