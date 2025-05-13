@@ -1,18 +1,18 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import LightingPanel from "./lighting-panel";
-import ScenePanel from "./scene-panel";
-import ObjectPropertiesPanel from "./object-properties-panel";
-import MaterialsPanel from "./materials-panel";
-import RenderSettingsPanel from "./render-settings-panel";
-import CameraSettingsPanel from "./camera-settings-panel"; 
-import WorldSettingsPanel from "./world-settings-panel";
-import ObjectHierarchyPanel from "./object-hierarchy-panel"; 
+// import LightingPanel from "./lighting-panel";
+// import ScenePanel from "./scene-panel";
+// import ObjectPropertiesPanel from "./object-properties-panel";
+// import MaterialsPanel from "./materials-panel";
+// import RenderSettingsPanel from "./render-settings-panel";
+// import CameraSettingsPanel from "./camera-settings-panel";
+// import WorldSettingsPanel from "./world-settings-panel";
+// import ObjectHierarchyPanel from "./object-hierarchy-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
-import type { AppMode } from "@/types";
-import { Settings2, BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Construction, SlidersHorizontal } from "lucide-react";
+// import type { AppMode } from '@/types'; // Not needed if panels are commented
+import { Settings2, BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Construction } from "lucide-react"; // Removed SlidersHorizontal as it's not used with panels commented
 import { Accordion } from "@/components/ui/accordion";
 
 const MainSidebar = () => {
@@ -61,53 +61,59 @@ const MainSidebar = () => {
           )}
         </TabsList>
 
-        <ScrollArea className="flex-grow p-1"> {/* Added padding to scroll area */}
+        <ScrollArea className="flex-grow p-1">
             <TabsContent value="selection" className="p-0 m-0">
               <Accordion type="multiple" defaultValue={['item-object-props']} className="w-full">
-                {selectedObjectId ? <ObjectPropertiesPanel /> : <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>}
+                {/* {selectedObjectId ? <ObjectPropertiesPanel /> : <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>} */}
+                <div className="p-4 text-center text-sm text-muted-foreground">Selection Panel Content (Debug)</div>
               </Accordion>
             </TabsContent>
 
             <TabsContent value="materials" className="p-0 m-0">
                 <Accordion type="multiple" defaultValue={['item-materials']} className="w-full">
-                    <MaterialsPanel />
+                    {/* <MaterialsPanel /> */}
+                    <div className="p-4 text-center text-sm text-muted-foreground">Materials Panel Content (Debug)</div>
                 </Accordion>
             </TabsContent>
 
             <TabsContent value="scene" className="p-0 m-0">
                 <Accordion type="multiple" defaultValue={['item-object-hierarchy', 'item-lighting', 'item-world-settings']} className="w-full">
-                    <ObjectHierarchyPanel />
-                    <LightingPanel />
-                    <WorldSettingsPanel />
+                    {/* <ObjectHierarchyPanel /> */}
+                    {/* <LightingPanel /> */}
+                    {/* <WorldSettingsPanel /> */}
+                    <div className="p-4 text-center text-sm text-muted-foreground">Scene Panel Content (Hierarchy, Lighting, World) (Debug)</div>
                 </Accordion>
             </TabsContent>
             
-            <TabsContent value="project" className="p-0 m-0 md:hidden"> {/* Project Tab content for mobile */}
+            <TabsContent value="project" className="p-0 m-0 md:hidden">
                 <Accordion type="multiple" defaultValue={['item-scene']} className="w-full">
-                    <ScenePanel />
+                    {/* <ScenePanel /> */}
+                    <div className="p-4 text-center text-sm text-muted-foreground">Project Panel Content (Mobile) (Debug)</div>
                 </Accordion>
             </TabsContent>
 
             <TabsContent value="render" className="p-0 m-0">
                 {appMode === 'rendering' && (
                     <Accordion type="multiple" defaultValue={['item-render-settings']} className="w-full">
-                        <RenderSettingsPanel />
+                        {/* <RenderSettingsPanel /> */}
+                        <div className="p-4 text-center text-sm text-muted-foreground">Render Settings Panel Content (Debug)</div>
                     </Accordion>
                 )}
             </TabsContent>
             <TabsContent value="camera" className="p-0 m-0">
                 {appMode === 'rendering' && (
                     <Accordion type="multiple" defaultValue={['item-camera-settings']} className="w-full">
-                        <CameraSettingsPanel />
+                        {/* <CameraSettingsPanel /> */}
+                        <div className="p-4 text-center text-sm text-muted-foreground">Camera Settings Panel Content (Debug)</div>
                     </Accordion>
                 )}
             </TabsContent>
         </ScrollArea>
       </Tabs>
-       {/* Project Panel for desktop, outside tabs, always visible */}
        <div className="hidden md:block p-1 border-t">
           <Accordion type="single" collapsible defaultValue={'item-scene'} className="w-full">
-            <ScenePanel />
+            {/* <ScenePanel /> */}
+            <div className="p-4 text-center text-sm text-muted-foreground">Project Panel Content (Desktop) (Debug)</div>
           </Accordion>
         </div>
     </div>
