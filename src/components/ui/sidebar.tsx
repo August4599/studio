@@ -13,8 +13,8 @@ import { Separator } from "@/components/ui/separator"
 import { 
   Sheet, 
   SheetContent,
-  SheetHeader as RadixSheetHeader, // Renamed to avoid conflict
-  SheetTitle as RadixSheetTitle    // Renamed to avoid conflict
+  SheetHeader as RadixSheetHeader, 
+  SheetTitle as RadixSheetTitle    
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -26,9 +26,9 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem" // Default width
+const SIDEBAR_WIDTH = "16rem" 
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3.5rem" // Adjusted for better icon display
+const SIDEBAR_WIDTH_ICON = "3.5rem" 
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -171,7 +171,7 @@ interface SidebarProps extends React.ComponentProps<"div"> {
   side?: "left" | "right"
   variant?: "sidebar" 
   collapsible?: "icon" | "none" 
-  sheetTitle?: string; // New prop for mobile sheet title
+  sheetTitle?: string; 
 }
 
 
@@ -181,7 +181,7 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       side: propSide, 
       variant = "sidebar", 
       collapsible = "icon",
-      sheetTitle, // Destructure new prop
+      sheetTitle, 
       className,
       children,
       ...props
@@ -370,7 +370,7 @@ const SidebarHeader = React.forwardRef<
   const { isMobile } = useSidebar();
 
   if (isMobile) {
-    let titleText: React.ReactNode = "Menu"; // Default title
+    let titleText: React.ReactNode = "Menu"; 
     let iconElement: React.ReactNode = null;
     
     React.Children.forEach(children, (childNode) => {
@@ -384,7 +384,7 @@ const SidebarHeader = React.forwardRef<
             }
           }
         });
-      } else if (React.isValidElement(childNode)) { // Direct children like icon or title
+      } else if (React.isValidElement(childNode)) { 
          if (childNode.type === 'h1' || childNode.type === 'h2' || childNode.type === 'h3') {
             titleText = childNode.props.children;
          } else if (childNode.props?.className?.includes('lucide-') || (childNode.type as any)?.displayName?.toLowerCase().includes('icon')) {
@@ -412,7 +412,6 @@ const SidebarHeader = React.forwardRef<
     );
   }
 
-  // Desktop rendering
   return (
     <div
       ref={ref}

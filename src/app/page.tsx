@@ -178,11 +178,11 @@ const ArchiVisionLayout: React.FC = () => {
                 toolToSet = 'circle';
                 toolLabel = 'Circle Tool';
                 break;
-            case 'R': 
-                event.preventDefault();
-                toolToSet = 'rectangle';
-                toolLabel = 'Rectangle Tool';
-                break;
+            // case 'R':  // This was conflicting with Scale (R key)
+            //     event.preventDefault();
+            //     toolToSet = 'rectangle';
+            //     toolLabel = 'Rectangle Tool';
+            //     break;
         }
       }
 
@@ -203,6 +203,7 @@ const ArchiVisionLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      {/* Left Tools Sidebar (conditionally rendered by AppMode) */}
       {appMode === 'modelling' && (
         <div className="w-64 flex-none hidden md:flex flex-col bg-card border-r shadow-sm">
           <ToolsSidebar />
@@ -228,7 +229,7 @@ const ArchiVisionLayout: React.FC = () => {
         
         <SidebarProvider defaultOpen side="right">
           <div className="flex flex-row flex-grow overflow-hidden">
-            {/* Viewport Area */}
+            {/* Main Viewport Area */}
             <div className="flex flex-col flex-grow bg-background relative overflow-hidden">
                 {/* Mobile Header with Tools/Inspector Toggles */}
                 <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-card z-20 shadow-sm h-12">
@@ -256,7 +257,7 @@ const ArchiVisionLayout: React.FC = () => {
                 collapsible="icon" 
                 side="right" 
                 className="border-l shadow-lg w-72 md:w-80 lg:w-96 bg-card"
-                sheetTitle="Inspector" // Added sheetTitle for mobile accessibility
+                sheetTitle="Inspector" 
             >
               <SidebarContent className="p-0 m-0"> 
                 <MainSidebar />
