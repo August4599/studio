@@ -785,6 +785,7 @@ const SceneViewer: React.FC = () => {
         if (!isTransforming && !isPushPulling) { 
           updateMeshProperties(mesh, objData);
         }
+        mesh.visible = objData.visible ?? true; // Update visibility here
         
         if(Array.isArray(mesh.material)){
             (mesh.material as THREE.Material[]).forEach(m => {

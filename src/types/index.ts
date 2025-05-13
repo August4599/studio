@@ -49,6 +49,7 @@ export interface SceneObject {
   scale: [number, number, number];
   dimensions: SceneObjectDimensions;
   materialId: string;
+  visible?: boolean; // Added for object visibility
 }
 
 export interface AmbientLightProps {
@@ -190,16 +191,16 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
   { id: 'addTorus', label: 'Add Torus'},
 ];
 
-export type AppMode = 'modelling' | 'rendering'; // 'modelling' now includes texturing
+export type AppMode = 'modelling' | 'rendering'; 
 
 export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective';
 
 export interface SceneData {
   objects: SceneObject[];
   materials: MaterialProperties[];
-  ambientLight: AmbientLightProps; // This could be one of the lights in a `lights: SceneLight[]` array.
-  directionalLight: DirectionalLightSceneProps; // For simplicity, keep one primary directional light easily accessible.
-  otherLights?: SceneLight[]; // For point, spot, area lights.
+  ambientLight: AmbientLightProps; 
+  directionalLight: DirectionalLightSceneProps; 
+  otherLights?: SceneLight[]; 
   selectedObjectId?: string | null;
   activeTool?: ToolType;
   activePaintMaterialId?: string | null;

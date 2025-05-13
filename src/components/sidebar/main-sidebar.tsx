@@ -9,6 +9,7 @@ import MaterialsPanel from "./materials-panel";
 import RenderSettingsPanel from "./render-settings-panel";
 import CameraSettingsPanel from "./camera-settings-panel"; 
 import WorldSettingsPanel from "./world-settings-panel";
+import ObjectHierarchyPanel from "./object-hierarchy-panel"; // Import the new panel
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
 import type { AppMode } from "@/types";
@@ -23,10 +24,11 @@ const MainSidebar = () => {
       case 'modelling': // Shape & Material
         return (
           <>
+            <ObjectHierarchyPanel />
             {hasSelection && <ObjectPropertiesPanel />}
             <MaterialsPanel />
             <WorldSettingsPanel /> 
-            <ScenePanel /> {/* Project & Scene Management */}
+            <ScenePanel /> 
             {!hasSelection && <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>}
           </>
         );
@@ -36,10 +38,11 @@ const MainSidebar = () => {
             <RenderSettingsPanel />
             <CameraSettingsPanel />
             <LightingPanel />
+            <ObjectHierarchyPanel />
+            {hasSelection && <ObjectPropertiesPanel />}
+            <MaterialsPanel /> 
             <WorldSettingsPanel />
-            {hasSelection && <ObjectPropertiesPanel />} {/* Still show object props if selected */}
-            <MaterialsPanel /> {/* Materials are relevant for rendering too */}
-            <ScenePanel /> {/* Project & Scene Management */}
+            <ScenePanel /> 
           </>
         );
       default:
@@ -48,21 +51,21 @@ const MainSidebar = () => {
   };
 
   const getDefaultOpenItems = (mode: AppMode) => {
-    let items: string[] = [];
+    let items: string[] = ['item-object-hierarchy']; // Open hierarchy by default
     const objectPropsOpen = selectedObjectId ? ['item-object-props'] : [];
 
     switch (mode) {
       case 'modelling':
-        items = [...objectPropsOpen, 'item-materials', 'item-world-settings', 'item-scene'];
+        items = [...items, ...objectPropsOpen, 'item-materials', 'item-world-settings', 'item-scene'];
         if (!selectedObjectId) items.push('item-scene'); 
         break;
       case 'rendering':
-        items = ['item-render-settings', 'item-camera-settings', 'item-lighting', 'item-world-settings', 'item-scene'];
-        if (selectedObjectId) items.push('item-object-props');
+        items = [...items, 'item-render-settings', 'item-camera-settings', 'item-lighting', 'item-world-settings', 'item-scene'];
+        if (selectedObjectId) items.push(...objectPropsOpen);
         items.push('item-materials'); 
         break;
       default:
-        items = [];
+        // items = []; // Keep item-object-hierarchy if nothing else
     }
     return [...new Set(items.filter(Boolean))] as string[];
   }

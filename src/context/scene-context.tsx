@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -142,6 +143,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       scale: initialProps?.scale || defaultScale,
       dimensions: { ...defaultDimensions, ...initialProps?.dimensions },
       materialId: initialProps?.materialId || DEFAULT_MATERIAL_ID,
+      visible: initialProps?.visible ?? true,
     };
     
     setSceneData(prev => ({
@@ -186,6 +188,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             scale: objData.scale || [1, 1, 1],
             dimensions: { ...defaultDimensions, ...objData.dimensions },
             materialId: objData.materialId || DEFAULT_MATERIAL_ID,
+            visible: objData.visible ?? true,
         };
     });
 

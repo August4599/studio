@@ -65,6 +65,7 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
   mesh.name = objectData.id; 
   mesh.position.set(...objectData.position);
   mesh.rotation.set(...objectData.rotation);
+  mesh.visible = objectData.visible ?? true;
 
   mesh.scale.set(
     Math.max(0.001, objectData.scale[0]),
@@ -80,6 +81,7 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
 export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) {
   mesh.position.set(...objectData.position);
   mesh.rotation.set(...objectData.rotation); 
+  mesh.visible = objectData.visible ?? true;
   mesh.scale.set(
     Math.max(0.001, objectData.scale[0]),
     Math.max(0.001, objectData.scale[1]),
