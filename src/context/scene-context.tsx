@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -96,7 +95,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     switch (type) {
       case 'cube':
         defaultDimensions = { width: 1, height: 1, depth: 1 };
-        // Adjust Y position based on height, ensuring it's positive (object sits on XZ plane)
         defaultPosition = [0, Math.max(0.001, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1)) / 2, 0];
         break;
       case 'cylinder':
@@ -106,7 +104,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       case 'plane':
         defaultDimensions = { width: 10, height: 10 }; 
         defaultPosition = [0, 0, 0]; 
-        defaultRotation = [-Math.PI / 2, 0, 0]; // Default to XZ plane
+        defaultRotation = [-Math.PI / 2, 0, 0]; 
         break;
       case 'text':
         defaultDimensions = { text: "3D Text", fontSize: 1, depth: 0.2, width: 2, height: 0.5 };
@@ -148,13 +146,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const isYUpObject = (updatedObj.type === 'cube' || updatedObj.type === 'cylinder' || updatedObj.type === 'text');
           const heightChanged = updates.dimensions?.height !== undefined && updates.dimensions.height !== obj.dimensions.height;
           const positionNotExplicitlySet = updates.position === undefined;
-          // Simple check for upright (primarily concerned with X and Z rotations being zero for auto-Y pos)
           const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
 
 
           if (isYUpObject && heightChanged && positionNotExplicitlySet && isUpright) {
             updatedObj.position = [...updatedObj.position]; 
-            // Ensure positive height for position calculation
             updatedObj.position[1] = Math.max(0.001, (updatedObj.dimensions.height || 1)) / 2;
           }
           return updatedObj;
@@ -173,17 +169,24 @@ export const SceneProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const selectObject = useCallback((id: string | null) => {
-    const currentTool = sceneData.activeTool;
-    const persistentTools: ToolType[] = ['paint', 'pushpull']; // pushpull might need to persist selection for its operation
-    const shouldResetDrawing = !currentTool || !persistentTools.includes(currentTool) || (currentTool === 'pushpull' && !id);
-
-
-    setSceneData(prev => ({ 
-        ...prev, 
-        selectedObjectId: id, 
-        drawingState: shouldResetDrawing ? initialDrawingState : { ...prev.drawingState, isActive: false } // Set isActive false when just selecting
-    }));
-  }, [sceneData.activeTool]); 
+    setSceneData(prev => {
+      // Preserve drawingState.isActive if a drawing operation (like push/pull) was just
+      // initiated on this object and is currently active.
+      // Otherwise, ensure drawingState.isActive is false for a simple selection.
+      const preserveActiveDrawing = prev.drawingState.isActive &&
+                                    (
+                                      (prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id) ||
+                                      (prev.drawingState.tool === 'rectangle' && prev.drawingState.startPoint !== null) ||
+                                      (prev.drawingState.tool === 'tape' && prev.drawingState.startPoint !== null && prev.drawingState.measureDistance === null)
+                                    );
+  
+      return {
+        ...prev,
+        selectedObjectId: id,
+        drawingState: preserveActiveDrawing ? prev.drawingState : { ...prev.drawingState, isActive: false }
+      };
+    });
+  }, []);
   
   const addMaterial = useCallback((props?: Partial<Omit<MaterialProperties, 'id'>>): MaterialProperties => {
     const newMaterial: MaterialProperties = {
@@ -364,3 +367,4 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
+
