@@ -167,19 +167,21 @@ const SidebarProvider = React.forwardRef<
 )
 SidebarProvider.displayName = "SidebarProvider"
 
-const Sidebar = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div"> & {
-    side?: "left" | "right"
-    variant?: "sidebar" 
-    collapsible?: "icon" | "none" 
-  }
->(
+interface SidebarProps extends React.ComponentProps<"div"> {
+  side?: "left" | "right"
+  variant?: "sidebar" 
+  collapsible?: "icon" | "none" 
+  sheetTitle?: string; // New prop for mobile sheet title
+}
+
+
+const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
   (
     {
       side: propSide, 
       variant = "sidebar", 
       collapsible = "icon",
+      sheetTitle, // Destructure new prop
       className,
       children,
       ...props
@@ -212,7 +214,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className={cn("w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden", className)}
+            className={cn("w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden flex flex-col", className)}
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -221,8 +223,14 @@ const Sidebar = React.forwardRef<
             }
             side={currentSide}
           >
-            {/* Children (including the modified SidebarHeader) are rendered here */}
-            <div className="flex h-full w-full flex-col">{children}</div>
+            {sheetTitle && (
+              <RadixSheetHeader className="p-3 border-b h-12 flex-none">
+                <RadixSheetTitle className="text-xl font-semibold">{sheetTitle}</RadixSheetTitle>
+              </RadixSheetHeader>
+            )}
+            <div className="flex flex-col flex-grow overflow-auto">
+                {children}
+            </div>
           </SheetContent>
         </Sheet>
       )
@@ -365,18 +373,23 @@ const SidebarHeader = React.forwardRef<
     let titleText: React.ReactNode = "Menu"; // Default title
     let iconElement: React.ReactNode = null;
     
-    // Attempt to find icon and h1 in children for mobile sheet title
     React.Children.forEach(children, (childNode) => {
-      if (React.isValidElement(childNode) && childNode.type === 'div') { // Look for the typical div wrapper
+      if (React.isValidElement(childNode) && childNode.type === 'div') { 
         React.Children.forEach(childNode.props.children, (innerChild: React.ReactNode) => {
           if (React.isValidElement(innerChild)) {
-            if (innerChild.type === 'h1') {
+            if (innerChild.type === 'h1' || innerChild.type === 'h2' || innerChild.type === 'h3' ) {
               titleText = innerChild.props.children;
-            } else if (innerChild.props?.className?.includes('lucide-')) { // Basic icon check
+            } else if (innerChild.props?.className?.includes('lucide-') || (innerChild.type as any)?.displayName?.toLowerCase().includes('icon')) { 
               iconElement = innerChild;
             }
           }
         });
+      } else if (React.isValidElement(childNode)) { // Direct children like icon or title
+         if (childNode.type === 'h1' || childNode.type === 'h2' || childNode.type === 'h3') {
+            titleText = childNode.props.children;
+         } else if (childNode.props?.className?.includes('lucide-') || (childNode.type as any)?.displayName?.toLowerCase().includes('icon')) {
+            iconElement = childNode;
+         }
       }
     });
 
@@ -384,7 +397,7 @@ const SidebarHeader = React.forwardRef<
       <RadixSheetHeader
         ref={ref as React.Ref<HTMLDivElement>} 
         className={cn(
-          "flex flex-row items-center justify-between p-3 border-b h-12",
+          "flex flex-row items-center justify-between p-3 border-b h-12 flex-none",
           className 
         )}
         {...props}
@@ -395,10 +408,6 @@ const SidebarHeader = React.forwardRef<
             {titleText}
           </RadixSheetTitle>
         </div>
-        {/* SheetContent automatically adds a close (X) button.
-            The original SidebarTrigger (if present in children) should be hidden
-            by SheetContent's `[&>button]:hidden` style or handled by user.
-        */}
       </RadixSheetHeader>
     );
   }

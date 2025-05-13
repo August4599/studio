@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect }from 'react';
@@ -12,10 +13,8 @@ import ProjectDashboard from '@/components/project/project-dashboard';
 import {
   SidebarProvider,
   Sidebar,
-  // SidebarHeader as ShadcnSidebarHeader, // Avoid name collision
   SidebarTrigger,
   SidebarContent,
-  // SidebarFooter as ShadcnSidebarFooter, // Avoid name collision
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
@@ -221,7 +220,6 @@ const ArchiVisionLayout: React.FC = () => {
           </div>
           <AppModeSwitcher />
           <div className="w-auto"> 
-            {/* Project Actions Menu/Button can go here */}
              <Button variant="outline" size="sm" onClick={() => { /* Logic to open project dashboard or menu */ console.log("Project actions clicked"); }}>
                 <FolderArchive size={16} className="mr-2"/> {currentProject?.name || "Projects"}
              </Button>
@@ -253,16 +251,16 @@ const ArchiVisionLayout: React.FC = () => {
             </div>
 
             {/* Right Inspector Panel */}
-            <Sidebar variant="sidebar" collapsible="icon" side="right" className="border-l shadow-lg w-72 md:w-80 lg:w-96 bg-card">
-              <SidebarContent className="p-0 m-0"> {/* Remove padding for Tabs */}
+            <Sidebar 
+                variant="sidebar" 
+                collapsible="icon" 
+                side="right" 
+                className="border-l shadow-lg w-72 md:w-80 lg:w-96 bg-card"
+                sheetTitle="Inspector" // Added sheetTitle for mobile accessibility
+            >
+              <SidebarContent className="p-0 m-0"> 
                 <MainSidebar />
               </SidebarContent>
-              {/* Optional: Footer for the right sidebar */}
-               {/* 
-                <ShadcnSidebarFooter className="p-2 group-data-[collapsible=icon]:hidden border-t">
-                  <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ArchiVision</p>
-                </ShadcnSidebarFooter>
-              */}
             </Sidebar>
           </div>
         </SidebarProvider>
