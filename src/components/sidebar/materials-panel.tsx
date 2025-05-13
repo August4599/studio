@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -14,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
 import type { MaterialProperties } from "@/types";
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from "@/types";
-import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush, Sparkles, Eye, Layers } from "lucide-react"; // Added Sparkles for Emission, Eye for Opacity, Layers for Displacement
+import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush, Sparkles, Eye, Layers, ShieldCheck, Droplets } from "lucide-react"; // Added ShieldCheck for Clearcoat, Droplets for Normal Scale
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -40,6 +41,38 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fileToDataURL } from "@/lib/three-utils";
 import { cn } from "@/lib/utils";
+import { getDefaultSceneData } from "@/lib/project-manager";
+
+
+const Vector2Input: React.FC<{
+  label: string;
+  value: [number, number] | undefined;
+  onChange: (newValue: [number, number]) => void;
+  step?: number;
+}> = ({ label, value = [1,1], onChange, step = 0.1 }) => (
+  <div className="space-y-1">
+    <Label className="text-xs font-medium">{label}</Label>
+    <div className="grid grid-cols-2 gap-2">
+      {['X', 'Y'].map((axis, idx) => (
+        <Input
+          key={axis}
+          type="number"
+          aria-label={`${label} ${axis}`}
+          value={value[idx]}
+          onChange={(e) => {
+            const numValue = parseFloat(e.target.value);
+            const newVector: [number, number] = [...value];
+            newVector[idx] = isNaN(numValue) ? 1 : numValue;
+            onChange(newVector);
+          }}
+          step={step}
+          className="h-8 text-xs"
+        />
+      ))}
+    </div>
+  </div>
+);
+
 
 const TextureInput: React.FC<{
   label: string;
@@ -81,7 +114,7 @@ const TextureInput: React.FC<{
 
   return (
     <div className="space-y-1">
-        <Label htmlFor={`mat-${label.toLowerCase()}`} className="text-xs font-medium">{label}</Label>
+        <Label htmlFor={`mat-${label.toLowerCase().replace(/\s/g, '-')}`} className="text-xs font-medium">{label}</Label>
         <div className="flex items-center gap-2">
             <Button
             type="button"
@@ -93,7 +126,7 @@ const TextureInput: React.FC<{
             <UploadCloud size={14} className="mr-2" /> Upload
             </Button>
             <Input
-            id={`mat-${label.toLowerCase()}`}
+            id={`mat-${label.toLowerCase().replace(/\s/g, '-')}`}
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
@@ -125,10 +158,9 @@ const MaterialEditorDialog: React.FC<{
   const [editedMaterial, setEditedMaterial] = useState<MaterialProperties>(material);
 
   useEffect(() => {
-    // Ensure all potentially optional fields have defaults from the incoming material
     const fullMaterial = {
-        ...getDefaultSceneData().materials[0], // Base defaults
-        ...material // Actual material data
+        ...getDefaultSceneData().materials[0], 
+        ...material 
     };
     setEditedMaterial(fullMaterial);
   }, [material]);
@@ -137,7 +169,7 @@ const MaterialEditorDialog: React.FC<{
     setEditedMaterial(prev => ({ ...prev, [field]: value }));
   };
   
-  const handleSliderChange = (field: 'roughness' | 'metalness' | 'opacity' | 'ior' | 'emissiveIntensity' | 'displacementScale' | 'displacementBias', value: number[]) => {
+  const handleSliderChange = (field: 'roughness' | 'metalness' | 'opacity' | 'ior' | 'emissiveIntensity' | 'displacementScale' | 'displacementBias' | 'clearcoat' | 'clearcoatRoughness', value: number[]) => {
     setEditedMaterial(prev => ({ ...prev, [field]: value[0] }));
   };
 
@@ -148,6 +180,10 @@ const MaterialEditorDialog: React.FC<{
   const handleTextureClear = (field: keyof MaterialProperties) => {
     setEditedMaterial(prev => ({ ...prev, [field]: undefined }));
   };
+  
+  const handleNormalScaleChange = (newValue: [number, number]) => {
+    handleChange('normalScale', newValue);
+  }
 
   const handleSave = () => {
     onSave(editedMaterial);
@@ -201,10 +237,34 @@ const MaterialEditorDialog: React.FC<{
                     <Label htmlFor="mat-opacity" className="text-xs">Opacity: {(editedMaterial.opacity ?? 1).toFixed(2)}</Label>
                     <Slider id="mat-opacity" min={0} max={1} step={0.01} value={[editedMaterial.opacity ?? 1]} onValueChange={(val) => handleSliderChange('opacity', val)} disabled={!editedMaterial.transparent}/>
                 </div>
+                <TextureInput 
+                    label="Alpha Map" 
+                    currentUrl={editedMaterial.alphaMap}
+                    onTextureUpload={(dataUrl) => handleTextureUpload('alphaMap', dataUrl)}
+                    onTextureClear={() => handleTextureClear('alphaMap')}
+                />
                  <div className="space-y-1">
                     <Label htmlFor="mat-ior" className="text-xs">IOR (Refraction): {(editedMaterial.ior ?? 1.5).toFixed(2)}</Label>
                     <Slider id="mat-ior" min={1} max={2.5} step={0.01} value={[editedMaterial.ior ?? 1.5]} onValueChange={(val) => handleSliderChange('ior', val)} disabled={!editedMaterial.transparent}/>
                 </div>
+            </div>
+
+            <div className="border-t pt-3 mt-2 space-y-3">
+                <h4 className="text-sm font-medium flex items-center gap-2"><ShieldCheck size={14}/> Clearcoat</h4>
+                <div className="space-y-1">
+                    <Label htmlFor="mat-clearcoat" className="text-xs">Intensity: {(editedMaterial.clearcoat ?? 0).toFixed(2)}</Label>
+                    <Slider id="mat-clearcoat" min={0} max={1} step={0.01} value={[editedMaterial.clearcoat ?? 0]} onValueChange={(val) => handleSliderChange('clearcoat', val)} />
+                </div>
+                <div className="space-y-1">
+                    <Label htmlFor="mat-clearcoat-roughness" className="text-xs">Roughness: {(editedMaterial.clearcoatRoughness ?? 0).toFixed(2)}</Label>
+                    <Slider id="mat-clearcoat-roughness" min={0} max={1} step={0.01} value={[editedMaterial.clearcoatRoughness ?? 0]} onValueChange={(val) => handleSliderChange('clearcoatRoughness', val)} />
+                </div>
+                <TextureInput 
+                    label="Clearcoat Normal Map" 
+                    currentUrl={editedMaterial.clearcoatNormalMap}
+                    onTextureUpload={(dataUrl) => handleTextureUpload('clearcoatNormalMap', dataUrl)}
+                    onTextureClear={() => handleTextureClear('clearcoatNormalMap')}
+                />
             </div>
 
              <div className="border-t pt-3 mt-2 space-y-3">
@@ -220,6 +280,12 @@ const MaterialEditorDialog: React.FC<{
                 currentUrl={editedMaterial.normalMap}
                 onTextureUpload={(dataUrl) => handleTextureUpload('normalMap', dataUrl)}
                 onTextureClear={() => handleTextureClear('normalMap')}
+                />
+                <Vector2Input
+                    label="Normal Scale"
+                    value={editedMaterial.normalScale ?? [1,1]}
+                    onChange={handleNormalScaleChange}
+                    step={0.05}
                 />
                 <TextureInput 
                 label="Roughness Map" 
@@ -380,7 +446,10 @@ const MaterialsPanel = () => {
                             toast({title: "Material Updated", description: `${updatedMat.name} saved.`});
                         }}
                         trigger={
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100" disabled={material.id === DEFAULT_MATERIAL_ID && material.name === DEFAULT_MATERIAL_NAME && !Object.keys(material).some(key => key !== 'id' && key !== 'name' && (material as any)[key] !== (getDefaultSceneData().materials[0] as any)[key])}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100" 
+                              // Simple check: allow editing if not the *exact* initial default material
+                              disabled={material.id === DEFAULT_MATERIAL_ID && material.name === DEFAULT_MATERIAL_NAME && JSON.stringify(material) === JSON.stringify(getDefaultSceneData().materials[0]) }
+                            >
                                 <Edit3 size={12} />
                             </Button>
                         }
@@ -433,3 +502,4 @@ const MaterialsPanel = () => {
 };
 
 export default MaterialsPanel;
+

@@ -1,4 +1,5 @@
 
+
 import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
@@ -13,11 +14,16 @@ const initialDefaultMaterial: MaterialProperties = {
   metalness: 0.3,
   opacity: 1.0,
   transparent: false,
+  alphaMap: undefined,
   ior: 1.5,
   emissive: '#000000',
   emissiveIntensity: 0,
+  normalScale: [1, 1],
   displacementScale: 1,
   displacementBias: 0,
+  clearcoat: 0,
+  clearcoatRoughness: 0,
+  clearcoatNormalMap: undefined,
 };
 
 const initialDrawingState: DrawingState = {
@@ -134,3 +140,4 @@ export const deleteProject = (id: string): void => {
     console.error("Error deleting project from localStorage:", error);
   }
 };
+

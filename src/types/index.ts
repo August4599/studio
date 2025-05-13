@@ -1,4 +1,5 @@
 
+
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan';
 
 export interface MaterialProperties {
@@ -9,6 +10,7 @@ export interface MaterialProperties {
   metalness: number;
   map?: string; 
   normalMap?: string;
+  normalScale?: [number, number]; // Added: For normal map strength/scale
   roughnessMap?: string;
   metalnessMap?: string;
   aoMap?: string;
@@ -16,11 +18,15 @@ export interface MaterialProperties {
   emissiveIntensity?: number;
   opacity?: number; // 0.0 (transparent) to 1.0 (opaque)
   transparent?: boolean; // Needs to be true for opacity < 1.0 to work
+  alphaMap?: string; // Added: Texture for alpha
   ior?: number; // Index of Refraction (for transparency)
   displacementMap?: string;
   displacementScale?: number;
   displacementBias?: number;
-  // Future: SSS, Clearcoat, Sheen etc.
+  clearcoat?: number; // Added: Clearcoat intensity
+  clearcoatRoughness?: number; // Added: Clearcoat roughness
+  clearcoatNormalMap?: string; // Added: Clearcoat normal map
+  // Future: SSS, Sheen etc.
 }
 
 export interface CadPlanLine {
@@ -222,7 +228,7 @@ export interface SceneData {
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
-export const DEFAULT_MATERIAL_NAME = 'Default Material';
+export const DEFAULT_MATERIAL_NAME = 'ArchiVision Default';
 
 
 // Project Management Types
@@ -240,3 +246,4 @@ export interface ProjectSummary {
   lastModified: number;
   thumbnail?: string;
 }
+

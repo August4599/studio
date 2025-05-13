@@ -1,4 +1,5 @@
 
+
 import * as THREE from 'three';
 import type { SceneObject, MaterialProperties, PrimitiveType } from '@/types';
 
@@ -237,13 +238,25 @@ export function createOrUpdateMaterial(
     material.emissive.set('#000000');
     material.emissiveIntensity = 0;
   }
+
+  // Clearcoat properties
+  material.clearcoat = materialData.clearcoat ?? 0;
+  material.clearcoatRoughness = materialData.clearcoatRoughness ?? 0;
   
   // Texture loading
   const newMap = loadTexture(materialData.map);
   if (newMap !== material.map) material.map = newMap;
 
   const newNormalMap = loadTexture(materialData.normalMap);
-  if (newNormalMap !== material.normalMap) material.normalMap = newNormalMap;
+  if (newNormalMap !== material.normalMap) {
+    material.normalMap = newNormalMap;
+  }
+  if (material.normalMap && materialData.normalScale) {
+    material.normalScale.set(materialData.normalScale[0], materialData.normalScale[1]);
+  } else if (material.normalMap) {
+    material.normalScale.set(1,1); // Default if scale not provided but map exists
+  }
+
 
   const newRoughnessMap = loadTexture(materialData.roughnessMap);
   if (newRoughnessMap !== material.roughnessMap) material.roughnessMap = newRoughnessMap;
@@ -254,9 +267,15 @@ export function createOrUpdateMaterial(
   const newAoMap = loadTexture(materialData.aoMap);
   if (newAoMap !== material.aoMap) material.aoMap = newAoMap;
   
+  const newAlphaMap = loadTexture(materialData.alphaMap);
+  if (newAlphaMap !== material.alphaMap) material.alphaMap = newAlphaMap;
+
   const newDisplacementMap = loadTexture(materialData.displacementMap);
   if (newDisplacementMap !== material.displacementMap) material.displacementMap = newDisplacementMap;
   
+  const newClearcoatNormalMap = loadTexture(materialData.clearcoatNormalMap);
+  if (newClearcoatNormalMap !== material.clearcoatNormalMap) material.clearcoatNormalMap = newClearcoatNormalMap;
+
   material.displacementScale = materialData.displacementScale ?? 1.0;
   material.displacementBias = materialData.displacementBias ?? 0.0;
   
@@ -272,3 +291,4 @@ export function fileToDataURL(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
