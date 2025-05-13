@@ -1,5 +1,5 @@
 
-export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon';
+export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan';
 
 export interface MaterialProperties {
   id: string;
@@ -21,6 +21,16 @@ export interface MaterialProperties {
   displacementScale?: number;
   displacementBias?: number;
   // Future: SSS, Clearcoat, Sheen etc.
+}
+
+export interface CadPlanLine {
+  start: [number, number]; // [x, z] coordinates relative to plan's local origin
+  end: [number, number];   // [x, z] coordinates relative to plan's local origin
+}
+
+export interface CadPlanData {
+  lines: CadPlanLine[];
+  // Future: Could add simplified 2D circles, arcs, etc.
 }
 
 export interface SceneObjectDimensions {
@@ -47,9 +57,10 @@ export interface SceneObject {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
-  dimensions: SceneObjectDimensions;
-  materialId: string;
-  visible?: boolean; // Added for object visibility
+  dimensions: SceneObjectDimensions; // For cadPlan, width & depth represent overall bounding box
+  materialId: string; // For cadPlan, this material (e.g., its color) can style the lines
+  visible?: boolean; 
+  planData?: CadPlanData; // Specific to 'cadPlan' type to hold line data
 }
 
 export interface AmbientLightProps {

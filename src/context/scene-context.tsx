@@ -3,13 +3,13 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-const IMPORT_CHUNK_SIZE = 50; // Process 50 objects at a time
-const IMPORT_CHUNK_DELAY = 50; // Delay in ms between chunks
+// const IMPORT_CHUNK_SIZE = 50; // No longer needed for single CAD plan object
+// const IMPORT_CHUNK_DELAY = 50; // No longer needed
 
 interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset'> {
   objects: SceneObject[];
@@ -20,8 +20,8 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   drawingState: DrawingState;
   requestedViewPreset: ViewPreset | null | undefined;
   setAppMode: (mode: AppMode) => void;
-  addObject: (type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>) => SceneObject;
-  addImportedObjects: (importedObjectsData: Partial<SceneObject>[]) => Promise<SceneObject[]>;
+  addObject: (type: Exclude<PrimitiveType, 'cadPlan'>, initialProps?: Partial<Omit<SceneObject, 'id' | 'type' | 'planData'>>) => SceneObject;
+  importCadPlan: (parsedPlan: Partial<SceneObject>) => Promise<SceneObject | null>;
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
@@ -79,7 +79,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     }
   }, []);
 
-  const addObject = useCallback((type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>): SceneObject => {
+  const addObject = useCallback((type: Exclude<PrimitiveType, 'cadPlan'>, initialProps?: Partial<Omit<SceneObject, 'id' | 'type' | 'planData'>>): SceneObject => {
     const currentObjects = sceneObjectsRef.current; 
     const baseName = type.charAt(0).toUpperCase() + type.slice(1);
     
@@ -156,66 +156,36 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     return newObject;
   }, []); 
 
-  const addObjectsChunk = useCallback((objectChunkData: Partial<SceneObject>[]): SceneObject[] => {
-    const newSceneObjects: SceneObject[] = objectChunkData.map((objData, index) => {
-        const baseName = objData.type ? `${objData.type.charAt(0).toUpperCase() + objData.type.slice(1)}` : 'ImportedObject';
-        const nameSuffix = objectChunkData.length > 1 ? `_chunk_item_${index + 1}` : '';
-        
-        let defaultDimensions: SceneObjectDimensions = {};
-        let defaultPosition: [number, number, number] = [0, 0, 0];
-        let defaultRotation: [number, number, number] = [0, 0, 0];
-
-        switch (objData.type) {
-            case 'cube':
-                defaultDimensions = { width: 1, height: 1, depth: 1 };
-                defaultPosition = [0, (objData.dimensions?.height ?? 1) / 2, 0];
-                break;
-            case 'plane': 
-                defaultDimensions = { width: 1, height: 1 }; 
-                defaultPosition = [0, 0, 0];
-                defaultRotation = [-Math.PI / 2, 0, 0]; 
-                break;
-            default:
-                 defaultDimensions = { width: 1, height: 1, depth: 1 };
-        }
-
-        return {
-            id: objData.id || uuidv4(),
-            type: objData.type || 'cube', 
-            name: objData.name || `${baseName}${nameSuffix}`,
-            position: objData.position || defaultPosition,
-            rotation: objData.rotation || defaultRotation,
-            scale: objData.scale || [1, 1, 1],
-            dimensions: { ...defaultDimensions, ...objData.dimensions },
-            materialId: objData.materialId || DEFAULT_MATERIAL_ID,
-            visible: objData.visible ?? true,
-        };
-    });
+  const importCadPlan = useCallback(async (parsedPlan: Partial<SceneObject>): Promise<SceneObject | null> => {
+    if (!parsedPlan || parsedPlan.type !== 'cadPlan' || !parsedPlan.planData) {
+        console.error("Invalid CAD plan data provided for import.");
+        return null;
+    }
+    
+    const cadPlanObject: SceneObject = {
+        id: parsedPlan.id || uuidv4(),
+        type: 'cadPlan',
+        name: parsedPlan.name || 'Imported CAD Plan',
+        position: parsedPlan.position || [0, 0.01, 0], // Default Y slightly above ground
+        rotation: parsedPlan.rotation || [0,0,0],
+        scale: parsedPlan.scale || [1,1,1],
+        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, // Should be accurately set by parser
+        materialId: parsedPlan.materialId || DEFAULT_MATERIAL_ID, // This material's color will be used for lines
+        visible: parsedPlan.visible ?? true,
+        planData: parsedPlan.planData,
+    };
 
     setSceneData(prev => ({
         ...prev,
-        objects: [...prev.objects, ...newSceneObjects],
-        selectedObjectId: newSceneObjects.length > 0 ? newSceneObjects[newSceneObjects.length -1].id : prev.selectedObjectId,
+        // Filter out any existing cadPlan objects to ensure only one is present
+        objects: [...prev.objects.filter(o => o.type !== 'cadPlan'), cadPlanObject],
+        selectedObjectId: cadPlanObject.id, // Optionally select the imported plan
         activeTool: 'select',
         drawingState: { ...getDefaultSceneData().drawingState, tool: null, startPoint: null },
     }));
-    return newSceneObjects;
+    console.log("CAD Plan object added/updated in scene:", cadPlanObject);
+    return cadPlanObject;
   }, []);
-
-  const addImportedObjects = useCallback(async (importedObjectsData: Partial<SceneObject>[]): Promise<SceneObject[]> => {
-    console.log(`Starting to import ${importedObjectsData.length} objects in chunks.`);
-    const allAddedObjects: SceneObject[] = [];
-    for (let i = 0; i < importedObjectsData.length; i += IMPORT_CHUNK_SIZE) {
-        const chunk = importedObjectsData.slice(i, i + IMPORT_CHUNK_SIZE);
-        console.log(`Processing chunk ${i / IMPORT_CHUNK_SIZE + 1}: ${chunk.length} objects`);
-        const addedInChunk = addObjectsChunk(chunk);
-        allAddedObjects.push(...addedInChunk);
-        // Yield to the event loop to keep UI responsive
-        await new Promise(resolve => setTimeout(resolve, IMPORT_CHUNK_DELAY));
-    }
-    console.log(`Finished importing all ${allAddedObjects.length} objects.`);
-    return allAddedObjects;
-  }, [addObjectsChunk]);
 
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
@@ -228,6 +198,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             updatedObj.dimensions = { ...obj.dimensions, ...updates.dimensions };
           }
           
+          // Auto-adjust Y position for Y-up objects if height/radius changes and position not explicitly set
           const isYUpObject = ['cube', 'cylinder', 'text', 'sphere', 'cone'].includes(updatedObj.type);
           const isTorus = updatedObj.type === 'torus';
           
@@ -238,15 +209,16 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
           const heightChanged = heightLikeDimensionKey ? (updates.dimensions?.[heightLikeDimensionKey] !== undefined && updates.dimensions?.[heightLikeDimensionKey] !== obj.dimensions[heightLikeDimensionKey]) : false;
           const positionNotExplicitlySet = updates.position === undefined;
+          // Check if object is upright (not significantly rotated on X or Z)
           const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
 
           if ((isYUpObject || isTorus) && heightChanged && positionNotExplicitlySet && isUpright) {
-            updatedObj.position = [...updatedObj.position]; 
+            updatedObj.position = [...updatedObj.position]; // Create new array for state update
             let yPos = 0;
             if (updatedObj.type === 'sphere') yPos = updatedObj.dimensions.radius || 0;
-            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0;
+            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0; // Torus origin is at its center, tube radius affects overall height
             else yPos = (updatedObj.dimensions.height || 0) / 2;
-            updatedObj.position[1] = Math.max(0.001, yPos);
+            updatedObj.position[1] = Math.max(0.001, yPos); // Ensure Y is not negative or zero for ground objects
           }
           return updatedObj;
         }
@@ -265,6 +237,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
   const selectObject = useCallback((id: string | null) => {
     setSceneData(prev => {
+      // Preserve drawing state if interacting with the selected object or drawing a new one
       const preserveActiveDrawing = prev.drawingState.isActive &&
                                     (
                                       (prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id) ||
@@ -275,7 +248,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       return {
         ...prev,
         selectedObjectId: id,
-        drawingState: preserveActiveDrawing ? prev.drawingState : { ...prev.drawingState, isActive: false }
+        drawingState: preserveActiveDrawing ? prev.drawingState : { ...prev.drawingState, isActive: false } // Reset drawing if selection changes unrelated to current drawing op
       };
     });
   }, []);
@@ -308,6 +281,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setSceneData(prev => ({
       ...prev,
       materials: prev.materials.filter(mat => mat.id !== id),
+      // Reassign default material to objects that were using the removed material
       objects: prev.objects.map(obj => obj.materialId === id ? { ...obj, materialId: DEFAULT_MATERIAL_ID } : obj),
       activePaintMaterialId: prev.activePaintMaterialId === id ? null : prev.activePaintMaterialId,
     }));
@@ -351,6 +325,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         newLight = { ...baseLightProps, type, position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5 };
         break;
       default:
+        // Should not happen if type is correctly Exclude<...>
         throw new Error(`Unsupported light type: ${type}`);
     }
     
@@ -381,24 +356,27 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
 
   const loadScene = useCallback((data: SceneData) => {
+    // Basic validation
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
       setSceneData({
-        ...getDefaultSceneData(), 
+        ...getDefaultSceneData(), // Ensure all default fields are present
         ...data, 
-        otherLights: data.otherLights || [], 
-        drawingState: data.drawingState || getDefaultSceneData().drawingState, 
+        otherLights: data.otherLights || [], // Ensure otherLights is an array
+        drawingState: data.drawingState || getDefaultSceneData().drawingState, // Ensure drawingState exists
       });
     } else {
-      console.error("Invalid scene data provided to loadScene");
-      setSceneData(getDefaultSceneData()); 
+      console.error("Invalid scene data provided to loadScene, loading default scene.");
+      setSceneData(getDefaultSceneData()); // Fallback to default if data is malformed
     }
   }, []);
 
   const clearCurrentProjectScene = useCallback(() => {
+    // Resets the scene to its initial default state
     setSceneData(getDefaultSceneData());
   }, []);
   
   const getCurrentSceneData = useCallback((): SceneData => {
+    // Return a copy of the current scene data
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
@@ -413,18 +391,20 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const setActiveTool = useCallback((tool: ToolType | undefined) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
-      let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState };
+      let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState }; // Reset most drawing state when tool changes
       
       if (tool !== 'paint') {
-        newActivePaintMaterialId = null; 
+        newActivePaintMaterialId = null; // Clear paint material if not paint tool
       }
 
+      // If the new tool is a drawing tool, set it in drawingState
       const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor'];
       if (tool && drawingTools.includes(tool)) {
         newDrawingState.tool = tool as DrawingState['tool'];
-        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6;
+        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6; // Preserve polygon sides
       }
       
+      // Deselect object if tool is not one that operates on selections or preserves it
       const selectionPreservingTools: ToolType[] = ['select', 'move', 'rotate', 'scale', 'paint', 'pushpull', 'orbit', 'pan', 'zoom', 'zoomExtents', 'axes'];
       let newSelectedObjectId = prev.selectedObjectId;
       if (tool && !selectionPreservingTools.includes(tool)) {
@@ -460,7 +440,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     ...sceneData,
     setAppMode,
     addObject,
-    addImportedObjects,
+    importCadPlan,
     updateObject,
     removeObject,
     selectObject,
@@ -484,7 +464,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     getCurrentSceneData,
     requestedViewPreset: sceneData.requestedViewPreset,
     setCameraViewPreset,
-  }), [sceneData, setAppMode, addObject, addImportedObjects, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset]);
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset]);
 
   return (
     <SceneContext.Provider value={contextValue}>

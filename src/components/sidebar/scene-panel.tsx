@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { useScene } from "@/context/scene-context";
 import { useProject } from "@/context/project-context"; 
-import type { SceneData } from "@/types"; 
+import type { SceneData, SceneObject } from "@/types"; 
 import { Save, Trash2Icon, LogOut, Import, Loader2 } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -24,11 +25,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { parseDxfToSceneObjects } from "@/lib/cad-importer";
+import { parseDxfToCadPlan } from "@/lib/cad-importer";
 
 
 const ScenePanel = () => {
-  const { addImportedObjects, clearCurrentProjectScene, getCurrentSceneData } = useScene();
+  const { importCadPlan, clearCurrentProjectScene, getCurrentSceneData } = useScene();
   const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); 
   const cadFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -73,29 +74,36 @@ const ScenePanel = () => {
     setIsImportingCad(true);
     toast({ 
         title: "Importing CAD Plan", 
-        description: `Processing ${file.name}... This may take a moment. Large files can cause unresponsiveness.`, 
-        duration: 10000 // Longer duration for initial toast
+        description: `Processing ${file.name}... This may take a moment.`, 
+        duration: 10000 
     });
     console.log(`[CAD Import] Started processing ${file.name}`);
 
     try {
-      const fileContent = await file.text(); // Reading file is async
+      const fileContent = await file.text(); 
       console.log(`[CAD Import] File read successfully. Parsing DXF...`);
         
-      // The parsing itself is synchronous with dxf-parser
-      const parsedObjectsData = parseDxfToSceneObjects(fileContent);
-      console.log(`[CAD Import] DXF parsed. Found ${parsedObjectsData.length} potential objects.`);
+      const parsedPlanObject = parseDxfToCadPlan(fileContent);
+      console.log(`[CAD Import] DXF parsed. Result:`, parsedPlanObject);
         
-      if (parsedObjectsData.length > 0) {
-        await addImportedObjects(parsedObjectsData); // This is now async and chunked
-        toast({
-          title: "DXF Imported Successfully",
-          description: `${parsedObjectsData.length} object(s) added to the scene from ${file.name}.`,
-        });
+      if (parsedPlanObject) {
+        const importedPlan = await importCadPlan(parsedPlanObject as Partial<SceneObject>); // Cast as Partial<SceneObject>
+        if (importedPlan) {
+          toast({
+            title: "DXF Imported Successfully",
+            description: `${importedPlan.name} added to the scene.`,
+          });
+        } else {
+            toast({
+                title: "DXF Import Issue",
+                description: `Could not process the parsed CAD plan from ${file.name}.`,
+                variant: "default"
+            });
+        }
       } else {
         toast({
           title: "DXF Import Issue",
-          description: `No compatible objects found or error parsing ${file.name}. Check console for details.`,
+          description: `No processable plan data found or error parsing ${file.name}. Check console for details.`,
           variant: "default"
         });
       }
@@ -145,7 +153,7 @@ const ScenePanel = () => {
             type="file" 
             ref={cadFileInputRef} 
             onChange={handleCadFileImport} 
-            accept=".dxf" // Currently only supporting DXF through the parser
+            accept=".dxf" 
             className="hidden" 
             disabled={isImportingCad}
         />
