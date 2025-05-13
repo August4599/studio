@@ -9,10 +9,11 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+// import { Textarea } from "@/components/ui/textarea"; // No longer needed for AI plan
 import { useScene } from "@/context/scene-context";
-import { useProject } from "@/context/project-context"; // Import useProject
-import type { SceneData } from "@/types";
-import { Save, Upload, Trash2Icon, LogOut, Import } from "lucide-react"; // Changed FileImport to Import
+import { useProject } from "@/context/project-context"; 
+import type { SceneData } from "@/types"; 
+import { Save, Upload, Trash2Icon, LogOut, Import } from "lucide-react"; // Removed SparklesIcon, Loader2
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -25,11 +26,29 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+// Dialog components no longer needed for AI plan import
+// import {
+//   Dialog,
+//   DialogContent,
+//   DialogHeader,
+//   DialogTitle,
+//   DialogDescription,
+//   DialogFooter,
+//   DialogClose,
+//   DialogTrigger,
+// } from "@/components/ui/dialog";
+// Removed AI flow imports
+// import { DEFAULT_MATERIAL_ID } from "@/types"; // Still used by scene context potentially
+
 
 const ScenePanel = () => {
-  const { loadScene: loadSceneIntoContext, clearCurrentProjectScene, getCurrentSceneData } = useScene();
-  const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); // Get project context
+  const { loadScene: loadSceneIntoContext, clearCurrentProjectScene, getCurrentSceneData } = useScene(); // Removed addObject, addMaterial, addSceneLight as they were AI import specific here
+  const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Removed state for AI plan import dialog
+  // const [isImportPlanDialogOpen, setIsImportPlanDialogOpen] = useState(false);
+  // const [projectPlanText, setProjectPlanText] = useState("");
+  // const [isImportingPlan, setIsImportingPlan] = useState(false);
   const { toast } = useToast();
 
   const handleSaveCurrentProject = async () => {
@@ -41,15 +60,14 @@ const ScenePanel = () => {
   
   const handleClearProjectScene = () => {
     if (!currentProject || isProjectLoading) return;
-    clearCurrentProjectScene(); // Clears scene in SceneContext
-    // Auto-save the cleared state to the project
-    const clearedSceneData = getCurrentSceneData(); // This will now be the default/empty scene
+    clearCurrentProjectScene(); 
+    const clearedSceneData = getCurrentSceneData(); 
     saveCurrentProjectScene(clearedSceneData).then(() => {
          toast({ title: "Scene Cleared", description: `The scene in ${currentProject.name} has been reset.` });
     });
   };
 
-  const handleImportScene = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportSceneFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!currentProject || isProjectLoading) {
         toast({ title: "No Project Open", description: "Please open or create a project to import a scene.", variant: "destructive"});
         return;
@@ -60,14 +78,14 @@ const ScenePanel = () => {
       reader.onload = (e) => {
         try {
           const json = JSON.parse(e.target?.result as string);
+          // Basic validation for ArchiVision scene data
           if (json.objects && json.materials && json.ambientLight && json.directionalLight) {
-            loadSceneIntoContext(json as SceneData); // Load into SceneContext
-            // Immediately save this imported scene to the current project
+            loadSceneIntoContext(json as SceneData); 
             saveCurrentProjectScene(json as SceneData).then(() => {
                  toast({ title: "Scene Imported", description: `Scene data imported into ${currentProject.name}.` });
             });
           } else {
-            throw new Error("Invalid scene file format.");
+            throw new Error("Invalid ArchiVision scene file format.");
           }
         } catch (error) {
           console.error("Failed to import scene:", error);
@@ -77,7 +95,7 @@ const ScenePanel = () => {
       reader.readAsText(file);
     }
     if (event.target) {
-        event.target.value = "";
+        event.target.value = ""; // Reset file input
     }
   };
 
@@ -87,10 +105,10 @@ const ScenePanel = () => {
 
   const handleBackToProjects = () => {
     if (isProjectLoading) return;
-    // Consider prompting to save unsaved changes if necessary
     closeProject();
   };
 
+  // Removed handleAiImportProjectPlan function
 
   return (
     <AccordionItem value="item-scene">
@@ -107,9 +125,11 @@ const ScenePanel = () => {
         )}
         
         <Button onClick={triggerFileImport} className="w-full text-xs" size="sm" variant="outline" disabled={isProjectLoading || !currentProject}>
-          <Import size={14} className="mr-2" /> Import Scene File
+          <Import size={14} className="mr-2" /> Import Scene File (.json)
         </Button>
-        <Input type="file" ref={fileInputRef} onChange={handleImportScene} accept=".json" className="hidden" />
+        <Input type="file" ref={fileInputRef} onChange={handleImportSceneFile} accept=".json" className="hidden" />
+
+        {/* Removed AI Project Plan Import Dialog and Button */}
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
