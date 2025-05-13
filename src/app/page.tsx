@@ -5,6 +5,7 @@ import React, { useState, useEffect }from 'react';
 import { SceneProvider, useScene } from "@/context/scene-context";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import SceneViewer from "@/components/scene/viewer";
+import ViewToolbar from "@/components/scene/view-toolbar";
 import MainSidebar from "@/components/sidebar/main-sidebar";
 import ToolsSidebar from '@/components/sidebar/tools-sidebar';
 import ToolsPanel from '@/components/sidebar/tools-panel';
@@ -22,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide } from "lucide-react"; 
 import { cn } from "@/lib/utils";
-import type { AppMode } from '@/types';
+import type { AppMode, PrimitiveType, ToolType } from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion } from "@/components/ui/accordion";
+import { useToast } from "@/hooks/use-toast";
 
 
 // Inline SVG for Node Editor Icon
@@ -118,7 +120,74 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
 
 const ArchiVisionLayout: React.FC = () => {
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
-  const { appMode } = useScene();
+  const { appMode, setActiveTool, addObject } = useScene();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return; // Don't trigger shortcuts if an input field is active
+      }
+
+      const key = event.key.toUpperCase();
+      let toolToSet: ToolType | undefined = undefined;
+      let newObjectToAdd: PrimitiveType | undefined = undefined;
+      let toolLabel: string | undefined = undefined;
+
+      // Tool shortcuts (no modifiers)
+      if (!event.shiftKey && !event.ctrlKey && !event.altKey) {
+        switch (key) {
+          case 'Q': toolToSet = 'select'; toolLabel = 'Select'; break;
+          case 'W': toolToSet = 'move'; toolLabel = 'Move'; break;
+          case 'E': toolToSet = 'rotate'; toolLabel = 'Rotate'; break;
+          case 'R': toolToSet = 'scale'; toolLabel = 'Scale'; break;
+          case 'L': toolToSet = 'line'; toolLabel = 'Line'; break;
+          case 'B': toolToSet = 'paint'; toolLabel = 'Paint'; break;
+          case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
+          case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
+          case 'SPACE': toolToSet = 'select'; toolLabel = 'Select (Space)'; event.preventDefault(); break; // Common for select
+          case 'ESCAPE': // Escape key to revert to select tool or clear drawing state
+            setActiveTool('select'); // Default to select tool
+            toast({ title: "Tool Reset", description: "Switched to Select tool." });
+            return; 
+        }
+      }
+      
+      // Add object shortcuts (Shift + Key)
+      if (event.shiftKey && !event.ctrlKey && !event.altKey) {
+        switch (key) {
+            case 'A': // Shift + A (Common for Add Menu)
+                event.preventDefault(); 
+                newObjectToAdd = 'cube'; // Default to cube, or open an "add menu" in future
+                break;
+            case 'C': // Shift + C for Circle tool
+                event.preventDefault();
+                toolToSet = 'circle';
+                toolLabel = 'Circle Tool';
+                break;
+            case 'R': // Shift + R for Rectangle tool
+                event.preventDefault();
+                toolToSet = 'rectangle';
+                toolLabel = 'Rectangle Tool';
+                break;
+        }
+      }
+
+      if (toolToSet) {
+        setActiveTool(toolToSet);
+        toast({ title: "Tool Changed", description: `${toolLabel || toolToSet.charAt(0).toUpperCase() + toolToSet.slice(1)} tool activated.` });
+      }
+      if (newObjectToAdd) {
+        addObject(newObjectToAdd); // Toast for added object is handled in addObject
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setActiveTool, addObject, toast]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
@@ -150,6 +219,7 @@ const ArchiVisionLayout: React.FC = () => {
               
               <div className="flex-grow overflow-hidden relative">
                 <SceneViewer />
+                <ViewToolbar />
               </div>
             </div>
 

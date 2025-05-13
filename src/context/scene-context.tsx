@@ -3,19 +3,20 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
   appMode: AppMode;
   activePaintMaterialId: string | null | undefined;
   drawingState: DrawingState;
+  requestedViewPreset: ViewPreset | null | undefined;
   setAppMode: (mode: AppMode) => void;
   addObject: (type: PrimitiveType, initialProps?: Partial<Omit<SceneObject, 'id' | 'type'>>) => SceneObject;
   updateObject: (id: string, updates: Partial<SceneObject>) => void;
@@ -39,6 +40,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   setActivePaintMaterialId: (materialId: string | null) => void;
   setDrawingState: (newState: Partial<DrawingState>) => void;
   getCurrentSceneData: () => SceneData; 
+  setCameraViewPreset: (preset: ViewPreset | null) => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -68,7 +70,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     const count = sceneData.objects.filter(o => o.type === type && o.name.startsWith(baseName)).length + 1;
 
     let defaultDimensions: SceneObjectDimensions = {};
-    let defaultPosition: [number, number, number] = [0, 0, 0]; // Adjusted default Y position
+    let defaultPosition: [number, number, number] = [0, 0, 0]; // Base at Y=0
     let defaultRotation: [number, number, number] = [0, 0, 0];
     let defaultScale: [number, number, number] = [1, 1, 1];
 
@@ -91,7 +93,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 0.5) / 2, 0]; 
         break;
       case 'sphere':
-        defaultDimensions = { radius: 0.5, widthSegments: 32, heightSegments: 16 }; // Three.js SphereGeometry params
+        defaultDimensions = { radius: 0.5, widthSegments: 32, heightSegments: 16 };
         defaultPosition = [0, (initialProps?.dimensions?.radius ?? defaultDimensions.radius ?? 0.5), 0];
         break;
       case 'cone':
@@ -100,9 +102,13 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         break;
       case 'torus':
         defaultDimensions = { radius: 0.5, tube: 0.2, radialSegments: 16, tubularSegments: 32 };
-        defaultPosition = [0, (initialProps?.dimensions?.radius ?? defaultDimensions.radius ?? 0.5) + (initialProps?.dimensions?.tube ?? defaultDimensions.tube ?? 0.2), 0]; // Center Y based on overall height
+        // Y position for Torus: its center should be at tube_radius above ground if main radius is on ground
+        // Or, if you want the whole torus to "sit" on the ground, Y = tube_radius
+        // The current logic places the center of the major ring at Y=0 and then offsets by tube radius.
+        // For base at Y=0, defaultPosition[1] should be dimensions.tube
+        defaultPosition = [0, (initialProps?.dimensions?.tube ?? defaultDimensions.tube ?? 0.2), 0];
         break;
-      case 'polygon': // Assuming a flat polygon for now, could be extruded later
+      case 'polygon': 
         defaultDimensions = { radius: 0.5, sides: 6 };
         defaultPosition = [0, 0, 0]; // Flat on XZ plane
         defaultRotation = [-Math.PI / 2, 0, 0];
@@ -140,19 +146,26 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             updatedObj.dimensions = { ...obj.dimensions, ...updates.dimensions };
           }
           
-          const isYUpObject = ['cube', 'cylinder', 'text', 'sphere', 'cone', 'torus'].includes(updatedObj.type);
-          const heightLikeDimensionKey = updatedObj.type === 'sphere' || updatedObj.type === 'torus' ? 'radius' : 'height';
-          const heightChanged = updates.dimensions?.[heightLikeDimensionKey as keyof SceneObjectDimensions] !== undefined && updates.dimensions?.[heightLikeDimensionKey as keyof SceneObjectDimensions] !== obj.dimensions[heightLikeDimensionKey as keyof SceneObjectDimensions];
+          const isYUpObject = ['cube', 'cylinder', 'text', 'sphere', 'cone'].includes(updatedObj.type);
+          const isTorus = updatedObj.type === 'torus';
+          
+          let heightLikeDimensionKey: keyof SceneObjectDimensions | null = null;
+          if (updatedObj.type === 'sphere') heightLikeDimensionKey = 'radius';
+          else if (updatedObj.type === 'torus') heightLikeDimensionKey = 'tube'; // Torus base Y is its tube radius
+          else if (updatedObj.dimensions.height !== undefined) heightLikeDimensionKey = 'height';
+
+
+          const heightChanged = heightLikeDimensionKey ? (updates.dimensions?.[heightLikeDimensionKey] !== undefined && updates.dimensions?.[heightLikeDimensionKey] !== obj.dimensions[heightLikeDimensionKey]) : false;
           const positionNotExplicitlySet = updates.position === undefined;
           const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; // Simple check for upright
 
 
-          if (isYUpObject && heightChanged && positionNotExplicitlySet && isUpright) {
+          if ((isYUpObject || isTorus) && heightChanged && positionNotExplicitlySet && isUpright) {
             updatedObj.position = [...updatedObj.position]; 
             let yPos = 0;
             if (updatedObj.type === 'sphere') yPos = updatedObj.dimensions.radius || 0;
-            else if (updatedObj.type === 'torus') yPos = (updatedObj.dimensions.radius || 0) + (updatedObj.dimensions.tube || 0);
-            else yPos = (updatedObj.dimensions.height || 0) / 2;
+            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0; // Base of torus sits at Y=tube_radius
+            else yPos = (updatedObj.dimensions.height || 0) / 2; // For cube, cylinder, cone, text
             updatedObj.position[1] = Math.max(0.001, yPos);
           }
           return updatedObj;
@@ -306,11 +319,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const getCurrentSceneData = useCallback((): SceneData => {
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState 
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState 
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset
     };
   }, [sceneData]);
 
@@ -358,6 +371,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       drawingState: { ...prev.drawingState, ...newState }
     }));
   }, []);
+
+  const setCameraViewPreset = useCallback((preset: ViewPreset | null) => {
+    setSceneData(prev => ({ ...prev, requestedViewPreset: preset }));
+  }, []);
   
   const contextValue = useMemo(() => ({
     ...sceneData,
@@ -384,7 +401,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setActivePaintMaterialId,
     setDrawingState,
     getCurrentSceneData,
-  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData]);
+    requestedViewPreset: sceneData.requestedViewPreset,
+    setCameraViewPreset,
+  }), [sceneData, setAppMode, addObject, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset]);
 
   return (
     <SceneContext.Provider value={contextValue}>

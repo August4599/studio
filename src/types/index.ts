@@ -192,6 +192,8 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
 
 export type AppMode = 'modelling' | 'rendering'; // 'modelling' now includes texturing
 
+export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective';
+
 export interface SceneData {
   objects: SceneObject[];
   materials: MaterialProperties[];
@@ -202,7 +204,8 @@ export interface SceneData {
   activeTool?: ToolType;
   activePaintMaterialId?: string | null;
   appMode: AppMode; 
-  drawingState: DrawingState; 
+  drawingState: DrawingState;
+  requestedViewPreset?: ViewPreset | null; 
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';

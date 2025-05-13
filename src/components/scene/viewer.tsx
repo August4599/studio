@@ -10,7 +10,7 @@ import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHel
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType, PointLightSceneProps, SpotLightSceneProps, AreaLightSceneProps, SceneLight, DrawingState } from '@/types';
+import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType, PointLightSceneProps, SpotLightSceneProps, AreaLightSceneProps, SceneLight, DrawingState, ViewPreset } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
 const SceneViewer: React.FC = () => {
@@ -42,6 +42,8 @@ const SceneViewer: React.FC = () => {
     drawingState,
     setDrawingState,
     addObject,
+    requestedViewPreset,
+    setCameraViewPreset,
   } = useScene();
 
   const raycaster = useRef(new THREE.Raycaster());
@@ -382,7 +384,7 @@ const SceneViewer: React.FC = () => {
             tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
         }
       }
-    } else if (activeTool && ['tape', 'protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool) {
+    } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool) {
         const currentMovePoint = getMousePositionOnXZPlane(event);
         if (currentMovePoint) {
             setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
@@ -404,13 +406,11 @@ const SceneViewer: React.FC = () => {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); 
             
-            // Ensure pushPullAmount sign aligns with local normal for intuitive direction
-            // If world normal and local normal point in roughly opposite directions (dot product is negative), flip the amount.
             if (worldFaceNormalVec.dot(localFaceNormalVec) < 0) {
-                pushPullAmount = -pushPullAmount;
+                 pushPullAmount = -pushPullAmount;
             }
 
-            const sensitivityFactor = 1.0; 
+            const sensitivityFactor = 1.0; // Keep sensitivity moderate
             pushPullAmount *= sensitivityFactor;
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
@@ -442,7 +442,7 @@ const SceneViewer: React.FC = () => {
                   let currentDim: number;
                   if (dimensionToModify === 'radius') { 
                       currentDim = (originalType === 'cylinder' ? (originalDimensions.radiusTop ?? originalDimensions.radiusBottom ?? 1) : (originalDimensions.radius ?? 1));
-                      const newRadius = Math.max(0.01, currentDim + pushPullAmount); // Directly use pushPullAmount
+                      const newRadius = Math.max(0.01, currentDim + pushPullAmount); 
                       if (originalType === 'cylinder') {
                           newDimensions.radiusTop = newRadius;
                           newDimensions.radiusBottom = newRadius;
@@ -451,7 +451,7 @@ const SceneViewer: React.FC = () => {
                       }
                   } else { 
                     currentDim = originalDimensions[dimensionToModify as 'width'|'height'|'depth'] || 1;
-                    newDimensions[dimensionToModify as 'width'|'height'|'depth'] = Math.max(0.01, currentDim + pushPullAmount); // Directly use pushPullAmount
+                    newDimensions[dimensionToModify as 'width'|'height'|'depth'] = Math.max(0.01, currentDim + pushPullAmount);
                   }
                 }
                 
@@ -473,15 +473,12 @@ const SceneViewer: React.FC = () => {
                     depth: originalDimensions.height || 1, // Plane's height is depth for cube
                     height: extrusionHeight, // Cube's height is the extrusion amount
                 };
-                // Offset position by half the extrusion in the direction of the local normal
                 const extrusionOffset = localFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 newPositionArray = [
                     originalPosition[0] + extrusionOffset.x,
                     originalPosition[1] + extrusionOffset.y,
                     originalPosition[2] + extrusionOffset.z,
                 ];
-                // If plane was initially rotated (e.g. flat on XZ), reset rotation for the new cube
-                // This specific check is for a plane lying flat (rotated -PI/2 on X)
                 if(originalRotation[0] === -Math.PI / 2 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01){
                     newRotationArray = [0,0,0];
                 }
@@ -510,9 +507,9 @@ const SceneViewer: React.FC = () => {
         if (rectWidth > 0.01 && rectDepth > 0.01) { 
             primitiveType = 'plane';
             newObjProps = {
-                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], // Set Y to 0 for XZ plane
+                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], 
                 rotation: [-Math.PI / 2, 0, 0], 
-                dimensions: { width: rectWidth, height: rectDepth }, // Plane's height is effectively its depth on XZ
+                dimensions: { width: rectWidth, height: rectDepth }, 
             };
         }
       } else if (tool === 'circle' || tool === 'polygon') {
@@ -520,13 +517,11 @@ const SceneViewer: React.FC = () => {
           if (radius > 0.01) {
               primitiveType = tool === 'circle' ? 'plane' : 'polygon'; 
               newObjProps = {
-                  position: [startPointVec.x, 0, startPointVec.z], // Y to 0 for XZ plane
+                  position: [startPointVec.x, 0, startPointVec.z], 
                   rotation: [-Math.PI / 2, 0, 0], 
                   dimensions: tool === 'circle' ? { width: radius * 2, height: radius * 2, radialSegments: 32 } : { radius: radius, sides: drawingState.polygonSides || 6 }
               };
               if (tool === 'circle') {
-                // For a 'circle' tool that creates a flat circle, we use a Plane with width/height = diameter
-                // Or, a Cylinder with very small height. For simplicity with current 'plane' type:
                 newObjProps.dimensions = { width: radius * 2, height: radius * 2 };
               }
           }
@@ -541,10 +536,6 @@ const SceneViewer: React.FC = () => {
       setActiveTool('select'); 
       return; 
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
-        // For tape/protractor, this up might be the first point click, or the second.
-        // If it's the first, do nothing on up, wait for second down.
-        // If it's the second click (meaning measureDistance would have been set by onPointerDown logic), the onPointerDown already handled it.
-        // So, typically, this 'up' after a 'down' that set startPoint for measure tools does not finalize anything yet.
         return; 
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
@@ -657,7 +648,7 @@ const SceneViewer: React.FC = () => {
 
     if (!dirLight) {
       dirLight = new THREE.DirectionalLight(directionalLightProps.color, directionalLightProps.intensity);
-      dirLight.name = directionalLightProps.id; // Use ID as name for easier lookup
+      dirLight.name = directionalLightProps.id; 
       scene.add(dirLight);
       if (dirLight.target && !dirLight.target.parent) scene.add(dirLight.target); 
       dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 1);
@@ -673,7 +664,7 @@ const SceneViewer: React.FC = () => {
     if (dirLight.target) dirLight.target.position.set(0,0,0); 
     
     if (dirLightHelper) {
-      dirLightHelper.visible = directionalLightProps.visible ?? true; // Toggle helper visibility with light
+      dirLightHelper.visible = directionalLightProps.visible ?? true; 
       dirLightHelper.update();
     }
 
@@ -704,7 +695,7 @@ const SceneViewer: React.FC = () => {
         switch (lightData.type) {
           case 'point':
             lightObject = new THREE.PointLight();
-            helper = new THREE.PointLightHelper(lightObject as THREE.PointLight, 0.5); // Increased helper size
+            helper = new THREE.PointLightHelper(lightObject as THREE.PointLight, 0.5); 
             break;
           case 'spot':
             lightObject = new THREE.SpotLight();
@@ -869,6 +860,58 @@ const SceneViewer: React.FC = () => {
       }
     });
   }, [selectedObjectId, activeTool, drawingState, objects, getMaterialById]); 
+
+  useEffect(() => {
+    if (!requestedViewPreset || !cameraRef.current || !orbitControlsRef.current) return;
+
+    const cam = cameraRef.current;
+    const controls = orbitControlsRef.current;
+    const distance = 15; 
+    const currentTarget = controls.target.clone();
+    let yOffset = currentTarget.y > 0.01 ? currentTarget.y : 1.5; // Maintain current target's Y if reasonable, else use default
+
+    switch (requestedViewPreset) {
+      case 'top':
+        cam.position.set(currentTarget.x, currentTarget.y + distance, currentTarget.z + 0.001); // Look from above current target
+        cam.up.set(0, 0, -1); 
+        controls.target.set(currentTarget.x, currentTarget.y, currentTarget.z);
+        break;
+      case 'bottom':
+        cam.position.set(currentTarget.x, currentTarget.y - distance, currentTarget.z + 0.001);
+        cam.up.set(0, 0, 1);
+        controls.target.set(currentTarget.x, currentTarget.y, currentTarget.z);
+        break;
+      case 'front':
+        cam.position.set(currentTarget.x, yOffset, currentTarget.z + distance);
+        cam.up.set(0, 1, 0);
+        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        break;
+      case 'back':
+        cam.position.set(currentTarget.x, yOffset, currentTarget.z - distance);
+        cam.up.set(0, 1, 0);
+        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        break;
+      case 'right':
+        cam.position.set(currentTarget.x + distance, yOffset, currentTarget.z);
+        cam.up.set(0, 1, 0);
+        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        break;
+      case 'left':
+        cam.position.set(currentTarget.x - distance, yOffset, currentTarget.z);
+        cam.up.set(0, 1, 0);
+        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        break;
+      case 'perspective':
+      default:
+        // Reset to a common perspective view, perhaps based on scene extents or a default
+        cam.position.set(distance * 0.7, distance * 0.7, distance * 0.7);
+        cam.up.set(0, 1, 0);
+        controls.target.set(0, 0, 0); // Reset target to origin for general perspective
+        break;
+    }
+    controls.update();
+    setCameraViewPreset(null); // Reset the request after applying
+  }, [requestedViewPreset, setCameraViewPreset, cameraRef, orbitControlsRef]);
 
 
   return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;
