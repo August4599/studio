@@ -348,7 +348,7 @@ const SceneViewer: React.FC = () => {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); // Signed displacement
 
-            const sensitivityFactor = 15; // Increased sensitivity
+            const sensitivityFactor = 45; // Increased sensitivity for more visible change
             pushPullAmount *= sensitivityFactor;
 
 
@@ -709,5 +709,6 @@ const SceneViewer: React.FC = () => {
 };
 
 export default SceneViewer;
+
 
 
