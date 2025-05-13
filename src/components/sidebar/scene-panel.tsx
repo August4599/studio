@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react"; // Added useState for future use if needed
 import {
   AccordionContent,
   AccordionItem,
@@ -9,11 +8,10 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// import { Textarea } from "@/components/ui/textarea"; // No longer needed for AI plan
 import { useScene } from "@/context/scene-context";
 import { useProject } from "@/context/project-context"; 
 import type { SceneData } from "@/types"; 
-import { Save, Upload, Trash2Icon, LogOut, Import } from "lucide-react"; // Removed SparklesIcon, Loader2
+import { Save, Upload, Trash2Icon, LogOut, Import } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -26,29 +24,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-// Dialog components no longer needed for AI plan import
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogDescription,
-//   DialogFooter,
-//   DialogClose,
-//   DialogTrigger,
-// } from "@/components/ui/dialog";
-// Removed AI flow imports
-// import { DEFAULT_MATERIAL_ID } from "@/types"; // Still used by scene context potentially
 
 
 const ScenePanel = () => {
-  const { loadScene: loadSceneIntoContext, clearCurrentProjectScene, getCurrentSceneData } = useScene(); // Removed addObject, addMaterial, addSceneLight as they were AI import specific here
+  const { loadScene: loadSceneIntoContext, clearCurrentProjectScene, getCurrentSceneData } = useScene();
   const { currentProject, saveCurrentProjectScene, closeProject, isLoading: isProjectLoading } = useProject(); 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Removed state for AI plan import dialog
-  // const [isImportPlanDialogOpen, setIsImportPlanDialogOpen] = useState(false);
-  // const [projectPlanText, setProjectPlanText] = useState("");
-  // const [isImportingPlan, setIsImportingPlan] = useState(false);
   const { toast } = useToast();
 
   const handleSaveCurrentProject = async () => {
@@ -70,6 +51,7 @@ const ScenePanel = () => {
   const handleImportSceneFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!currentProject || isProjectLoading) {
         toast({ title: "No Project Open", description: "Please open or create a project to import a scene.", variant: "destructive"});
+        if (event.target) event.target.value = ""; // Reset file input
         return;
     }
     const file = event.target.files?.[0];
@@ -78,7 +60,6 @@ const ScenePanel = () => {
       reader.onload = (e) => {
         try {
           const json = JSON.parse(e.target?.result as string);
-          // Basic validation for ArchiVision scene data
           if (json.objects && json.materials && json.ambientLight && json.directionalLight) {
             loadSceneIntoContext(json as SceneData); 
             saveCurrentProjectScene(json as SceneData).then(() => {
@@ -95,7 +76,7 @@ const ScenePanel = () => {
       reader.readAsText(file);
     }
     if (event.target) {
-        event.target.value = ""; // Reset file input
+        event.target.value = ""; 
     }
   };
 
@@ -108,7 +89,25 @@ const ScenePanel = () => {
     closeProject();
   };
 
-  // Removed handleAiImportProjectPlan function
+  const handleImportCadPlan = () => {
+    if (!currentProject || isProjectLoading) {
+        toast({ title: "No Project Open", description: "Please open or create a project to import a CAD plan.", variant: "destructive"});
+        return;
+    }
+    // Placeholder for actual CAD import logic
+    toast({
+      title: "CAD Import (In Development)",
+      description: "Functionality to import DWG/DXF files is currently under development. This feature requires a complex CAD file parser and geometry conversion.",
+      variant: "default",
+      duration: 5000,
+    });
+    // Actual implementation would involve:
+    // 1. Triggering a file input for .dwg or .dxf files.
+    // 2. Using a client-side or server-side library to parse the CAD file.
+    //    (e.g., 'dxf-parser' for DXF, or more complex solutions for DWG).
+    // 3. Converting CAD entities (lines, polylines, arcs, etc.) into Three.js geometries or SceneObject definitions.
+    // 4. Adding these new objects to the scene via addObject or a similar mechanism.
+  };
 
   return (
     <AccordionItem value="item-scene">
@@ -129,7 +128,15 @@ const ScenePanel = () => {
         </Button>
         <Input type="file" ref={fileInputRef} onChange={handleImportSceneFile} accept=".json" className="hidden" />
 
-        {/* Removed AI Project Plan Import Dialog and Button */}
+        <Button 
+          onClick={handleImportCadPlan} 
+          className="w-full text-xs" 
+          size="sm" 
+          variant="outline" 
+          disabled={isProjectLoading || !currentProject}
+        >
+          <Import size={14} className="mr-2" /> Import CAD Plan (.dwg, .dxf)
+        </Button>
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
