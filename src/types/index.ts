@@ -1,6 +1,6 @@
 
 
-export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; // Added 'circle'
+export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
 
 export interface MaterialProperties {
   id: string;
@@ -39,17 +39,17 @@ export interface CadPlanData {
 
 export interface SceneObjectDimensions {
   width?: number; 
-  height?: number; // For plane, this is depth on XZ plane; for cube/cylinder, it's Y-axis height. For circle, not directly used by CircleGeometry itself.
-  depth?: number; // For cube
-  radius?: number; // For sphere, cone, torus (major), polygon, circle
-  radiusTop?: number; // For cylinder
-  radiusBottom?: number; // For cylinder
-  radialSegments?: number; // For cylinder, sphere, cone, torus
-  heightSegments?: number; // For cylinder, sphere
-  tube?: number; // For torus (minor radius)
-  tubularSegments?: number; // For torus
-  arc?: number; // For torus (angle of the arc, if partial torus)
-  sides?: number; // For polygon, or segments for circle
+  height?: number; 
+  depth?: number; 
+  radius?: number; 
+  radiusTop?: number; 
+  radiusBottom?: number; 
+  radialSegments?: number; 
+  heightSegments?: number; 
+  tube?: number; 
+  tubularSegments?: number; 
+  arc?: number; 
+  sides?: number; 
   text?: string; 
   fontSize?: number; 
 }
@@ -151,7 +151,7 @@ export type ToolType =
   | 'addCone'
   | 'addTorus'
   | 'addPolygon'
-  | 'addCircle'; // If you differentiate adding a circle primitive vs drawing one.
+  | 'addCircle'; 
 
 
 export interface PushPullFaceInfo {
@@ -228,7 +228,7 @@ export interface SceneData {
   appMode: AppMode; 
   drawingState: DrawingState;
   requestedViewPreset?: ViewPreset | null; 
-  zoomExtentsTrigger?: number; 
+  zoomExtentsTrigger?: { timestamp: number; targetObjectId?: string }; 
   cameraFov?: number; 
   worldBackgroundColor?: string;
   renderSettings?: RenderSettings;
@@ -236,4 +236,3 @@ export interface SceneData {
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
 export const DEFAULT_MATERIAL_NAME = 'ArchiVision Default';
-

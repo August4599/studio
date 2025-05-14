@@ -17,7 +17,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   activePaintMaterialId: string | null | undefined;
   drawingState: DrawingState;
   requestedViewPreset: ViewPreset | null | undefined;
-  zoomExtentsTrigger: number;
+  zoomExtentsTrigger: { timestamp: number; targetObjectId?: string };
   cameraFov: number;
   worldBackgroundColor: string;
   renderSettings: RenderSettings;
@@ -47,7 +47,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   setDrawingState: (newState: Partial<DrawingState>) => void;
   getCurrentSceneData: () => SceneData; 
   setCameraViewPreset: (preset: ViewPreset | null) => void;
-  triggerZoomExtents: () => void; 
+  triggerZoomExtents: (targetObjectId?: string) => void; 
   setZoomExtentsTriggered: () => void;
   setCameraFov: (fov: number) => void;
   setWorldBackgroundColor: (color: string) => void;
@@ -68,7 +68,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       cameraFov: data.cameraFov ?? getDefaultSceneData().cameraFov,
       worldBackgroundColor: data.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
       renderSettings: data.renderSettings ? { ...getDefaultSceneData().renderSettings, ...data.renderSettings } : getDefaultSceneData().renderSettings,
-      zoomExtentsTrigger: data.zoomExtentsTrigger || 0,
+      zoomExtentsTrigger: data.zoomExtentsTrigger || { timestamp: 0 },
      };
   });
 
@@ -85,7 +85,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             cameraFov: initialSceneOverride.cameraFov ?? prev.cameraFov ?? getDefaultSceneData().cameraFov,
             worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
             renderSettings: initialSceneOverride.renderSettings ? { ...getDefaultSceneData().renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? getDefaultSceneData().renderSettings),
-            zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || 0 
+            zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || { timestamp: 0 } 
         }));
     }
   }, [initialSceneOverride]);
@@ -142,7 +142,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 0.5) / 2, 0]; 
         break;
       case 'sphere':
-        defaultDimensions = { radius: 0.5, radialSegments: 32, heightSegments: 16 }; // Corrected property name
+        defaultDimensions = { radius: 0.5, radialSegments: 32, heightSegments: 16 }; 
         defaultPosition = [0, (initialProps?.dimensions?.radius ?? defaultDimensions.radius ?? 0.5), 0];
         break;
       case 'cone':
@@ -154,7 +154,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         defaultPosition = [0, (initialProps?.dimensions?.tube ?? defaultDimensions.tube ?? 0.2), 0];
         break;
       case 'polygon': 
-      case 'circle': // Circle is also a flat shape on XZ initially
+      case 'circle': 
         defaultDimensions = { radius: 0.5, sides: type === 'polygon' ? (initialProps?.dimensions?.sides || 6) : 32 };
         defaultPosition = [0, 0, 0]; 
         defaultRotation = [-Math.PI / 2, 0, 0];
@@ -177,8 +177,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       ...prev,
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
-      // Tool persistence: Don't automatically switch to select after adding primitives
-      // activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle', 'line'].includes(prev.activeTool || '')) ? 'select' : prev.activeTool,
       drawingState: {...(prev.drawingState || getDefaultSceneData().drawingState), isActive: false, startPoint: null, currentPoint: null }, 
     }));
     return newObject;
@@ -197,7 +195,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         position: parsedPlan.position || [0, 0.01, 0], 
         rotation: parsedPlan.rotation || [0,0,0],
         scale: parsedPlan.scale || [1,1,1],
-        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, // Using depth instead of height for XZ plane
+        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, 
         materialId: parsedPlan.materialId || DEFAULT_MATERIAL_ID, 
         visible: parsedPlan.visible ?? true,
         planData: parsedPlan.planData,
@@ -205,7 +203,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
     setSceneData(prev => ({
         ...prev,
-        objects: [...prev.objects.filter(o => o.id !== cadPlanObject.id), cadPlanObject], // Replace if already exists
+        objects: [...prev.objects.filter(o => o.id !== cadPlanObject.id), cadPlanObject], 
         selectedObjectId: cadPlanObject.id, 
         activeTool: 'select',
         drawingState: { ...getDefaultSceneData().drawingState, tool: null, startPoint: null },
@@ -271,15 +269,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       const pushPullActiveOnDifferentObject = prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId !== id;
 
       if (drawingToolsActive || pushPullActiveOnDifferentObject) {
-        // If a drawing tool is active or push/pull is active on a different object,
-        // don't change selection, just clear drawing state to prevent unintended interactions.
         return {
           ...prev,
           drawingState: { ...getDefaultSceneData().drawingState }
         };
       }
       
-      // If push/pull is active on the *same* object being re-selected, preserve its state.
       const preservePushPull = prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id && id !== null;
 
       return {
@@ -398,7 +393,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         ...data, 
         otherLights: data.otherLights || defaultData.otherLights, 
         drawingState: data.drawingState || defaultData.drawingState, 
-        zoomExtentsTrigger: data.zoomExtentsTrigger || 0,
+        zoomExtentsTrigger: data.zoomExtentsTrigger || { timestamp: 0 },
         cameraFov: data.cameraFov ?? defaultData.cameraFov,
         worldBackgroundColor: data.worldBackgroundColor ?? defaultData.worldBackgroundColor,
         renderSettings: data.renderSettings ? { ...defaultData.renderSettings, ...data.renderSettings } : defaultData.renderSettings,
@@ -430,7 +425,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const setActiveTool = useCallback((tool: ToolType | undefined, preserveSelection: boolean = false) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
-      let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState }; 
+      let newDrawingState: DrawingState = { ...prev.drawingState }; // Preserve existing drawing state by default
       
       if (tool !== 'paint') {
         newActivePaintMaterialId = null; 
@@ -440,6 +435,14 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       if (tool && drawingTools.includes(tool)) {
         newDrawingState.tool = tool as DrawingState['tool'];
         if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6; 
+      } else {
+         // If not a drawing tool, reset drawing-specific parts of state but keep general tool info if needed
+         newDrawingState.tool = null;
+         newDrawingState.isActive = false;
+         newDrawingState.startPoint = null;
+         newDrawingState.currentPoint = null;
+         newDrawingState.pushPullFaceInfo = null;
+         // newDrawingState.measureDistance = null; // Keep measure distance for display if switching tools right after
       }
       
       let newSelectedObjectId = prev.selectedObjectId;
@@ -447,18 +450,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         newSelectedObjectId = null;
       }
       
-      // If the new tool is not a drawing/modification tool or select/transform, clear active drawing state.
-      // This prevents carrying over `startPoint` etc. if switching from, say, 'line' to 'addCube'.
-      const toolRequiresDrawingStateClear = !drawingTools.includes(tool as ToolType) && tool !== 'select' && tool !== 'move' && tool !== 'rotate' && tool !== 'scale' && tool !== 'paint';
-      if (toolRequiresDrawingStateClear) {
-          newDrawingState.isActive = false;
-          newDrawingState.startPoint = null;
-          newDrawingState.currentPoint = null;
-          newDrawingState.pushPullFaceInfo = null;
-          newDrawingState.measureDistance = null;
-      }
-
-
       return { 
         ...prev, 
         activeTool: tool, 
@@ -484,12 +475,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setSceneData(prev => ({ ...prev, requestedViewPreset: preset }));
   }, []);
 
-  const triggerZoomExtents = useCallback(() => {
-    setSceneData(prev => ({ ...prev, zoomExtentsTrigger: Date.now() }));
+  const triggerZoomExtents = useCallback((targetObjectId?: string) => {
+    setSceneData(prev => ({ ...prev, zoomExtentsTrigger: { timestamp: Date.now(), targetObjectId } }));
   }, []);
 
   const setZoomExtentsTriggered = useCallback(() => {
-    setSceneData(prev => ({ ...prev, zoomExtentsTrigger: 0 }));
+    setSceneData(prev => ({ ...prev, zoomExtentsTrigger: { timestamp: 0, targetObjectId: undefined } }));
   }, []);
 
   const setCameraFov = useCallback((fov: number) => {
@@ -532,7 +523,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     getCurrentSceneData,
     requestedViewPreset: sceneData.requestedViewPreset,
     setCameraViewPreset,
-    zoomExtentsTrigger: sceneData.zoomExtentsTrigger || 0,
+    zoomExtentsTrigger: sceneData.zoomExtentsTrigger || { timestamp: 0 },
     triggerZoomExtents,
     setZoomExtentsTriggered,
     cameraFov: sceneData.cameraFov ?? getDefaultSceneData().cameraFov,
@@ -557,4 +548,3 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
-

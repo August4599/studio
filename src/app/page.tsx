@@ -19,7 +19,8 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, ChevronDown, ChevronUp, Layers3, Orbit, Settings2, Construction, Loader2, Image as ImageIconLucide, ZoomIn, FolderArchive } from "lucide-react"; 
+import { Layers3, Orbit, Settings2, Construction, Loader2, FolderArchive } from "lucide-react"; 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppMode, PrimitiveType, ToolType } from '@/types';
 import {
@@ -32,7 +33,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-// import ScenePanel from '@/components/sidebar/scene-panel'; // Already imported in MainSidebar
 
 
 // Inline SVG for Node Editor Icon
@@ -125,7 +125,7 @@ const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen,
 
 const ArchiVisionLayout: React.FC = () => {
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); 
-  const { appMode, setActiveTool, addObject, triggerZoomExtents } = useScene();
+  const { appMode, setActiveTool, addObject, triggerZoomExtents, selectedObjectId } = useScene();
   const { toast } = useToast();
   const { currentProject } = useProject();
 
@@ -152,8 +152,8 @@ const ArchiVisionLayout: React.FC = () => {
           case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
           case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
           case 'F': 
-            triggerZoomExtents();
-            toast({ title: "View Reset", description: "Zoomed to fit all objects." });
+            triggerZoomExtents(selectedObjectId || undefined);
+            toast({ title: "View Reset", description: selectedObjectId ? "Zoomed to selected object." : "Zoomed to fit all objects." });
             return;
           case ' ': 
             event.preventDefault(); 
@@ -188,10 +188,12 @@ const ArchiVisionLayout: React.FC = () => {
 
       if (toolToSet) {
         setActiveTool(toolToSet);
-        toast({ title: "Tool Changed", description: `${toolLabel || toolToSet.charAt(0).toUpperCase() + toolToSet.slice(1)} tool activated.` });
+        if (toolLabel) { // Only show toast if toolLabel is defined (to avoid toasts for implicit 'select' changes)
+             toast({ title: "Tool Changed", description: `${toolLabel} tool activated.` });
+        }
       }
       if (newObjectToAdd) {
-        addObject(newObjectToAdd); 
+        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan'>); // Ensure cadPlan is excluded
       }
     };
 
@@ -199,7 +201,7 @@ const ArchiVisionLayout: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setActiveTool, addObject, toast, triggerZoomExtents]);
+  }, [setActiveTool, addObject, toast, triggerZoomExtents, selectedObjectId]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
@@ -208,7 +210,7 @@ const ArchiVisionLayout: React.FC = () => {
         className={cn(
           "flex-none md:flex flex-col bg-card border-r shadow-sm transition-all duration-300 ease-in-out",
           appMode === 'modelling' ? "w-64 opacity-100" : "w-0 opacity-0 p-0 border-0",
-          appMode !== 'modelling' && "overflow-hidden hidden" // Ensure it's fully hidden and no padding/border when collapsed
+          appMode !== 'modelling' && "overflow-hidden" 
         )}
       >
         {appMode === 'modelling' && <ToolsSidebar />}
@@ -329,4 +331,3 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
-

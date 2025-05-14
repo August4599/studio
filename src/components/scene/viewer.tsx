@@ -68,10 +68,10 @@ const SceneViewer: React.FC = () => {
         return null;
     }
 
-    const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls) && !(c.type === 'PointLightHelper' || c.type === 'SpotLightHelper' || c.type === 'RectAreaLightHelper') && !(c === tempDrawingMeshRef.current) && !(c === tempMeasureLineRef.current)), true); // Removed cadPlan filter to make it selectable
+    const intersects = raycaster.current.intersectObjects(sceneRef.current.children.filter(c => c.visible && c.name !== 'gridHelper' && !(c instanceof TransformControls) && !(c.type === 'PointLightHelper' || c.type === 'SpotLightHelper' || c.type === 'RectAreaLightHelper') && !(c === tempDrawingMeshRef.current) && !(c === tempMeasureLineRef.current)), true); 
     if (intersects.length > 0) {
         let firstIntersectedObject = intersects[0].object;
-        // Traverse up to find the named parent (which should be the SceneObject's ID or the group for CAD plan)
+        
         while(firstIntersectedObject.parent && firstIntersectedObject.parent !== sceneRef.current && !firstIntersectedObject.name){
             firstIntersectedObject = firstIntersectedObject.parent; 
         }
@@ -122,7 +122,7 @@ const SceneViewer: React.FC = () => {
       orbitControls.enabled = !event.value;
     });
     transformControls.addEventListener('mouseUp', () => {
-      if (transformControls.object) { // Check if object is attached
+      if (transformControls.object) { 
         const obj = transformControls.object; 
         const sceneObj = sceneContextObjects.find(o => o.id === obj.name); 
         if (sceneObj) {
@@ -202,7 +202,6 @@ const SceneViewer: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
   
-  // Update camera FOV when it changes in context
   useEffect(() => {
     if (cameraRef.current && cameraRef.current.fov !== cameraFov) {
       cameraRef.current.fov = cameraFov;
@@ -210,7 +209,6 @@ const SceneViewer: React.FC = () => {
     }
   }, [cameraFov]);
 
-  // Update scene background color when it changes in context
   useEffect(() => {
     if (sceneRef.current && worldBackgroundColor) {
       sceneRef.current.background = new THREE.Color(worldBackgroundColor);
@@ -228,17 +226,15 @@ const SceneViewer: React.FC = () => {
         tempDrawingMeshRef.current.geometry.dispose();
         (tempDrawingMeshRef.current.material as THREE.Material).dispose();
         tempDrawingMeshRef.current = null;
-        // Don't reset drawingState here for tool persistence, it's handled by setActiveTool or specific tool logic.
       }
       if (!measureToolActive && tempMeasureLineRef.current) {
         sceneRef.current.remove(tempMeasureLineRef.current);
         tempMeasureLineRef.current.geometry.dispose();
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
-         // Don't reset drawingState here.
       }
     }
-  }, [activeTool]); // Removed drawingState dependencies to allow persistence
+  }, [activeTool]); 
 
 
   const onPointerDown = useCallback((event: PointerEvent) => {
@@ -249,7 +245,6 @@ const SceneViewer: React.FC = () => {
 
     if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'polygon' || activeTool === 'line' || activeTool === 'freehand' || activeTool === 'arc') {
       if (pointOnXZ && sceneRef.current) {
-        // For drawing tools, only start drawing if not already active, or if completing a segment (for multi-point tools not yet implemented)
         if (!drawingState.isActive || drawingState.tool !== activeTool) {
             setDrawingState({ isActive: true, startPoint: pointOnXZ.toArray() as [number,number,number], currentPoint: pointOnXZ.toArray() as [number,number,number], tool: activeTool as DrawingState['tool'] });
             if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
@@ -268,13 +263,13 @@ const SceneViewer: React.FC = () => {
       }
     } else if (activeTool === 'tape' || activeTool === 'protractor') { 
         if (pointOnXZ && sceneRef.current) { 
-            if (!drawingState.startPoint || drawingState.tool !== activeTool) { 
+            if (!drawingState.startPoint || drawingState.tool !== activeTool || drawingState.measureDistance !== null) { 
                 setDrawingState({ 
                     isActive: true, 
                     startPoint: pointOnXZ.toArray() as [number,number,number], 
                     currentPoint: pointOnXZ.toArray() as [number,number,number],
                     tool: activeTool as 'tape' | 'protractor',
-                    measureDistance: null,
+                    measureDistance: null, // Reset measure distance for new measurement
                 });
                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
@@ -288,7 +283,7 @@ const SceneViewer: React.FC = () => {
                 tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
                 tempMeasureLineRef.current.renderOrder = 1000;
                 sceneRef.current.add(tempMeasureLineRef.current);
-            } else { // Second click for tape measure or protractor
+            } else { 
                 const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
                 const distance = startVec.distanceTo(pointOnXZ);
                 
@@ -304,16 +299,13 @@ const SceneViewer: React.FC = () => {
                         (tempMeasureLineRef.current.material as THREE.Material).dispose();
                         tempMeasureLineRef.current = null;
                     }
-                    // For tool persistence, don't set active tool to select here.
-                    // setActiveTool('select'); 
-                    setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool, measureDistance: distance }); 
+                    setDrawingState({ startPoint: null, currentPoint: null, tool: activeTool, measureDistance: distance, isActive: true }); 
                     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-                } else { // Protractor second click (first leg defined)
+                } else { 
                     setDrawingState({ 
-                      currentPoint: pointOnXZ.toArray() as [number, number, number], // currentPoint becomes the vertex of the angle
-                      measureDistance: distance // length of the first leg
+                      currentPoint: pointOnXZ.toArray() as [number, number, number], 
+                      measureDistance: distance 
                     });
-                    // Tool remains active for the third click
                 }
             }
         }
@@ -415,7 +407,7 @@ const SceneViewer: React.FC = () => {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); 
             
-            const sensitivityFactor = 1.0;
+            const sensitivityFactor = 2.0; // Increased sensitivity
             pushPullAmount *= sensitivityFactor;
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
@@ -475,17 +467,16 @@ const SceneViewer: React.FC = () => {
                 const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount)); 
                 newDimensions = { 
                     width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, // Plane's height becomes cube's depth
+                    depth: originalDimensions.height || 1, 
                     height: extrusionHeight, 
                 };
-                const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2); // Use world normal for extrusion direction
+                const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2); 
                 newPositionArray = [
                     originalPosition[0] + extrusionOffset.x,
                     originalPosition[1] + extrusionOffset.y,
                     originalPosition[2] + extrusionOffset.z,
                 ];
                 
-                // If the original plane was flat on XZ (rotated -PI/2 on X), the new cube should have 0 rotation
                  if (Math.abs(originalRotation[0] - (-Math.PI / 2)) < 0.01 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01) {
                     newRotationArray = [0,0,0];
                 }
@@ -516,17 +507,17 @@ const SceneViewer: React.FC = () => {
             newObjProps = {
                 position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], 
                 rotation: [-Math.PI / 2, 0, 0], 
-                dimensions: { width: rectWidth, height: rectDepth }, // Plane's height is depth on XZ
+                dimensions: { width: rectWidth, height: rectDepth }, 
             };
         }
       } else if (tool === 'circle') {
           const radius = startPointVec.distanceTo(endPointVec);
           if (radius > 0.01) {
-              primitiveType = 'circle'; // Changed from 'plane' to 'circle' type for clarity
+              primitiveType = 'circle'; 
               newObjProps = {
                   position: [startPointVec.x, 0, startPointVec.z], 
                   rotation: [-Math.PI / 2, 0, 0], 
-                  dimensions: { radius: radius, sides: 32 } // Using 'sides' for CircleGeometry segments
+                  dimensions: { radius: radius, sides: 32 } 
               };
           }
       } else if (tool === 'polygon') {
@@ -544,14 +535,12 @@ const SceneViewer: React.FC = () => {
       if (primitiveType && newObjProps.dimensions) {
         const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
         toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
-        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool }); // Persist tool, reset points
+        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool }); 
       } else {
-         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool }); // Persist tool even if no object drawn
+         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool }); 
       }
-      // Don't setActiveTool to 'select' to persist the drawing tool
       return; 
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
-        // This is for the first click of tape/protractor, tool should persist
         return; 
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
@@ -560,15 +549,14 @@ const SceneViewer: React.FC = () => {
             title: "Push/Pull Complete", 
             description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Plane extruded to a cube.' : (originalType === 'circle' && finalObject?.type === 'cylinder' ? 'Circle extruded to a cylinder.' : '')}` 
         });
-        setDrawingState({ isActive: false, tool: activeTool, pushPullFaceInfo: null }); // Persist tool
-        // Don't setActiveTool to 'select'
+        setDrawingState({ isActive: false, tool: activeTool, pushPullFaceInfo: null }); 
         return;
     }
 
 
     if (!drawingState.isActive && !transformControlsRef.current?.dragging) {
       const intersection = getMouseIntersection(event);
-      if (intersection && intersection.object && !(intersection.object instanceof THREE.GridHelper)) { // Allow selection of CAD plans (groups)
+      if (intersection && intersection.object && !(intersection.object instanceof THREE.GridHelper)) { 
         const clickedObjectId = intersection.object.name;
         const clickedSceneObject = sceneContextObjects.find(o => o.id === clickedObjectId);
 
@@ -584,7 +572,6 @@ const SceneViewer: React.FC = () => {
           } else if (activeTool === 'eraser') {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
-            // Tool persistence: Eraser tool remains active
           } else if (activeTool !== 'pushpull' && !['tape', 'protractor', 'rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) { 
             selectObject(clickedObjectId);
           }
@@ -625,7 +612,7 @@ const SceneViewer: React.FC = () => {
     const isDrawingOrModToolActive = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand', 'tape', 'protractor', 'pushpull'].includes(activeTool || '');
     const selectedThreeObject = selectedObjectId ? sceneRef.current.getObjectByName(selectedObjectId) : null;
 
-    if (selectedThreeObject && (selectedThreeObject instanceof THREE.Mesh || selectedThreeObject instanceof THREE.Group) && !isDrawingOrModToolActive && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale')) { // Allow groups for CAD plan
+    if (selectedThreeObject && (selectedThreeObject instanceof THREE.Mesh || selectedThreeObject instanceof THREE.Group) && !isDrawingOrModToolActive && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale')) { 
       tc.attach(selectedThreeObject);
       tc.enabled = true;
       tc.visible = true;
@@ -685,8 +672,8 @@ const SceneViewer: React.FC = () => {
       dirLight.shadow.mapSize.width = 2048; 
       dirLight.shadow.mapSize.height = 2048;
       dirLight.shadow.camera.near = 0.5;
-      dirLight.shadow.camera.far = 500; // Increased far plane for larger scenes
-      const shadowCamSize = 150; // Increased shadow camera size
+      dirLight.shadow.camera.far = 500; 
+      const shadowCamSize = 150; 
       dirLight.shadow.camera.left = -shadowCamSize;
       dirLight.shadow.camera.right = shadowCamSize;
       dirLight.shadow.camera.top = shadowCamSize;
@@ -794,7 +781,7 @@ const SceneViewer: React.FC = () => {
         const isPushPulling = drawingState.isActive && drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === objData.id;
 
         if (objData.type === 'cadPlan' && meshOrGroup instanceof THREE.Group) {
-            if (!isTransforming) { // Only update if not currently being transformed by TransformControls
+            if (!isTransforming) { 
                 meshOrGroup.position.set(...objData.position);
                 meshOrGroup.rotation.set(...objData.rotation);
                 meshOrGroup.scale.set(...objData.scale);
@@ -894,7 +881,7 @@ const SceneViewer: React.FC = () => {
     sceneRef.current.children.forEach(child => {
       if (child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current)) { 
           const isMesh = child instanceof THREE.Mesh;
-          const isGroup = child instanceof THREE.Group; // For CAD Plans
+          const isGroup = child instanceof THREE.Group; 
 
           if (isMesh || (isGroup && child.userData.objectType === 'cadPlan')) {
             const isSelected = child.name === selectedObjectId;
@@ -902,7 +889,6 @@ const SceneViewer: React.FC = () => {
             const isPushPullTarget = drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === child.name && drawingState.isActive;
 
             if (isMesh && Array.isArray(child.material)) {
-                // Handle multi-material meshes if necessary, for now focusing on single standard material
             } else if (isMesh && child.material instanceof THREE.MeshStandardMaterial) {
                 if (child.userData.originalEmissive === undefined) { 
                     child.userData.originalEmissive = child.material.emissive.getHex(); 
@@ -926,18 +912,16 @@ const SceneViewer: React.FC = () => {
                 }
                 child.material.needsUpdate = true;
             } else if (isGroup && child.userData.objectType === 'cadPlan' && isSelected && !isTransforming) {
-                // Visual cue for selected CAD plan (e.g., slightly change color of its lines)
                 child.children.forEach(lineSegment => {
                     if (lineSegment instanceof THREE.LineSegments && lineSegment.material instanceof THREE.LineBasicMaterial) {
                         if (lineSegment.userData.originalColor === undefined) {
                              lineSegment.userData.originalColor = lineSegment.material.color.getHex();
                         }
-                        lineSegment.material.color.setHex(0x00B8D9); // Highlight color
+                        lineSegment.material.color.setHex(0x00B8D9); 
                         lineSegment.material.needsUpdate = true;
                     }
                 });
             } else if (isGroup && child.userData.objectType === 'cadPlan' && !isSelected) {
-                // Revert CAD plan lines to original color
                 child.children.forEach(lineSegment => {
                     if (lineSegment instanceof THREE.LineSegments && lineSegment.material instanceof THREE.LineBasicMaterial && lineSegment.userData.originalColor !== undefined) {
                         lineSegment.material.color.setHex(lineSegment.userData.originalColor);
@@ -1002,54 +986,62 @@ const SceneViewer: React.FC = () => {
   }, [requestedViewPreset, setCameraViewPreset, cameraRef, orbitControlsRef]);
 
   useEffect(() => {
-    if (zoomExtentsTrigger > 0 && cameraRef.current && orbitControlsRef.current && sceneRef.current) {
+    if (zoomExtentsTrigger.timestamp > 0 && cameraRef.current && orbitControlsRef.current && sceneRef.current) {
       const scene = sceneRef.current;
       const camera = cameraRef.current;
       const controls = orbitControlsRef.current;
+      
+      const targetBox = new THREE.Box3();
+      let objectsToConsider: THREE.Object3D[] = [];
 
-      const overallBoundingBox = new THREE.Box3();
-      let objectsFound = false;
-
-      sceneContextObjects.forEach(objData => {
-        const threeObject = scene.getObjectByName(objData.id); 
-        if (threeObject && threeObject.visible && 
-            threeObject !== tempDrawingMeshRef.current && 
-            threeObject !== tempMeasureLineRef.current && 
-            threeObject.name !== 'gridHelper' 
-           ) {
-          // For CAD plans (Groups), calculate bounding box from children if necessary
-          const objectBox = new THREE.Box3();
-          if (threeObject instanceof THREE.Group && threeObject.userData.objectType === 'cadPlan') {
-              // Ensure children are properly accounted for if the group itself has no geometry
-              threeObject.children.forEach(child => {
-                  const childBox = new THREE.Box3().setFromObject(child);
-                  if (!childBox.isEmpty()) {
-                      objectBox.expandByObject(child);
-                  }
-              });
-              if (objectBox.isEmpty()) { // If no children, try the group itself (might have helper geometry)
-                 objectBox.setFromObject(threeObject);
-              }
-          } else {
-             objectBox.setFromObject(threeObject);
+      if (zoomExtentsTrigger.targetObjectId) {
+        const targetObject = scene.getObjectByName(zoomExtentsTrigger.targetObjectId);
+        if (targetObject) {
+          objectsToConsider.push(targetObject);
+        }
+      }
+      
+      if (objectsToConsider.length === 0) { // No specific target, or target not found, zoom to all
+        sceneContextObjects.forEach(objData => {
+          const threeObject = scene.getObjectByName(objData.id);
+          if (threeObject && threeObject.visible && 
+              threeObject !== tempDrawingMeshRef.current && 
+              threeObject !== tempMeasureLineRef.current && 
+              threeObject.name !== 'gridHelper') {
+            objectsToConsider.push(threeObject);
           }
+        });
+      }
 
-          if (!objectBox.isEmpty()) { 
-            overallBoundingBox.union(objectBox); // Use union to correctly expand the box
-            objectsFound = true;
-          }
+      let objectsFoundForBoundingBox = false;
+      objectsToConsider.forEach(threeObject => {
+        const objectBox = new THREE.Box3();
+        if (threeObject instanceof THREE.Group && threeObject.userData.objectType === 'cadPlan') {
+            threeObject.children.forEach(child => {
+                const childBox = new THREE.Box3().setFromObject(child);
+                if (!childBox.isEmpty()) objectBox.expandByObject(child);
+            });
+            if (objectBox.isEmpty()) objectBox.setFromObject(threeObject);
+        } else {
+           objectBox.setFromObject(threeObject);
+        }
+
+        if (!objectBox.isEmpty()) { 
+          targetBox.union(objectBox); 
+          objectsFoundForBoundingBox = true;
         }
       });
 
-      if (!objectsFound || overallBoundingBox.isEmpty()) {
+
+      if (!objectsFoundForBoundingBox || targetBox.isEmpty()) {
         camera.position.set(10, 10, 10);
         controls.target.set(0, 0, 0);
       } else {
         const center = new THREE.Vector3();
-        overallBoundingBox.getCenter(center);
+        targetBox.getCenter(center);
 
         const sphere = new THREE.Sphere();
-        overallBoundingBox.getBoundingSphere(sphere);
+        targetBox.getBoundingSphere(sphere);
         const radius = sphere.radius;
 
         const fov = camera.fov * (Math.PI / 180);
@@ -1076,4 +1068,3 @@ const SceneViewer: React.FC = () => {
 };
 
 export default SceneViewer;
-

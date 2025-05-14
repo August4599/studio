@@ -71,7 +71,7 @@ export const getDefaultSceneData = (): SceneData => ({
   appMode: 'modelling', 
   drawingState: initialDrawingState,
   requestedViewPreset: null,
-  zoomExtentsTrigger: 0,
+  zoomExtentsTrigger: { timestamp: 0 },
   cameraFov: 60, 
   worldBackgroundColor: '#1A1A1A', 
   renderSettings: initialRenderSettings,
@@ -150,4 +150,3 @@ export const deleteProject = (id: string): void => {
     console.error("Error deleting project from localStorage:", error);
   }
 };
-
