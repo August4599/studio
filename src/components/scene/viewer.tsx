@@ -64,9 +64,6 @@ const SceneViewer: React.FC = () => {
 
     if (targetPlane) {
         const intersectionPoint = new THREE.Vector3();
-        // Note: This specific targetPlane logic is used by Push/Pull for initial face selection,
-        // but the extrusion amount calculation uses a different method (ray intersect with a view-parallel plane).
-        // For general ground plane intersection (drawing tools), the plane is typically XZ.
         if (raycaster.current.ray.intersectPlane(targetPlane, intersectionPoint)) {
             return { point: intersectionPoint };
         }
@@ -93,7 +90,6 @@ const SceneViewer: React.FC = () => {
 
   const getMousePositionOnXZPlane = useCallback((event: PointerEvent): THREE.Vector3 | null => {
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); 
-    // For drawing on XZ plane, we need the raycaster to be set from the event.
     if (!mountRef.current || !cameraRef.current) return null;
     const rect = mountRef.current.getBoundingClientRect();
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -257,13 +253,16 @@ const SceneViewer: React.FC = () => {
   const onPointerDown = useCallback((event: PointerEvent) => {
     if (transformControlsRef.current?.dragging) return;
 
-    const intersection = getMouseIntersection(event); // For object/face selection
-    const pointOnXZ = getMousePositionOnXZPlane(event); // For drawing on ground
+    const intersectionWithObject = getMouseIntersection(event);
+    const pointOnXZPlane = getMousePositionOnXZPlane(event);
+
+    const startPointForDrawingOrMeasure = intersectionWithObject?.point || pointOnXZPlane;
+
 
     if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'polygon' || activeTool === 'line' || activeTool === 'freehand' || activeTool === 'arc') {
-      if (pointOnXZ && sceneRef.current) {
+      if (startPointForDrawingOrMeasure && sceneRef.current) {
         if (!drawingState.isActive || drawingState.tool !== activeTool) {
-            setDrawingState({ isActive: true, startPoint: pointOnXZ.toArray() as [number,number,number], currentPoint: pointOnXZ.toArray() as [number,number,number], tool: activeTool as DrawingState['tool'] });
+            setDrawingState({ isActive: true, startPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], currentPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], tool: activeTool as DrawingState['tool'] });
             if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
             if (tempDrawingMeshRef.current) {
@@ -279,12 +278,12 @@ const SceneViewer: React.FC = () => {
         }
       }
     } else if (activeTool === 'tape' || activeTool === 'protractor') { 
-        if (pointOnXZ && sceneRef.current) { 
+        if (startPointForDrawingOrMeasure && sceneRef.current) { 
             if (!drawingState.startPoint || drawingState.tool !== activeTool || drawingState.measureDistance !== null) { 
                 setDrawingState({ 
                     isActive: true, 
-                    startPoint: pointOnXZ.toArray() as [number,number,number], 
-                    currentPoint: pointOnXZ.toArray() as [number,number,number],
+                    startPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], 
+                    currentPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number],
                     tool: activeTool as 'tape' | 'protractor',
                     measureDistance: null, 
                 });
@@ -296,13 +295,13 @@ const SceneViewer: React.FC = () => {
                     (tempMeasureLineRef.current.material as THREE.Material).dispose();
                 }
                 const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true, opacity: 0.9 });
-                const lineGeometry = new THREE.BufferGeometry().setFromPoints([pointOnXZ, pointOnXZ.clone()]);
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([startPointForDrawingOrMeasure, startPointForDrawingOrMeasure.clone()]);
                 tempMeasureLineRef.current = new THREE.Line(lineGeometry, lineMaterial);
                 tempMeasureLineRef.current.renderOrder = 1000;
                 sceneRef.current.add(tempMeasureLineRef.current);
             } else { 
                 const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
-                const distance = startVec.distanceTo(pointOnXZ);
+                const distance = startVec.distanceTo(startPointForDrawingOrMeasure);
                 
                 toast({
                     title: activeTool === 'tape' ? "Measurement Complete" : "Protractor (First Leg)",
@@ -311,38 +310,43 @@ const SceneViewer: React.FC = () => {
                 
                 if (activeTool === 'tape') {
                     if (tempMeasureLineRef.current && sceneRef.current) {
-                        sceneRef.current.remove(tempMeasureLineRef.current);
-                        tempMeasureLineRef.current.geometry.dispose();
-                        (tempMeasureLineRef.current.material as THREE.Material).dispose();
-                        tempMeasureLineRef.current = null;
+                        // Keep the line for a bit for visual feedback if desired, or remove immediately
+                        // sceneRef.current.remove(tempMeasureLineRef.current);
+                        // tempMeasureLineRef.current.geometry.dispose();
+                        // (tempMeasureLineRef.current.material as THREE.Material).dispose();
+                        // tempMeasureLineRef.current = null;
                     }
+                    // Reset for next measurement, but keep tool active
                     setDrawingState({ startPoint: null, currentPoint: null, tool: activeTool, measureDistance: distance, isActive: false }); 
                     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-                    setMeasureDisplay(null);
+                    // Keep measureDisplay until a new measurement starts or tool changes
+                    // setMeasureDisplay(null); 
                 } else { 
+                     // For protractor, set the second point and wait for the third
                     setDrawingState({ 
-                      currentPoint: pointOnXZ.toArray() as [number, number, number], 
-                      measureDistance: distance,
+                      currentPoint: startPointForDrawingOrMeasure.toArray() as [number, number, number], 
+                      measureDistance: distance, // This becomes the length of the first leg
+                      // isActive remains true
                     });
                 }
             }
         }
     } else if (activeTool === 'pushpull') {
-        if (intersection && intersection.object && intersection.face && intersection.normal && sceneRef.current) {
-            const clickedMesh = intersection.object as THREE.Mesh;
+        if (intersectionWithObject && intersectionWithObject.object && intersectionWithObject.face && intersectionWithObject.normal && sceneRef.current) {
+            const clickedMesh = intersectionWithObject.object as THREE.Mesh;
             const clickedObjectId = clickedMesh.name;
             const clickedSceneObject = sceneContextObjects.find(o => o.id === clickedObjectId);
 
             if (clickedSceneObject && (clickedSceneObject.type === 'cube' || clickedSceneObject.type === 'plane' || clickedSceneObject.type === 'cylinder' || clickedSceneObject.type === 'polygon' || clickedSceneObject.type === 'circle')) { 
-                const localFaceNormal = intersection.face.normal.clone(); 
+                const localFaceNormal = intersectionWithObject.face.normal.clone(); 
                 const worldFaceNormal = localFaceNormal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(clickedMesh.matrixWorld)).normalize();
-                const initialLocalIntersectPoint = clickedMesh.worldToLocal(intersection.point.clone());
+                const initialLocalIntersectPoint = clickedMesh.worldToLocal(intersectionWithObject.point.clone());
 
                 const pushPullInfo: PushPullFaceInfo = {
                     objectId: clickedObjectId,
                     initialMeshWorldPosition: clickedMesh.position.toArray() as [number, number, number],
                     initialLocalIntersectPoint: initialLocalIntersectPoint.toArray() as [number,number,number],
-                    initialWorldIntersectionPoint: intersection.point.toArray() as [number, number, number], 
+                    initialWorldIntersectionPoint: intersectionWithObject.point.toArray() as [number, number, number], 
                     localFaceNormal: localFaceNormal.toArray() as [number,number,number],
                     worldFaceNormal: worldFaceNormal.toArray() as [number,number,number],
                     originalDimensions: { ...clickedSceneObject.dimensions },
@@ -368,8 +372,12 @@ const SceneViewer: React.FC = () => {
   }, [activeTool, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, drawingState, toast, sceneContextObjects, selectObject]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
+    const intersectionWithObject = getMouseIntersection(event);
+    const pointOnXZPlane = getMousePositionOnXZPlane(event);
+    const currentMovePoint = intersectionWithObject?.point || pointOnXZPlane;
+
+
     if (drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) {
-      const currentMovePoint = getMousePositionOnXZPlane(event);
       if (currentMovePoint) {
         setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
         const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
@@ -388,14 +396,22 @@ const SceneViewer: React.FC = () => {
         } else if (activeTool === 'circle' || activeTool === 'polygon') {
             const radius = startVec.distanceTo(endVec);
             const segments = activeTool === 'circle' ? 32 : (drawingState.polygonSides || 6);
-            const tempPoints: THREE.Vector3[] = [];
+            const tempPointsVec: THREE.Vector3[] = [];
             for (let i = 0; i < segments; i++) {
                 const angle = (i / segments) * Math.PI * 2;
-                tempPoints.push(new THREE.Vector3(startVec.x + radius * Math.cos(angle), startVec.y, startVec.z + radius * Math.sin(angle)));
+                // Draw circle on the plane defined by the startPoint and the normal (0,1,0) if drawing on XZ
+                // Or adapt if drawing on a selected face
+                const up = new THREE.Vector3(0,1,0); // Assuming XZ plane for now
+                const right = new THREE.Vector3(1,0,0);
+                const p = new THREE.Vector3()
+                    .addScaledVector(right, radius * Math.cos(angle))
+                    .addScaledVector(up.clone().cross(right).normalize(), radius * Math.sin(angle)) // cross product for axis perpendicular to right and up
+                    .add(startVec);
+                tempPointsVec.push(p);
             }
              for (let i = 0; i < segments; i++) {
-                points.push(tempPoints[i].x, tempPoints[i].y, tempPoints[i].z);
-                points.push(tempPoints[(i + 1) % segments].x, tempPoints[(i + 1) % segments].y, tempPoints[(i + 1) % segments].z);
+                points.push(tempPointsVec[i].x, tempPointsVec[i].y, tempPointsVec[i].z);
+                points.push(tempPointsVec[(i + 1) % segments].x, tempPointsVec[(i + 1) % segments].y, tempPointsVec[(i + 1) % segments].z);
             }
         }
         
@@ -405,7 +421,6 @@ const SceneViewer: React.FC = () => {
         }
       }
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool && cameraRef.current && mountRef.current) {
-        const currentMovePoint = getMousePositionOnXZPlane(event);
         if (currentMovePoint) {
             setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
             const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
@@ -425,15 +440,13 @@ const SceneViewer: React.FC = () => {
         const worldFaceNormalVec = new THREE.Vector3().fromArray(worldFaceNormal);
         const localFaceNormalVec = new THREE.Vector3().fromArray(localFaceNormal);
 
-        // Set up raycaster from current mouse event
         const rect = mountRef.current.getBoundingClientRect();
         mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.current.setFromCamera(mouse.current, cameraRef.current);
         const ray = raycaster.current.ray;
 
-        // Define the drag plane: parallel to camera's view plane, passing through the initial intersection point
-        const cameraDir = cameraRef.current.getWorldDirection(new THREE.Vector3()).negate(); // Normal of the view plane
+        const cameraDir = cameraRef.current.getWorldDirection(new THREE.Vector3()).negate(); 
         const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(cameraDir, initialWorldIntersectVec);
         
         const currentDragPlaneIntersectionPoint = new THREE.Vector3();
@@ -506,10 +519,10 @@ const SceneViewer: React.FC = () => {
             
             const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray, rotation: newRotationArray };
             if (newType !== originalType) updates.type = newType;
-            updateObject(objectId, updates);
+            updateObject(objectId, updates); // Update in real-time
         }
     }
-  }, [activeTool, drawingState, getMousePositionOnXZPlane, updateObject, cameraRef, mountRef]);
+  }, [activeTool, drawingState, getMouseIntersection, getMousePositionOnXZPlane, updateObject, cameraRef, mountRef, setDrawingState]);
 
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
@@ -529,8 +542,8 @@ const SceneViewer: React.FC = () => {
         if (rectWidth > 0.01 && rectDepth > 0.01) { 
             primitiveType = 'plane';
             newObjProps = {
-                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], 
-                rotation: [-Math.PI / 2, 0, 0], 
+                position: [(startPointVec.x + endPointVec.x) / 2, startPointVec.y, (startPointVec.z + endPointVec.z) / 2], 
+                rotation: [-Math.PI / 2, 0, 0], // Default to XZ plane
                 dimensions: { width: rectWidth, height: rectDepth }, 
             };
         }
@@ -539,8 +552,8 @@ const SceneViewer: React.FC = () => {
           if (radius > 0.01) {
               primitiveType = 'circle'; 
               newObjProps = {
-                  position: [startPointVec.x, 0, startPointVec.z], 
-                  rotation: [-Math.PI / 2, 0, 0], 
+                  position: [startPointVec.x, startPointVec.y, startPointVec.z], 
+                  rotation: [-Math.PI / 2, 0, 0], // Default to XZ plane
                   dimensions: { radius: radius, sides: 32 } 
               };
           }
@@ -549,8 +562,8 @@ const SceneViewer: React.FC = () => {
           if (radius > 0.01) {
               primitiveType = 'polygon';
               newObjProps = {
-                  position: [startPointVec.x, 0, startPointVec.z],
-                  rotation: [-Math.PI/2, 0, 0],
+                  position: [startPointVec.x, startPointVec.y, startPointVec.z],
+                  rotation: [-Math.PI/2, 0, 0], // Default to XZ plane
                   dimensions: { radius: radius, sides: drawingState.polygonSides || 6 }
               };
           }
@@ -559,15 +572,12 @@ const SceneViewer: React.FC = () => {
       if (primitiveType && newObjProps.dimensions) {
         const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
         toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
-        // For persistent drawing tools, reset for next draw but keep tool active
         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool as DrawingState['tool'] });
       } else {
-         // If no object was created or tool is not meant to be persistent in this way
          setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: isPersistentTool ? activeTool as DrawingState['tool'] : null }); 
       }
       return; 
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
-        // This means the first click of tape/protractor happened, pointer up before second click. Do nothing, wait for second click.
         return; 
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
@@ -580,8 +590,10 @@ const SceneViewer: React.FC = () => {
         return;
     }
 
-    // Clear measure display if it was active from a non-completed measurement or other tool use
-    if (measureDisplay) setMeasureDisplay(null);
+    if (measureDisplay && activeTool !== 'tape' && activeTool !== 'protractor') {
+         setMeasureDisplay(null);
+    }
+
 
     if (!drawingState.isActive && !transformControlsRef.current?.dragging) {
       const intersection = getMouseIntersection(event);
@@ -598,11 +610,9 @@ const SceneViewer: React.FC = () => {
             } else {
               toast({ title: "Paint Error", description: "Selected paint material not found.", variant: "destructive" });
             }
-            // Paint tool is persistent, no state reset needed here unless explicitly desired
           } else if (activeTool === 'eraser') {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
-            // Eraser tool is persistent
           } else if (activeTool !== 'pushpull' && !['tape', 'protractor', 'rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) { 
             selectObject(clickedObjectId);
           }
@@ -617,12 +627,11 @@ const SceneViewer: React.FC = () => {
          }
       }
     }
-    // General reset if no specific tool action was completed or tool is not persistent
     if (!isPersistentTool && drawingState.tool !== null) {
          setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, pushPullFaceInfo: null, measureDistance: null });
     }
 
-  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, measureDisplay]);
+  }, [activeTool, drawingState, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, measureDisplay]);
 
 
   useEffect(() => {
@@ -976,44 +985,44 @@ const SceneViewer: React.FC = () => {
 
     const cam = cameraRef.current;
     const controls = orbitControlsRef.current;
-    const distance = 15; 
-    const currentTarget = controls.target.clone();
-    let yOffset = currentTarget.y > 0.01 ? currentTarget.y : 1.5; 
+    const distance = cam.position.distanceTo(controls.target); // Maintain current distance for non-perspective
+    const target = controls.target.clone();
+    let yOffset = target.y > 0.01 ? target.y : 1.5; 
 
     switch (requestedViewPreset) {
       case 'top':
-        cam.position.set(currentTarget.x, currentTarget.y + distance, currentTarget.z + 0.001); 
+        cam.position.set(target.x, target.y + distance, target.z + 0.001); 
         cam.up.set(0, 0, -1); 
-        controls.target.set(currentTarget.x, currentTarget.y, currentTarget.z);
+        controls.target.set(target.x, target.y, target.z);
         break;
       case 'bottom':
-        cam.position.set(currentTarget.x, currentTarget.y - distance, currentTarget.z + 0.001);
+        cam.position.set(target.x, target.y - distance, target.z + 0.001);
         cam.up.set(0, 0, 1);
-        controls.target.set(currentTarget.x, currentTarget.y, currentTarget.z);
+        controls.target.set(target.x, target.y, target.z);
         break;
       case 'front':
-        cam.position.set(currentTarget.x, yOffset, currentTarget.z + distance);
+        cam.position.set(target.x, yOffset, target.z + distance);
         cam.up.set(0, 1, 0);
-        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        controls.target.set(target.x, yOffset, target.z);
         break;
       case 'back':
-        cam.position.set(currentTarget.x, yOffset, currentTarget.z - distance);
+        cam.position.set(target.x, yOffset, target.z - distance);
         cam.up.set(0, 1, 0);
-        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        controls.target.set(target.x, yOffset, target.z);
         break;
       case 'right':
-        cam.position.set(currentTarget.x + distance, yOffset, currentTarget.z);
+        cam.position.set(target.x + distance, yOffset, target.z);
         cam.up.set(0, 1, 0);
-        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        controls.target.set(target.x, yOffset, target.z);
         break;
       case 'left':
-        cam.position.set(currentTarget.x - distance, yOffset, currentTarget.z);
+        cam.position.set(target.x - distance, yOffset, target.z);
         cam.up.set(0, 1, 0);
-        controls.target.set(currentTarget.x, yOffset, currentTarget.z);
+        controls.target.set(target.x, yOffset, target.z);
         break;
       case 'perspective':
       default:
-        cam.position.set(distance * 0.7, distance * 0.7, distance * 0.7);
+        cam.position.set(distance * 0.7 || 15, distance * 0.7 || 15, distance * 0.7 || 15);
         cam.up.set(0, 1, 0);
         controls.target.set(0, 0, 0); 
         break;
@@ -1058,7 +1067,7 @@ const SceneViewer: React.FC = () => {
                 const childBox = new THREE.Box3().setFromObject(child);
                 if (!childBox.isEmpty()) objectBox.expandByObject(child);
             });
-            if (objectBox.isEmpty()) objectBox.setFromObject(threeObject); 
+            if (objectBox.isEmpty() && threeObject.children.length > 0) objectBox.setFromObject(threeObject); 
         } else {
            objectBox.setFromObject(threeObject);
         }
