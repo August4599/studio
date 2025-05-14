@@ -32,7 +32,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import ScenePanel from '@/components/sidebar/scene-panel';
+// import ScenePanel from '@/components/sidebar/scene-panel'; // Already imported in MainSidebar
 
 
 // Inline SVG for Node Editor Icon
@@ -203,12 +203,17 @@ const ArchiVisionLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Left Tools Sidebar (conditionally rendered by AppMode) */}
-      {appMode === 'modelling' && (
-        <div className="w-64 flex-none hidden md:flex flex-col bg-card border-r shadow-sm">
-          <ToolsSidebar />
-        </div>
-      )}
+      {/* Left Tools Sidebar */}
+      <div
+        className={cn(
+          "flex-none md:flex flex-col bg-card border-r shadow-sm transition-all duration-300 ease-in-out",
+          appMode === 'modelling' ? "w-64 opacity-100" : "w-0 opacity-0 p-0 border-0",
+          appMode !== 'modelling' && "overflow-hidden hidden" // Ensure it's fully hidden and no padding/border when collapsed
+        )}
+      >
+        {appMode === 'modelling' && <ToolsSidebar />}
+      </div>
+
 
       <div className="flex flex-col flex-grow overflow-hidden">
          {/* Top Bar: App Mode Switcher + Project Actions */}
@@ -324,3 +329,4 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
+
