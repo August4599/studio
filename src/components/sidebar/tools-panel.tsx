@@ -52,10 +52,11 @@ interface ToolConfig {
   icon: React.ElementType;
   action?: () => void;
   options?: React.ReactNode; 
+  isWip?: boolean;
 }
 
 const ToolsPanel = () => {
-  const { activeTool, setActiveTool, addObject, drawingState, setDrawingState, triggerZoomExtents } = useScene();
+  const { activeTool, setActiveTool, addObject, drawingState, setDrawingState, triggerZoomExtents, selectedObjectId } = useScene();
   const { toast } = useToast();
 
   const handleAddPrimitive = (type: PrimitiveType) => {
@@ -86,8 +87,8 @@ const ToolsPanel = () => {
   };
 
   const handleZoomExtents = () => {
-    triggerZoomExtents();
-    toast({ title: "View Reset", description: "Zoomed to fit all objects." });
+    triggerZoomExtents(selectedObjectId || undefined); // Pass selectedObjectId
+    toast({ title: "View Reset", description: selectedObjectId ? "Zoomed to selected object." : "Zoomed to fit all objects." });
   }
 
   const toolCategories: { title: string; tools: ToolConfig[] }[] = [
@@ -106,7 +107,7 @@ const ToolsPanel = () => {
         { id: 'line', label: 'Line', icon: Minus, action: () => activateGenericTool('line', 'Line Tool', 'Click to define line segments.') }, 
         { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => setActiveTool('rectangle') }, 
         { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') },
-        { id: 'arc', label: 'Arc', icon: Spline, action: () => activateGenericTool('arc', 'Arc Tool', 'Arc drawing: define center, start, end. (WIP)') }, 
+        { id: 'arc', label: 'Arc', icon: Spline, action: () => activateGenericTool('arc', 'Arc Tool', 'Arc drawing: define center, start, end.'), isWip: true }, 
         { 
           id: 'polygon', 
           label: 'Polygon', 
@@ -126,22 +127,22 @@ const ToolsPanel = () => {
             </div>
           )
         },
-        { id: 'freehand', label: 'Freehand', icon: Edit3, action: () => activateGenericTool('freehand', 'Freehand Tool', 'Click and drag to draw freehand lines.') },
+        { id: 'freehand', label: 'Freehand', icon: Edit3, action: () => activateGenericTool('freehand', 'Freehand Tool', 'Click and drag to draw freehand lines.'), isWip: true },
       ]
     },
     {
       title: "Modification Tools",
       tools: [
         { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => activateGenericTool('pushpull', 'Push/Pull Tool', 'Click a face and drag to extrude.') },
-        { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset. (WIP)') }, 
-        { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude (WIP).') },
+        { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset.'), isWip: true }, 
+        { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude.'), isWip: true },
       ]
     },
     {
       title: "Construction & Utilities",
       tools: [
-        { id: 'tape', label: 'Measure', icon: Ruler, action: () => activateGenericTool('tape', 'Tape Measure Tool', 'Click two points to measure.') }, 
-        { id: 'protractor', label: 'Protractor', icon: Target, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle (WIP).') }, 
+        { id: 'tape', label: 'Measure', icon: Ruler, action: () => activateGenericTool('tape', 'Tape Measure Tool', 'Click two points to measure. Dynamic display active.') }, 
+        { id: 'protractor', label: 'Protractor', icon: Target, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.'), isWip: true }, 
         { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
         { id: 'paint', label: 'Paint', icon: PaintBucket, action: () => activateGenericTool('paint', 'Paint Tool', 'Select material, then click object/face.') },
         { id: 'eraser', label: 'Eraser', icon: Eraser, action: () => activateGenericTool('eraser', 'Eraser Tool', 'Click objects to delete.') },
@@ -161,8 +162,8 @@ const ToolsPanel = () => {
      {
       title: "Navigation",
       tools: [
-        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (Orbit controls handle pan).') },
-        { id: 'zoomExtents', label: 'Zoom Extents', icon: Expand, action: handleZoomExtents },
+        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (Orbit controls handle pan).'), isWip: true }, // Pan is part of orbit controls usually
+        { id: 'zoomExtents', label: 'Zoom Fit', icon: Expand, action: handleZoomExtents }, // Updated label
       ]
     }
   ];
@@ -174,8 +175,12 @@ const ToolsPanel = () => {
           <Button
             variant={activeTool === tool.id ? "secondary" : "outline"}
             size="icon"
-            className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="w-full h-14 flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative"
             onClick={() => {
+              if (tool.isWip) {
+                  toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
+                  return;
+              }
               if (tool.action) tool.action();
               else if (tool.id) setActiveTool(tool.id);
             }}
@@ -184,10 +189,11 @@ const ToolsPanel = () => {
           >
             <tool.icon size={20} className={activeTool === tool.id ? "text-primary-foreground" : "text-foreground/80"}/>
             <span className={`text-[10px] leading-tight text-center ${activeTool === tool.id ? "text-primary-foreground font-medium" : "text-muted-foreground"}`}>{tool.label}</span>
+            {tool.isWip && <span className="absolute top-0.5 right-0.5 text-[8px] bg-amber-500 text-white px-1 rounded-sm opacity-90">WIP</span>}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right" sideOffset={5}>
-          <p>{tool.label}</p>
+          <p>{tool.label}{tool.isWip ? " (WIP)" : ""}</p>
         </TooltipContent>
       </Tooltip>
       {tool.options && activeTool === tool.id && <div className="mt-1 w-full">{tool.options}</div>}

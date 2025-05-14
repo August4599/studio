@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState }from 'react'; // Added useState
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -23,6 +23,8 @@ const SceneViewer: React.FC = () => {
   
   const tempDrawingMeshRef = useRef<THREE.LineSegments | null>(null);
   const tempMeasureLineRef = useRef<THREE.Line | null>(null); 
+  const [measureDisplay, setMeasureDisplay] = useState<{ x: number; y: number; text: string } | null>(null);
+
 
   const { toast } = useToast();
   
@@ -190,6 +192,7 @@ const SceneViewer: React.FC = () => {
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
       }
+      setMeasureDisplay(null); // Clear measure display on unmount
       scene.children
         .filter(obj => obj.name && obj.name.endsWith('_helper')) 
         .forEach(helper => {
@@ -232,6 +235,7 @@ const SceneViewer: React.FC = () => {
         tempMeasureLineRef.current.geometry.dispose();
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
+        setMeasureDisplay(null); // Clear display when measure tool becomes inactive
       }
     }
   }, [activeTool]); 
@@ -299,13 +303,17 @@ const SceneViewer: React.FC = () => {
                         (tempMeasureLineRef.current.material as THREE.Material).dispose();
                         tempMeasureLineRef.current = null;
                     }
-                    setDrawingState({ startPoint: null, currentPoint: null, tool: activeTool, measureDistance: distance, isActive: true }); 
+                    setDrawingState({ startPoint: null, currentPoint: null, tool: activeTool, measureDistance: distance, isActive: false }); // Set isActive to false
                     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                    setMeasureDisplay(null); // Clear display on completion
                 } else { 
+                    // For protractor, keep drawingState.isActive true for the next leg/angle
                     setDrawingState({ 
                       currentPoint: pointOnXZ.toArray() as [number, number, number], 
-                      measureDistance: distance 
+                      measureDistance: distance,
+                      // isActive should remain true if protractor needs more points
                     });
+                    // Potentially update measure display for the first leg
                 }
             }
         }
@@ -386,13 +394,21 @@ const SceneViewer: React.FC = () => {
             tempDrawingMeshRef.current.geometry.computeBoundingSphere(); 
         }
       }
-    } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool) {
+    } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool && cameraRef.current && mountRef.current) {
         const currentMovePoint = getMousePositionOnXZPlane(event);
         if (currentMovePoint) {
             setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
             const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
             tempMeasureLineRef.current.geometry.setFromPoints([startVec, currentMovePoint]);
             tempMeasureLineRef.current.geometry.computeBoundingSphere();
+
+            // Update measure display
+            const dist = startVec.distanceTo(currentMovePoint);
+            const midPointDisplay = new THREE.Vector3().addVectors(startVec, currentMovePoint).multiplyScalar(0.5);
+            const screenPos = midPointDisplay.clone().project(cameraRef.current);
+            const x = (screenPos.x * 0.5 + 0.5) * mountRef.current.clientWidth;
+            const y = (-screenPos.y * 0.5 + 0.5) * mountRef.current.clientHeight;
+            setMeasureDisplay({ x, y, text: `${dist.toFixed(2)} units` });
         }
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && cameraRef.current && sceneRef.current) {
         const { objectId, initialWorldIntersectionPoint, worldFaceNormal, originalDimensions, originalPosition, originalRotation, originalType, localFaceNormal } = drawingState.pushPullFaceInfo;
@@ -407,18 +423,16 @@ const SceneViewer: React.FC = () => {
             const dragVector = currentIntersection.point.clone().sub(initialWorldIntersectVec);
             let pushPullAmount = dragVector.dot(worldFaceNormalVec); 
             
-            const sensitivityFactor = 2.0; // Increased sensitivity
-            pushPullAmount *= sensitivityFactor;
+            // Removed sensitivityFactor: pushPullAmount *= sensitivityFactor;
 
             let newDimensions: SceneObjectDimensions = { ...originalDimensions };
-            let newPositionArray = [...originalPosition] as [number, number, number];
+            let newPositionArray: [number, number, number];
             let newRotationArray: [number, number, number] | undefined = [...originalRotation] as [number,number,number]; 
             let newType: PrimitiveType = originalType;
 
             if (originalType === 'cube' || originalType === 'cylinder' || originalType === 'polygon' || originalType === 'circle') {
                 let dimensionToModify: 'width' | 'height' | 'depth' | 'radius' | undefined;
-                let isAxialPush = false; 
-
+                
                 if (originalType === 'cube' || ( (originalType === 'cylinder' || originalType === 'polygon' || originalType === 'circle') && (Math.abs(localFaceNormalVec.x) > 0.9 || Math.abs(localFaceNormalVec.z) > 0.9) ) ) { 
                     const absX = Math.abs(localFaceNormalVec.x);
                     const absY = Math.abs(localFaceNormalVec.y); 
@@ -432,14 +446,13 @@ const SceneViewer: React.FC = () => {
                     }
                 } else if ((originalType === 'cylinder' || originalType === 'cone' || originalType === 'polygon' || originalType === 'circle') && Math.abs(localFaceNormalVec.y) > 0.9) { 
                     dimensionToModify = 'height';
-                    isAxialPush = true;
                 }
                 
                 if (dimensionToModify) {
                   let currentDim: number;
                   if (dimensionToModify === 'radius') { 
                       currentDim = (originalType === 'cylinder' ? (originalDimensions.radiusTop ?? originalDimensions.radiusBottom ?? 1) : (originalDimensions.radius ?? 1));
-                      const newRadius = Math.max(0.01, currentDim + pushPullAmount); 
+                      const newRadius = Math.max(0.01, currentDim + pushPullAmount); // Consider if pushPullAmount direction is correct here
                       if (originalType === 'cylinder') {
                           newDimensions.radiusTop = newRadius;
                           newDimensions.radiusBottom = newRadius;
@@ -452,14 +465,9 @@ const SceneViewer: React.FC = () => {
                   }
                 }
                 
-                if (isAxialPush || originalType === 'cube') { 
-                    const positionOffset = localFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
-                    newPositionArray = [
-                        originalPosition[0] + positionOffset.x,
-                        originalPosition[1] + positionOffset.y,
-                        originalPosition[2] + positionOffset.z,
-                    ];
-                }
+                // Position update using worldFaceNormal
+                const positionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
+                newPositionArray = new THREE.Vector3().fromArray(originalPosition).add(positionOffset).toArray() as [number,number,number];
 
 
             } else if (originalType === 'plane') {
@@ -467,19 +475,22 @@ const SceneViewer: React.FC = () => {
                 const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount)); 
                 newDimensions = { 
                     width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, 
+                    depth: originalDimensions.height || 1, // Plane's height is depth in 3D
                     height: extrusionHeight, 
                 };
                 const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2); 
-                newPositionArray = [
-                    originalPosition[0] + extrusionOffset.x,
-                    originalPosition[1] + extrusionOffset.y,
-                    originalPosition[2] + extrusionOffset.z,
-                ];
+                newPositionArray = new THREE.Vector3().fromArray(originalPosition).add(extrusionOffset).toArray() as [number,number,number];
                 
-                 if (Math.abs(originalRotation[0] - (-Math.PI / 2)) < 0.01 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01) {
-                    newRotationArray = [0,0,0];
+                // If the plane was originally flat (e.g., created by rectangle tool, rotated -PI/2 on X)
+                // and we are extruding along its original "up" (world Y), reset rotation.
+                if (Math.abs(originalRotation[0] - (-Math.PI / 2)) < 0.01 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01) {
+                   if (Math.abs(worldFaceNormalVec.y) > 0.9) { // Extruding "up" or "down"
+                       newRotationArray = [0,0,0];
+                   } // Otherwise, keep original rotation if extruding sideways from a rotated plane
                 }
+            } else {
+                 // Fallback if type not handled, should not happen with current checks
+                newPositionArray = [...originalPosition] as [number,number,number];
             }
             
             const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray, rotation: newRotationArray };
@@ -491,6 +502,7 @@ const SceneViewer: React.FC = () => {
 
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+    setMeasureDisplay(null); // Clear measure display on pointer up
 
     if (drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(drawingState.tool || '')) {
       const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
@@ -535,12 +547,18 @@ const SceneViewer: React.FC = () => {
       if (primitiveType && newObjProps.dimensions) {
         const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
         toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
-        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool }); 
+         if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'polygon' || activeTool === 'line' || activeTool === 'freehand' || activeTool === 'arc') {
+          // Keep tool active, reset start point for next draw
+          setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool });
+        } else {
+          setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
+        }
       } else {
          setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool }); 
       }
       return; 
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
+        // This means the first click of tape/protractor happened, pointer up before second click. Do nothing, wait for second click.
         return; 
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
         const { objectId, originalType } = drawingState.pushPullFaceInfo;
@@ -549,6 +567,7 @@ const SceneViewer: React.FC = () => {
             title: "Push/Pull Complete", 
             description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Plane extruded to a cube.' : (originalType === 'circle' && finalObject?.type === 'cylinder' ? 'Circle extruded to a cylinder.' : '')}` 
         });
+        // Keep tool active, but reset pushpull specific state
         setDrawingState({ isActive: false, tool: activeTool, pushPullFaceInfo: null }); 
         return;
     }
@@ -572,6 +591,7 @@ const SceneViewer: React.FC = () => {
           } else if (activeTool === 'eraser') {
             removeObject(clickedObjectId);
             toast({ title: "Object Deleted", description: `${clickedSceneObject.name} removed from scene.` });
+             // Keep eraser active: setDrawingState({ tool: 'eraser', isActive: false }); // No start point needed
           } else if (activeTool !== 'pushpull' && !['tape', 'protractor', 'rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) { 
             selectObject(clickedObjectId);
           }
@@ -889,6 +909,7 @@ const SceneViewer: React.FC = () => {
             const isPushPullTarget = drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === child.name && drawingState.isActive;
 
             if (isMesh && Array.isArray(child.material)) {
+              // Handle array of materials if necessary (e.g. multi-material objects)
             } else if (isMesh && child.material instanceof THREE.MeshStandardMaterial) {
                 if (child.userData.originalEmissive === undefined) { 
                     child.userData.originalEmissive = child.material.emissive.getHex(); 
@@ -1021,7 +1042,7 @@ const SceneViewer: React.FC = () => {
                 const childBox = new THREE.Box3().setFromObject(child);
                 if (!childBox.isEmpty()) objectBox.expandByObject(child);
             });
-            if (objectBox.isEmpty()) objectBox.setFromObject(threeObject);
+            if (objectBox.isEmpty()) objectBox.setFromObject(threeObject); // Fallback for empty groups
         } else {
            objectBox.setFromObject(threeObject);
         }
@@ -1047,11 +1068,12 @@ const SceneViewer: React.FC = () => {
         const fov = camera.fov * (Math.PI / 180);
         let distance = radius / Math.sin(fov / 2);
         
-        distance = Math.max(distance * 1.5, Math.max(5, radius * 1.1)); 
+        distance = Math.max(distance * 1.5, Math.max(5, radius * 1.1)); // Ensure a minimum distance, increased multiplier
 
         const direction = camera.position.clone().sub(controls.target).normalize();
         if (direction.lengthSq() === 0 || (Math.abs(direction.x) < 0.01 && Math.abs(direction.y) < 0.01 && Math.abs(direction.z) < 0.01)) {
-            direction.set(0.577, 0.577, 0.577); 
+            // If camera is at target, or direction is zero, use a default perspective direction
+            direction.set(0.577, 0.577, 0.577); // Roughly isometric
         }
         
         camera.position.copy(center).addScaledVector(direction, distance);
@@ -1064,7 +1086,30 @@ const SceneViewer: React.FC = () => {
   }, [zoomExtentsTrigger, sceneContextObjects, setZoomExtentsTriggered]);
 
 
-  return <div ref={mountRef} className="w-full h-full outline-none bg-background" tabIndex={0} />;
+  return (
+    <div ref={mountRef} className="w-full h-full outline-none bg-background relative" tabIndex={0}>
+      {measureDisplay && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${measureDisplay.x}px`,
+            top: `${measureDisplay.y}px`,
+            color: 'hsl(var(--foreground))', 
+            backgroundColor: 'hsla(var(--background), 0.75)',
+            padding: '3px 7px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            border: '1px solid hsl(var(--border))',
+            pointerEvents: 'none',
+            transform: 'translate(10px, -100%)', // Position slightly offset and above the line end
+            zIndex: 1001, // Ensure it's above the canvas
+          }}
+        >
+          {measureDisplay.text}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default SceneViewer;
