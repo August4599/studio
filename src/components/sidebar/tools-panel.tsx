@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -36,9 +37,9 @@ import {
   Hexagon, 
   Minus, 
   Edit3,
-  Image as ImageIcon, // Added for completeness, though not directly used here
-  ZoomIn, // Added for completeness
-  Target // Used for Follow Me and Protractor placeholders
+  Image as ImageIcon, 
+  ZoomIn, 
+  Target 
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -50,11 +51,11 @@ interface ToolConfig {
   label: string;
   icon: React.ElementType;
   action?: () => void;
-  options?: React.ReactNode; // For tools like Polygon (number of sides)
+  options?: React.ReactNode; 
 }
 
 const ToolsPanel = () => {
-  const { activeTool, setActiveTool, addObject, drawingState, setDrawingState } = useScene();
+  const { activeTool, setActiveTool, addObject, drawingState, setDrawingState, triggerZoomExtents } = useScene();
   const { toast } = useToast();
 
   const handleAddPrimitive = (type: PrimitiveType) => {
@@ -84,6 +85,11 @@ const ToolsPanel = () => {
     });
   };
 
+  const handleZoomExtents = () => {
+    triggerZoomExtents();
+    toast({ title: "View Reset", description: "Zoomed to fit all objects." });
+  }
+
   const toolCategories: { title: string; tools: ToolConfig[] }[] = [
     {
       title: "Selection & Transformation",
@@ -100,7 +106,7 @@ const ToolsPanel = () => {
         { id: 'line', label: 'Line', icon: Minus, action: () => activateGenericTool('line', 'Line Tool', 'Click to define line segments.') }, 
         { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => setActiveTool('rectangle') }, 
         { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') },
-        { id: 'arc', label: 'Arc', icon: Spline, action: () => activateGenericTool('arc', 'Arc Tool', 'Arc drawing: define center, start, end.') }, 
+        { id: 'arc', label: 'Arc', icon: Spline, action: () => activateGenericTool('arc', 'Arc Tool', 'Arc drawing: define center, start, end. (WIP)') }, 
         { 
           id: 'polygon', 
           label: 'Polygon', 
@@ -115,7 +121,7 @@ const ToolsPanel = () => {
                 min="3" max="32" step="1" 
                 value={drawingState.polygonSides || 6} 
                 onChange={(e) => setDrawingState({ polygonSides: parseInt(e.target.value) || 6 })}
-                className="h-7 w-12 text-xs p-1" // Adjusted height
+                className="h-7 w-12 text-xs p-1" 
               />
             </div>
           )
@@ -127,7 +133,7 @@ const ToolsPanel = () => {
       title: "Modification Tools",
       tools: [
         { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => activateGenericTool('pushpull', 'Push/Pull Tool', 'Click a face and drag to extrude.') },
-        { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset.') }, 
+        { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset. (WIP)') }, 
         { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude (WIP).') },
       ]
     },
@@ -155,8 +161,8 @@ const ToolsPanel = () => {
      {
       title: "Navigation",
       tools: [
-        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (WIP).') },
-        { id: 'zoomExtents', label: 'Zoom Extents', icon: Expand, action: () => activateGenericTool('zoomExtents', 'Zoom Extents', 'Fit all objects in view (WIP).') },
+        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (Orbit controls handle pan).') },
+        { id: 'zoomExtents', label: 'Zoom Extents', icon: Expand, action: handleZoomExtents },
       ]
     }
   ];

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -9,14 +10,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Globe2, Image as ImageIcon, Grid3X3 } from "lucide-react"; // Globe for World, Image for HDRI
+import { Globe2, Image as ImageIcon, Grid3X3 } from "lucide-react"; 
 import { Checkbox } from "@/components/ui/checkbox";
+import { useScene } from "@/context/scene-context";
 
 const WorldSettingsPanel = () => {
-  // Placeholder states
-  const [bgColor, setBgColor] = React.useState("#1F1F1F"); // Default to a dark gray for dark mode
-  const [useHdri, setUseHdri] = React.useState(false);
-  const [showGridInRender, setShowGridInRender] = React.useState(false);
+  const { worldBackgroundColor, setWorldBackgroundColor } = useScene();
+  const [useHdri, setUseHdri] = React.useState(false); // Keep local as HDRI is placeholder
+  const [showGridInRender, setShowGridInRender] = React.useState(false); // Keep local as placeholder
 
   return (
     <AccordionItem value="item-world-settings">
@@ -31,10 +32,10 @@ const WorldSettingsPanel = () => {
           <Input
             id="world-bg-color"
             type="color"
-            value={bgColor}
-            onChange={(e) => setBgColor(e.target.value)}
-            className="h-9 w-full" // Updated size
-            disabled={useHdri} // Disable if HDRI is active
+            value={worldBackgroundColor}
+            onChange={(e) => setWorldBackgroundColor(e.target.value)}
+            className="h-9 w-full" 
+            disabled={useHdri} 
           />
            {useHdri && <p className="text-xs text-muted-foreground italic">Color overridden by HDRI.</p>}
         </div>
@@ -49,7 +50,7 @@ const WorldSettingsPanel = () => {
                 />
                 <Label htmlFor="use-hdri" className="text-xs font-normal">Use HDRI</Label>
             </div>
-            <Button variant="outline" size="sm" className="w-full text-sm h-9" disabled={!useHdri}>Upload HDRI (Coming Soon)</Button> {/* Updated size */}
+            <Button variant="outline" size="sm" className="w-full text-sm h-9" disabled={!useHdri}>Upload HDRI (Coming Soon)</Button> 
             {useHdri && <p className="text-xs text-muted-foreground">Select an equirectangular HDR image for environment lighting and reflections.</p>}
         </div>
         
@@ -66,7 +67,7 @@ const WorldSettingsPanel = () => {
         </div>
 
         <p className="text-xs text-muted-foreground text-center pt-2">
-          World settings are for demonstration. Full functionality is under development.
+          HDRI and Grid in Render are placeholders. Background color is functional.
         </p>
       </AccordionContent>
     </AccordionItem>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -8,21 +9,12 @@ import {
 } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-// import { Button } from "@/components/ui/button";
-import { Video } from "lucide-react"; // Using Video icon for Camera Settings
+import { Video } from "lucide-react"; 
 import { Slider } from "@/components/ui/slider";
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from "@/components/ui/select"
+import { useScene } from "@/context/scene-context";
 
 const CameraSettingsPanel = () => {
-  // Placeholder states - replace with actual context/state management
-  const [fov, setFov] = React.useState(60);
-  // const [cameraType, setCameraType] = React.useState("perspective");
+  const { cameraFov, setCameraFov } = useScene();
 
   return (
     <AccordionItem value="item-camera-settings">
@@ -32,33 +24,19 @@ const CameraSettingsPanel = () => {
         </div>
       </AccordionTrigger>
       <AccordionContent className="space-y-4 p-2">
-        {/* <div className="space-y-1">
-          <Label htmlFor="camera-type" className="text-xs">Camera Type</Label>
-          <Select value={cameraType} onValueChange={setCameraType}>
-            <SelectTrigger id="camera-type" className="h-9 text-sm"> // Updated size
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perspective" className="text-sm">Perspective</SelectItem> // Updated text size
-              <SelectItem value="orthographic" className="text-sm">Orthographic</SelectItem> // Updated text size
-            </SelectContent>
-          </Select>
-        </div> */}
-
         <div className="space-y-1">
-          <Label htmlFor="camera-fov" className="text-xs">Field of View (FOV): {fov}°</Label>
+          <Label htmlFor="camera-fov" className="text-xs">Field of View (FOV): {cameraFov.toFixed(0)}°</Label>
           <Slider
               id="camera-fov"
               min={10} max={120} step={1}
-              value={[fov]}
-              onValueChange={([val]) => setFov(val)}
-              disabled // Disabled for now as it's a placeholder
+              value={[cameraFov]}
+              onValueChange={([val]) => setCameraFov(val)}
             />
         </div>
         
         <div className="space-y-1">
             <Label htmlFor="focal-length" className="text-xs">Focal Length (mm)</Label>
-            <Input id="focal-length" type="number" defaultValue="50" className="h-9 text-sm" disabled/> {/* Updated size */}
+            <Input id="focal-length" type="number" defaultValue="50" className="h-9 text-sm" disabled/> 
         </div>
 
         <div className="space-y-1">
@@ -67,7 +45,7 @@ const CameraSettingsPanel = () => {
         </div>
 
         <p className="text-xs text-muted-foreground text-center pt-2">
-          Camera settings are for demonstration. Full functionality is under development. Currently reflects viewport camera.
+          Focal length and Depth of Field are for demonstration.
         </p>
       </AccordionContent>
     </AccordionItem>

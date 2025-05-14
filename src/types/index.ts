@@ -10,48 +10,46 @@ export interface MaterialProperties {
   metalness: number;
   map?: string; 
   normalMap?: string;
-  normalScale?: [number, number]; // Added: For normal map strength/scale
+  normalScale?: [number, number]; 
   roughnessMap?: string;
   metalnessMap?: string;
   aoMap?: string;
-  emissive?: string; // Emissive color
+  emissive?: string; 
   emissiveIntensity?: number;
-  opacity?: number; // 0.0 (transparent) to 1.0 (opaque)
-  transparent?: boolean; // Needs to be true for opacity < 1.0 to work
-  alphaMap?: string; // Added: Texture for alpha
-  ior?: number; // Index of Refraction (for transparency)
+  opacity?: number; 
+  transparent?: boolean; 
+  alphaMap?: string; 
+  ior?: number; 
   displacementMap?: string;
   displacementScale?: number;
   displacementBias?: number;
-  clearcoat?: number; // Added: Clearcoat intensity
-  clearcoatRoughness?: number; // Added: Clearcoat roughness
-  clearcoatNormalMap?: string; // Added: Clearcoat normal map
-  // Future: SSS, Sheen etc.
+  clearcoat?: number; 
+  clearcoatRoughness?: number; 
+  clearcoatNormalMap?: string; 
 }
 
 export interface CadPlanLine {
-  start: [number, number]; // [x, z] coordinates relative to plan's local origin
-  end: [number, number];   // [x, z] coordinates relative to plan's local origin
+  start: [number, number]; 
+  end: [number, number];   
 }
 
 export interface CadPlanData {
   lines: CadPlanLine[];
-  // Future: Could add simplified 2D circles, arcs, etc.
 }
 
 export interface SceneObjectDimensions {
   width?: number; 
   height?: number; 
   depth?: number; 
-  radius?: number; // For sphere, polygon (outer radius)
+  radius?: number; 
   radiusTop?: number; 
   radiusBottom?: number; 
   radialSegments?: number; 
   heightSegments?: number; 
-  tube?: number; // For torus
-  tubularSegments?: number; // For torus
-  arc?: number; // For torus
-  sides?: number; // For polygon
+  tube?: number; 
+  tubularSegments?: number; 
+  arc?: number; 
+  sides?: number; 
   text?: string; 
   fontSize?: number; 
 }
@@ -63,10 +61,10 @@ export interface SceneObject {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
-  dimensions: SceneObjectDimensions; // For cadPlan, width & depth represent overall bounding box
-  materialId: string; // For cadPlan, this material (e.g., its color) can style the lines
+  dimensions: SceneObjectDimensions; 
+  materialId: string; 
   visible?: boolean; 
-  planData?: CadPlanData; // Specific to 'cadPlan' type to hold line data
+  planData?: CadPlanData; 
 }
 
 export interface AmbientLightProps {
@@ -102,9 +100,9 @@ export interface PointLightSceneProps extends BaseLightProps {
 export interface SpotLightSceneProps extends BaseLightProps {
   type: 'spot';
   position: [number, number, number];
-  targetPosition?: [number, number, number]; // Or link to an object
-  angle?: number; // radians
-  penumbra?: number; // 0-1
+  targetPosition?: [number, number, number]; 
+  angle?: number; 
+  penumbra?: number; 
   distance?: number;
   decay?: number;
   castShadow?: boolean;
@@ -112,12 +110,11 @@ export interface SpotLightSceneProps extends BaseLightProps {
 }
 
 export interface AreaLightSceneProps extends BaseLightProps {
-  type: 'area'; // Typically a RectAreaLight in Three.js
+  type: 'area'; 
   position: [number, number, number];
-  rotation?: [number, number, number]; // For orientation
+  rotation?: [number, number, number]; 
   width?: number;
   height?: number;
-  // RectAreaLight doesn't cast shadows by default in Three.js
 }
 
 export type SceneLight = DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps | AreaLightSceneProps;
@@ -125,7 +122,7 @@ export type SceneLight = DirectionalLightSceneProps | PointLightSceneProps | Spo
 
 export type ToolType = 
   | 'select' 
-  | 'line' // Freehand / Polyline
+  | 'line' 
   | 'rectangle' 
   | 'circle'
   | 'arc' 
@@ -136,16 +133,16 @@ export type ToolType =
   | 'rotate' 
   | 'scale' 
   | 'offset' 
-  | 'followme' // WIP, complex
-  | 'tape' // Measure tool
+  | 'followme' 
+  | 'tape' 
   | 'protractor'
-  | 'axes' // Change drawing axes
+  | 'axes' 
   | 'addText'
   | 'paint'
   | 'eraser'
-  | 'orbit' // Explicit orbit tool, though usually default
+  | 'orbit' 
   | 'pan'
-  | 'zoom' // Various zoom tools: Zoom Extents, Zoom Window
+  | 'zoom' 
   | 'zoomExtents'
   | 'addCube'
   | 'addCylinder'
@@ -176,7 +173,7 @@ export interface DrawingState {
   currentPoint?: [number, number, number] | null;
   measureDistance?: number | null; 
   pushPullFaceInfo?: PushPullFaceInfo | null;
-  polygonSides?: number; // For polygon tool
+  polygonSides?: number; 
 }
 
 
@@ -212,6 +209,12 @@ export type AppMode = 'modelling' | 'rendering';
 
 export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective';
 
+export interface RenderSettings {
+  engine: 'cycles' | 'eevee';
+  resolution: string; 
+  outputFormat: 'png' | 'jpeg';
+  samples: number;
+}
 export interface SceneData {
   objects: SceneObject[];
   materials: MaterialProperties[];
@@ -224,7 +227,10 @@ export interface SceneData {
   appMode: AppMode; 
   drawingState: DrawingState;
   requestedViewPreset?: ViewPreset | null; 
-  zoomExtentsTrigger?: number; // Timestamp to trigger zoom extents
+  zoomExtentsTrigger?: number; 
+  cameraFov?: number; 
+  worldBackgroundColor?: string;
+  renderSettings?: RenderSettings;
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material';
@@ -235,7 +241,7 @@ export const DEFAULT_MATERIAL_NAME = 'ArchiVision Default';
 export interface Project {
   id: string;
   name: string;
-  lastModified: number; // timestamp
+  lastModified: number; 
   sceneData: SceneData;
   thumbnail?: string; 
 }

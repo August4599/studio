@@ -1,6 +1,6 @@
 
 
-import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps } from '@/types';
+import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 
@@ -48,6 +48,13 @@ const initialDirectionalLight: DirectionalLightSceneProps = {
   visible: true,
 };
 
+const initialRenderSettings: RenderSettings = {
+  engine: 'cycles',
+  resolution: '1920x1080',
+  outputFormat: 'png',
+  samples: 128,
+};
+
 
 export const getDefaultSceneData = (): SceneData => ({
   objects: [],
@@ -64,7 +71,10 @@ export const getDefaultSceneData = (): SceneData => ({
   appMode: 'modelling', 
   drawingState: initialDrawingState,
   requestedViewPreset: null,
-  zoomExtentsTrigger: 0, // Initialize zoomExtentsTrigger
+  zoomExtentsTrigger: 0,
+  cameraFov: 60, 
+  worldBackgroundColor: '#1A1A1A', 
+  renderSettings: initialRenderSettings,
 });
 
 

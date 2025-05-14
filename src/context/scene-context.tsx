@@ -1,14 +1,15 @@
 
+
 "use client";
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData } from '@/types';
-import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings } from '@/types';
+import { DEFAULT_MATERIAL_ID } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
@@ -16,7 +17,11 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   activePaintMaterialId: string | null | undefined;
   drawingState: DrawingState;
   requestedViewPreset: ViewPreset | null | undefined;
-  zoomExtentsTrigger: number; // Expose the trigger timestamp
+  zoomExtentsTrigger: number;
+  cameraFov: number;
+  worldBackgroundColor: string;
+  renderSettings: RenderSettings;
+
   setAppMode: (mode: AppMode) => void;
   addObject: (type: Exclude<PrimitiveType, 'cadPlan'>, initialProps?: Partial<Omit<SceneObject, 'id' | 'type' | 'planData'>>) => SceneObject;
   importCadPlan: (parsedPlan: Partial<SceneObject>) => Promise<SceneObject | null>;
@@ -42,8 +47,11 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   setDrawingState: (newState: Partial<DrawingState>) => void;
   getCurrentSceneData: () => SceneData; 
   setCameraViewPreset: (preset: ViewPreset | null) => void;
-  triggerZoomExtents: () => void; // Function to request zoom extents
-  setZoomExtentsTriggered: () => void; // Function to call after zoom extents is handled
+  triggerZoomExtents: () => void; 
+  setZoomExtentsTriggered: () => void;
+  setCameraFov: (fov: number) => void;
+  setWorldBackgroundColor: (color: string) => void;
+  updateRenderSettings: (settings: Partial<RenderSettings>) => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -53,7 +61,15 @@ const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
   const [sceneData, setSceneData] = useState<SceneData>(() => {
     const data = initialSceneOverride || initialSceneDataBlueprint;
-    return { ...data, zoomExtentsTrigger: data.zoomExtentsTrigger || 0 };
+    // Ensure all new fields have defaults
+    return { 
+      ...getDefaultSceneData(), // Start with full defaults
+      ...data, // Override with provided data
+      cameraFov: data.cameraFov ?? getDefaultSceneData().cameraFov,
+      worldBackgroundColor: data.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
+      renderSettings: data.renderSettings ? { ...getDefaultSceneData().renderSettings, ...data.renderSettings } : getDefaultSceneData().renderSettings,
+      zoomExtentsTrigger: data.zoomExtentsTrigger || 0,
+     };
   });
 
   const sceneObjectsRef = useRef(sceneData.objects);
@@ -63,7 +79,14 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
   useEffect(() => {
     if (initialSceneOverride) {
-      setSceneData(prev => ({...prev, ...initialSceneOverride, zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || 0 }));
+        setSceneData(prev => ({
+            ...getDefaultSceneData(), // Ensure all defaults are present
+            ...initialSceneOverride, // Apply overrides
+            cameraFov: initialSceneOverride.cameraFov ?? prev.cameraFov ?? getDefaultSceneData().cameraFov,
+            worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
+            renderSettings: initialSceneOverride.renderSettings ? { ...getDefaultSceneData().renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? getDefaultSceneData().renderSettings),
+            zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || 0 
+        }));
     }
   }, [initialSceneOverride]);
 
@@ -169,20 +192,19 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         id: parsedPlan.id || uuidv4(),
         type: 'cadPlan',
         name: parsedPlan.name || 'Imported CAD Plan',
-        position: parsedPlan.position || [0, 0.01, 0], // Default Y slightly above grid
+        position: parsedPlan.position || [0, 0.01, 0], 
         rotation: parsedPlan.rotation || [0,0,0],
         scale: parsedPlan.scale || [1,1,1],
-        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, // Should be accurately set by parser
-        materialId: parsedPlan.materialId || DEFAULT_MATERIAL_ID, // This material's color will be used for lines
+        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, 
+        materialId: parsedPlan.materialId || DEFAULT_MATERIAL_ID, 
         visible: parsedPlan.visible ?? true,
         planData: parsedPlan.planData,
     };
 
     setSceneData(prev => ({
         ...prev,
-        // Filter out any existing cadPlan objects to ensure only one is present
         objects: [...prev.objects.filter(o => o.type !== 'cadPlan'), cadPlanObject],
-        selectedObjectId: cadPlanObject.id, // Optionally select the imported plan
+        selectedObjectId: cadPlanObject.id, 
         activeTool: 'select',
         drawingState: { ...getDefaultSceneData().drawingState, tool: null, startPoint: null },
     }));
@@ -354,17 +376,21 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
 
   const loadScene = useCallback((data: SceneData) => {
+    const defaultData = getDefaultSceneData();
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
       setSceneData({
-        ...getDefaultSceneData(), 
+        ...defaultData, 
         ...data, 
-        otherLights: data.otherLights || [], 
-        drawingState: data.drawingState || getDefaultSceneData().drawingState, 
+        otherLights: data.otherLights || defaultData.otherLights, 
+        drawingState: data.drawingState || defaultData.drawingState, 
         zoomExtentsTrigger: data.zoomExtentsTrigger || 0,
+        cameraFov: data.cameraFov ?? defaultData.cameraFov,
+        worldBackgroundColor: data.worldBackgroundColor ?? defaultData.worldBackgroundColor,
+        renderSettings: data.renderSettings ? { ...defaultData.renderSettings, ...data.renderSettings } : defaultData.renderSettings,
       });
     } else {
       console.error("Invalid scene data provided to loadScene, loading default scene.");
-      setSceneData(getDefaultSceneData()); 
+      setSceneData(defaultData); 
     }
   }, []);
 
@@ -375,11 +401,13 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const getCurrentSceneData = useCallback((): SceneData => {
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset, zoomExtentsTrigger
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, 
+      requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, requestedViewPreset, zoomExtentsTrigger
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, 
+      requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings
     };
   }, [sceneData]);
 
@@ -437,6 +465,18 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const setZoomExtentsTriggered = useCallback(() => {
     setSceneData(prev => ({ ...prev, zoomExtentsTrigger: 0 }));
   }, []);
+
+  const setCameraFov = useCallback((fov: number) => {
+    setSceneData(prev => ({ ...prev, cameraFov: fov }));
+  }, []);
+
+  const setWorldBackgroundColor = useCallback((color: string) => {
+    setSceneData(prev => ({ ...prev, worldBackgroundColor: color }));
+  }, []);
+
+  const updateRenderSettings = useCallback((settings: Partial<RenderSettings>) => {
+    setSceneData(prev => ({ ...prev, renderSettings: { ...prev.renderSettings, ...settings } as RenderSettings}));
+  }, []);
   
   const contextValue = useMemo(() => ({
     ...sceneData,
@@ -469,7 +509,13 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     zoomExtentsTrigger: sceneData.zoomExtentsTrigger || 0,
     triggerZoomExtents,
     setZoomExtentsTriggered,
-  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered]);
+    cameraFov: sceneData.cameraFov ?? getDefaultSceneData().cameraFov,
+    setCameraFov,
+    worldBackgroundColor: sceneData.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
+    setWorldBackgroundColor,
+    renderSettings: sceneData.renderSettings ?? getDefaultSceneData().renderSettings,
+    updateRenderSettings,
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings]);
 
   return (
     <SceneContext.Provider value={contextValue}>
@@ -485,3 +531,4 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
+
