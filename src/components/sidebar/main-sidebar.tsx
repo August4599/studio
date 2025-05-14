@@ -12,7 +12,7 @@ import WorldSettingsPanel from "./world-settings-panel";
 import ObjectHierarchyPanel from "./object-hierarchy-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
-import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Construction, Settings2 } from "lucide-react";
+import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Construction } from "lucide-react";
 import { Accordion } from "@/components/ui/accordion";
 
 const MainSidebar = () => {
@@ -24,14 +24,28 @@ const MainSidebar = () => {
     return 'scene';
   };
 
-  const modellingDefaultAccordions = ['item-object-props', 'item-materials', 'item-object-hierarchy', 'item-lighting', 'item-world-settings'];
-  const renderingDefaultAccordions = ['item-render-settings', 'item-camera-settings', 'item-object-hierarchy', 'item-lighting', 'item-world-settings'];
+  // More focused default accordions
+  const modellingSelectionDefaults = ['item-object-props'];
+  const modellingMaterialsDefaults = ['item-materials'];
+  const modellingSceneDefaults = ['item-object-hierarchy', 'item-lighting', 'item-world-settings'];
+  const modellingProjectDefaults = ['item-scene'];
+
+  const renderingRenderDefaults = ['item-render-settings'];
+  const renderingCameraDefaults = ['item-camera-settings'];
+  const renderingSceneDefaults = ['item-object-hierarchy', 'item-lighting', 'item-world-settings'];
+  const renderingProjectDefaults = ['item-scene'];
 
 
-  const getPanelsForMode = (mode: 'modelling' | 'rendering', tab: string) => {
+  const getPanelsForMode = (tab: string) => {
     switch (tab) {
       case 'selection':
-        return selectedObjectId ? <ObjectPropertiesPanel /> : <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>;
+        return selectedObjectId ? (
+          <>
+            <ObjectPropertiesPanel />
+            <MaterialsPanelAccordion /> 
+            <ObjectHierarchyPanel /> 
+          </>
+        ) : <div className="p-4 text-center text-sm text-muted-foreground">Select an object to see its properties.</div>;
       case 'materials':
         return <MaterialsPanelAccordion />;
       case 'scene':
@@ -46,7 +60,7 @@ const MainSidebar = () => {
         return <RenderSettingsPanel />;
       case 'camera':
         return <CameraSettingsPanel />;
-      case 'project': // Mobile only
+      case 'project': // Mobile + Desktop general project settings
         return <ScenePanel />;
       default:
         return null;
@@ -69,7 +83,7 @@ const MainSidebar = () => {
               <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Globe size={16} /> Scene
               </TabsTrigger>
-               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary md:hidden">
+               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Settings2 size={16}/> Project
               </TabsTrigger>
             </>
@@ -84,7 +98,7 @@ const MainSidebar = () => {
                <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Globe size={16} /> Scene
               </TabsTrigger>
-               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary md:hidden">
+               <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Settings2 size={16}/> Project
               </TabsTrigger>
             </>
@@ -93,52 +107,48 @@ const MainSidebar = () => {
 
         <ScrollArea className="flex-grow p-1">
             <TabsContent value="selection" className="p-0 m-0">
-              <Accordion type="multiple" defaultValue={modellingDefaultAccordions} className="w-full">
-                 {getPanelsForMode(appMode, 'selection')}
+              <Accordion type="multiple" defaultValue={modellingSelectionDefaults} className="w-full">
+                 {getPanelsForMode('selection')}
               </Accordion>
             </TabsContent>
 
             <TabsContent value="materials" className="p-0 m-0">
-                <Accordion type="multiple" defaultValue={modellingDefaultAccordions} className="w-full">
-                   {getPanelsForMode(appMode, 'materials')}
+                <Accordion type="multiple" defaultValue={modellingMaterialsDefaults} className="w-full">
+                   {getPanelsForMode('materials')}
                 </Accordion>
             </TabsContent>
 
             <TabsContent value="scene" className="p-0 m-0">
-                <Accordion type="multiple" defaultValue={appMode === 'modelling' ? modellingDefaultAccordions : renderingDefaultAccordions} className="w-full">
-                    {getPanelsForMode(appMode, 'scene')}
+                <Accordion type="multiple" defaultValue={appMode === 'modelling' ? modellingSceneDefaults : renderingSceneDefaults} className="w-full">
+                    {getPanelsForMode('scene')}
                 </Accordion>
             </TabsContent>
             
-            <TabsContent value="project" className="p-0 m-0 md:hidden">
-                <Accordion type="multiple" defaultValue={['item-scene']} className="w-full">
-                     {getPanelsForMode(appMode, 'project')}
+            <TabsContent value="project" className="p-0 m-0">
+                <Accordion type="multiple" defaultValue={appMode === 'modelling' ? modellingProjectDefaults : renderingProjectDefaults} className="w-full">
+                     {getPanelsForMode('project')}
                 </Accordion>
             </TabsContent>
 
             <TabsContent value="render" className="p-0 m-0">
                 {appMode === 'rendering' && (
-                    <Accordion type="multiple" defaultValue={renderingDefaultAccordions} className="w-full">
-                        {getPanelsForMode(appMode, 'render')}
+                    <Accordion type="multiple" defaultValue={renderingRenderDefaults} className="w-full">
+                        {getPanelsForMode('render')}
                     </Accordion>
                 )}
             </TabsContent>
             <TabsContent value="camera" className="p-0 m-0">
                 {appMode === 'rendering' && (
-                    <Accordion type="multiple" defaultValue={renderingDefaultAccordions} className="w-full">
-                        {getPanelsForMode(appMode, 'camera')}
+                    <Accordion type="multiple" defaultValue={renderingCameraDefaults} className="w-full">
+                        {getPanelsForMode('camera')}
                     </Accordion>
                 )}
             </TabsContent>
         </ScrollArea>
       </Tabs>
-       <div className="hidden md:block p-1 border-t">
-          <Accordion type="single" collapsible defaultValue={'item-scene'} className="w-full">
-            <ScenePanel />
-          </Accordion>
-        </div>
     </div>
   );
 };
 
 export default MainSidebar;
+
