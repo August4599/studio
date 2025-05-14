@@ -31,7 +31,7 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
       );
       break;
     case 'plane':
-      geometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
+      geometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10); // Plane's height is depth on XZ
       break;
     case 'text': 
       // Placeholder geometry for 3D text; actual text rendering requires TextGeometry
@@ -60,9 +60,10 @@ export function createPrimitive(objectData: SceneObject, material: THREE.Materia
       );
       break;
     case 'polygon': 
+    case 'circle': // Circle tool now uses CircleGeometry
       geometry = new THREE.CircleGeometry(
         dimensions.radius || 0.5,
-        dimensions.sides || 6
+        dimensions.sides || 32 // Default to 32 segments for a smooth circle
       );
       break;
     default:
@@ -125,7 +126,7 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
                 if(dimensionsChanged) newGeometry = new THREE.CylinderGeometry(dimensions.radiusTop || 0.5, dimensions.radiusBottom || 0.5, dimensions.height || 1, dimensions.radialSegments || 32, dimensions.heightSegments || 1);
                 break;
             case 'plane':
-                if(oldGeomParams?.width !== dimensions.width || oldGeomParams?.height !== dimensions.height) dimensionsChanged = true;
+                if(oldGeomParams?.width !== dimensions.width || oldGeomParams?.height !== dimensions.height) dimensionsChanged = true; // Plane's height is depth on XZ
                 if(dimensionsChanged) newGeometry = new THREE.PlaneGeometry(dimensions.width || 10, dimensions.height || 10);
                 break;
             case 'text': // Placeholder for text
@@ -145,8 +146,9 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
                 if(dimensionsChanged) newGeometry = new THREE.TorusGeometry(dimensions.radius || 0.5, dimensions.tube || 0.2, dimensions.radialSegments || 16, dimensions.tubularSegments || 32);
                 break;
             case 'polygon':
+            case 'circle': // Circle tool now uses CircleGeometry
                 if(oldGeomParams?.radius !== dimensions.radius || oldGeomParams?.segments !== dimensions.sides) dimensionsChanged = true; // CircleGeometry uses 'segments' for sides
-                if(dimensionsChanged) newGeometry = new THREE.CircleGeometry(dimensions.radius || 0.5, dimensions.sides || 6);
+                if(dimensionsChanged) newGeometry = new THREE.CircleGeometry(dimensions.radius || 0.5, dimensions.sides || 32);
                 break;
         }
      } catch (e) {
@@ -160,7 +162,8 @@ export function updateMeshProperties(mesh: THREE.Mesh, objectData: SceneObject) 
             case 'sphere': newGeometry = new THREE.SphereGeometry(dimensions.radius || 0.5, dimensions.radialSegments || 32, dimensions.heightSegments || 16); break;
             case 'cone': newGeometry = new THREE.ConeGeometry(dimensions.radius || 0.5, dimensions.height || 1, dimensions.radialSegments || 32); break;
             case 'torus': newGeometry = new THREE.TorusGeometry(dimensions.radius || 0.5, dimensions.tube || 0.2, dimensions.radialSegments || 16, dimensions.tubularSegments || 32); break;
-            case 'polygon': newGeometry = new THREE.CircleGeometry(dimensions.radius || 0.5, dimensions.sides || 6); break;
+            case 'polygon':
+            case 'circle': newGeometry = new THREE.CircleGeometry(dimensions.radius || 0.5, dimensions.sides || 32); break;
             default: newGeometry = undefined; // Ensure newGeometry is explicitly undefined if type not handled
         }
      }

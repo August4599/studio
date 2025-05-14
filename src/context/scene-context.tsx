@@ -42,7 +42,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   clearCurrentProjectScene: () => void; 
   selectedObjectId: string | null | undefined;
   activeTool: ToolType | undefined;
-  setActiveTool: (tool: ToolType | undefined) => void;
+  setActiveTool: (tool: ToolType | undefined, preserveSelection?: boolean) => void;
   setActivePaintMaterialId: (materialId: string | null) => void;
   setDrawingState: (newState: Partial<DrawingState>) => void;
   getCurrentSceneData: () => SceneData; 
@@ -137,12 +137,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         defaultPosition = [0, 0, 0]; 
         defaultRotation = [-Math.PI / 2, 0, 0]; 
         break;
-      case 'text':
+      case 'text': 
         defaultDimensions = { text: "3D Text", fontSize: 1, depth: 0.2, width: 2, height: 0.5 };
         defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 0.5) / 2, 0]; 
         break;
       case 'sphere':
-        defaultDimensions = { radius: 0.5, widthSegments: 32, heightSegments: 16 };
+        defaultDimensions = { radius: 0.5, radialSegments: 32, heightSegments: 16 }; // Corrected property name
         defaultPosition = [0, (initialProps?.dimensions?.radius ?? defaultDimensions.radius ?? 0.5), 0];
         break;
       case 'cone':
@@ -154,7 +154,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         defaultPosition = [0, (initialProps?.dimensions?.tube ?? defaultDimensions.tube ?? 0.2), 0];
         break;
       case 'polygon': 
-        defaultDimensions = { radius: 0.5, sides: 6 };
+      case 'circle': // Circle is also a flat shape on XZ initially
+        defaultDimensions = { radius: 0.5, sides: type === 'polygon' ? (initialProps?.dimensions?.sides || 6) : 32 };
         defaultPosition = [0, 0, 0]; 
         defaultRotation = [-Math.PI / 2, 0, 0];
         break;
@@ -176,8 +177,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       ...prev,
       objects: [...prev.objects, newObject],
       selectedObjectId: newObject.id, 
-      activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle', 'line'].includes(prev.activeTool || '')) ? 'select' : prev.activeTool,
-      drawingState: {...getDefaultSceneData().drawingState, tool: null, startPoint: null}, 
+      // Tool persistence: Don't automatically switch to select after adding primitives
+      // activeTool: (prev.activeTool && ['addCube', 'addCylinder', 'addPlane', 'addText', 'rectangle', 'tape', 'pushpull', 'addSphere', 'addCone', 'addTorus', 'addPolygon', 'circle', 'line'].includes(prev.activeTool || '')) ? 'select' : prev.activeTool,
+      drawingState: {...(prev.drawingState || getDefaultSceneData().drawingState), isActive: false, startPoint: null, currentPoint: null }, 
     }));
     return newObject;
   }, []); 
@@ -195,7 +197,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         position: parsedPlan.position || [0, 0.01, 0], 
         rotation: parsedPlan.rotation || [0,0,0],
         scale: parsedPlan.scale || [1,1,1],
-        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, 
+        dimensions: parsedPlan.dimensions || { width: 1, depth: 1}, // Using depth instead of height for XZ plane
         materialId: parsedPlan.materialId || DEFAULT_MATERIAL_ID, 
         visible: parsedPlan.visible ?? true,
         planData: parsedPlan.planData,
@@ -203,7 +205,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
     setSceneData(prev => ({
         ...prev,
-        objects: [...prev.objects.filter(o => o.type !== 'cadPlan'), cadPlanObject],
+        objects: [...prev.objects.filter(o => o.id !== cadPlanObject.id), cadPlanObject], // Replace if already exists
         selectedObjectId: cadPlanObject.id, 
         activeTool: 'select',
         drawingState: { ...getDefaultSceneData().drawingState, tool: null, startPoint: null },
@@ -260,17 +262,30 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
 
   const selectObject = useCallback((id: string | null) => {
     setSceneData(prev => {
-      const preserveActiveDrawing = prev.drawingState.isActive &&
-                                    (
-                                      (prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id) ||
-                                      (['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(prev.drawingState.tool || '') && prev.drawingState.startPoint !== null) ||
-                                      (['tape', 'protractor'].includes(prev.drawingState.tool || '') && prev.drawingState.startPoint !== null && prev.drawingState.measureDistance === null)
-                                    );
-  
+      const drawingToolsActive = prev.drawingState.isActive && 
+        (
+          ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(prev.drawingState.tool || '') ||
+          (['tape', 'protractor'].includes(prev.drawingState.tool || '') && prev.drawingState.measureDistance === null)
+        );
+      
+      const pushPullActiveOnDifferentObject = prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId !== id;
+
+      if (drawingToolsActive || pushPullActiveOnDifferentObject) {
+        // If a drawing tool is active or push/pull is active on a different object,
+        // don't change selection, just clear drawing state to prevent unintended interactions.
+        return {
+          ...prev,
+          drawingState: { ...getDefaultSceneData().drawingState }
+        };
+      }
+      
+      // If push/pull is active on the *same* object being re-selected, preserve its state.
+      const preservePushPull = prev.drawingState.tool === 'pushpull' && prev.drawingState.pushPullFaceInfo?.objectId === id && id !== null;
+
       return {
         ...prev,
         selectedObjectId: id,
-        drawingState: preserveActiveDrawing ? prev.drawingState : { ...prev.drawingState, isActive: false } 
+        drawingState: preservePushPull ? prev.drawingState : { ...getDefaultSceneData().drawingState } 
       };
     });
   }, []);
@@ -412,7 +427,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, [sceneData]);
 
 
-  const setActiveTool = useCallback((tool: ToolType | undefined) => {
+  const setActiveTool = useCallback((tool: ToolType | undefined, preserveSelection: boolean = false) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
       let newDrawingState: DrawingState = { ...getDefaultSceneData().drawingState }; 
@@ -427,11 +442,22 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6; 
       }
       
-      const selectionPreservingTools: ToolType[] = ['select', 'move', 'rotate', 'scale', 'paint', 'pushpull', 'orbit', 'pan', 'zoom', 'zoomExtents', 'axes'];
       let newSelectedObjectId = prev.selectedObjectId;
-      if (tool && !selectionPreservingTools.includes(tool)) {
+      if (!preserveSelection && tool !== 'select' && tool !== 'move' && tool !== 'rotate' && tool !== 'scale' && tool !== 'paint' && tool !== 'pushpull') {
         newSelectedObjectId = null;
       }
+      
+      // If the new tool is not a drawing/modification tool or select/transform, clear active drawing state.
+      // This prevents carrying over `startPoint` etc. if switching from, say, 'line' to 'addCube'.
+      const toolRequiresDrawingStateClear = !drawingTools.includes(tool as ToolType) && tool !== 'select' && tool !== 'move' && tool !== 'rotate' && tool !== 'scale' && tool !== 'paint';
+      if (toolRequiresDrawingStateClear) {
+          newDrawingState.isActive = false;
+          newDrawingState.startPoint = null;
+          newDrawingState.currentPoint = null;
+          newDrawingState.pushPullFaceInfo = null;
+          newDrawingState.measureDistance = null;
+      }
+
 
       return { 
         ...prev, 
