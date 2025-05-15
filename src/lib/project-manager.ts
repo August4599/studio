@@ -9,7 +9,7 @@ const PROJECTS_STORAGE_KEY = 'archiVisionProjects';
 const initialDefaultMaterial: MaterialProperties = {
   id: DEFAULT_MATERIAL_ID,
   name: DEFAULT_MATERIAL_NAME,
-  color: '#B0B0B0',
+  color: '#D0D0D0', // Default modelling color
   roughness: 0.6,
   metalness: 0.3,
   opacity: 1.0,
@@ -61,7 +61,7 @@ export const getDefaultSceneData = (): SceneData => ({
   materials: [initialDefaultMaterial],
   ambientLight: { 
     color: '#ffffff',
-    intensity: 0.7,
+    intensity: 0.7, // Default for rendering mode
   },
   directionalLight: initialDirectionalLight,
   otherLights: [], 
@@ -74,7 +74,7 @@ export const getDefaultSceneData = (): SceneData => ({
   requestedViewPreset: null,
   zoomExtentsTrigger: { timestamp: 0 },
   cameraFov: 60, 
-  worldBackgroundColor: '#1A1A1A', 
+  worldBackgroundColor: '#333333', // Default world bg for rendering
   renderSettings: initialRenderSettings,
 });
 

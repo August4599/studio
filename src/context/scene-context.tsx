@@ -235,7 +235,6 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             updatedObj.dimensions = { ...obj.dimensions, ...updates.dimensions };
           }
           
-          // Auto-adjust Y position for Y-up objects only if height/radius changes AND position isn't explicitly set in this update AND object is upright
           const isYUpObject = ['cube', 'cylinder', 'text', 'sphere', 'cone'].includes(updatedObj.type);
           const isTorus = updatedObj.type === 'torus';
           
@@ -248,17 +247,17 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
           const oldDimensionRelevantToYPos = heightLikeDimensionKey ? obj.dimensions[heightLikeDimensionKey] : undefined;
           
           const dimensionChanged = dimensionRelevantToYPos !== undefined && oldDimensionRelevantToYPos !== undefined && dimensionRelevantToYPos !== oldDimensionRelevantToYPos;
-          const positionNotExplicitlySet = updates.position === undefined;
-          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; // Approximately upright
+          const positionNotExplicitlySet = updates.position === undefined; // Only auto-adjust if position isn't part of THIS update
+          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
 
           if ((isYUpObject || isTorus) && dimensionChanged && positionNotExplicitlySet && isUpright) {
-            updatedObj.position = [...updatedObj.position]; // Ensure new array
+            updatedObj.position = [...updatedObj.position]; 
             let yPos = 0;
             if (updatedObj.type === 'sphere' && updatedObj.dimensions.radius !== undefined) yPos = updatedObj.dimensions.radius;
             else if (updatedObj.type === 'torus' && updatedObj.dimensions.tube !== undefined) yPos = updatedObj.dimensions.tube; 
             else if (updatedObj.dimensions.height !== undefined) yPos = updatedObj.dimensions.height / 2;
             
-            updatedObj.position[1] = Math.max(0.001, yPos); // Ensure it's slightly above or on ground
+            updatedObj.position[1] = Math.max(0.001, yPos); 
           }
           return updatedObj;
         }
@@ -408,7 +407,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       setSceneData({
         ...defaultData, 
         ...data, 
-        objects: data.objects || defaultData.objects, // Ensure these arrays are always present
+        objects: data.objects || defaultData.objects, 
         materials: data.materials || defaultData.materials,
         otherLights: data.otherLights || defaultData.otherLights, 
         drawingState: data.drawingState || defaultData.drawingState, 
@@ -452,9 +451,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       }
       
       const persistentTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint'];
-      const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'];
-
-
+      
       if (tool && persistentTools.includes(tool)) {
         newDrawingState.tool = tool as DrawingState['tool'];
         if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6;
@@ -464,10 +461,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
          newDrawingState.startPoint = null;
          newDrawingState.currentPoint = null;
          newDrawingState.pushPullFaceInfo = null;
-         // Keep measureDistance if tool is changing from tape, but don't reset if it's just deselected
-         if (prev.drawingState.tool === 'tape' && tool !== 'tape') {
-            // Do nothing specific to measureDistance here, it's handled by onPointerDown/clearLastMeasurement
-         } else if (tool !== 'tape') {
+         if (tool !== 'tape') {
             newDrawingState.measureDistance = null;
          }
       }

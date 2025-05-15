@@ -10,7 +10,7 @@ import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHel
 import { useScene } from '@/context/scene-context';
 import { createPrimitive, updateMeshProperties, createOrUpdateMaterial } from '@/lib/three-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType, PointLightSceneProps, SpotLightSceneProps, AreaLightSceneProps, SceneLight, DrawingState, ViewPreset } from '@/types';
+import type { SceneObject, PushPullFaceInfo, PrimitiveType, SceneObjectDimensions, ToolType, PointLightSceneProps, SpotLightSceneProps, AreaLightSceneProps, SceneLight, DrawingState, ViewPreset, MaterialProperties } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 
 const SceneViewer: React.FC = () => {
@@ -26,6 +26,9 @@ const SceneViewer: React.FC = () => {
   const [measureDisplay, setMeasureDisplay] = useState<{ x: number; y: number; text: string } | null>(null);
   const lastCompletedMeasureLineRef = useRef<THREE.Line | null>(null);
   const lastCompletedMeasureDisplayTextRef = useRef<HTMLDivElement | null>(null);
+
+  const modellingBasicMaterialRef = useRef(new THREE.MeshBasicMaterial({ color: 0xCCCCCC, side: THREE.DoubleSide }));
+  const modellingEdgeMaterialRef = useRef(new THREE.LineBasicMaterial({ color: 0x000000 }));
 
 
   const { toast } = useToast();
@@ -78,11 +81,11 @@ const SceneViewer: React.FC = () => {
         c.visible && 
         c.name !== 'gridHelper' && 
         !(c instanceof TransformControls) && 
-        !(c.type === 'PointLightHelper' || c.type === 'SpotLightHelper' || c.type === 'RectAreaLightHelper') && 
+        !(c.type === 'PointLightHelper' || c.type === 'SpotLightHelper' || c.type === 'RectAreaLightHelper') &&
+        !c.userData.isEdgeHelper && // Exclude edge helpers
         c !== tempDrawingMeshRef.current && 
         c !== tempMeasureLineRef.current &&
-        c !== lastCompletedMeasureLineRef.current &&
-        !c.name.endsWith('_modelling_dir_light_helper') 
+        c !== lastCompletedMeasureLineRef.current
     );
 
     const intersects = raycaster.current.intersectObjects(allIntersectables, true);
@@ -124,7 +127,7 @@ const SceneViewer: React.FC = () => {
     const currentMount = mountRef.current;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(worldBackgroundColor); 
+    scene.background = new THREE.Color(appMode === 'modelling' ? 0xF0F0F0 : worldBackgroundColor); 
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(cameraFov, currentMount.clientWidth / currentMount.clientHeight, 0.1, 50000);
@@ -134,7 +137,7 @@ const SceneViewer: React.FC = () => {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = appMode === 'rendering'; // Only enable shadows in rendering mode
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
     rendererRef.current = renderer;
     currentMount.appendChild(renderer.domElement);
@@ -169,7 +172,7 @@ const SceneViewer: React.FC = () => {
     scene.add(transformControls);
     transformControlsRef.current = transformControls;
     
-    const gridHelper = new THREE.GridHelper(500, 100, 0x555555, 0x444444); 
+    const gridHelper = new THREE.GridHelper(500, 100, 0xAAAAAA, 0x888888); 
     gridHelper.name = 'gridHelper';
     scene.add(gridHelper);
 
@@ -218,10 +221,13 @@ const SceneViewer: React.FC = () => {
       }
       clearLastMeasurement(); 
       scene.children
-        .filter(obj => obj.name && (obj.name.endsWith('_helper') || obj.name.endsWith('_modelling_dir_light_helper'))) 
+        .filter(obj => obj.name && (obj.name.endsWith('_helper') || obj.name.endsWith('_modelling_dir_light_helper') || obj.userData.isEdgeHelper )) 
         .forEach(helper => {
           scene.remove(helper);
-          if (typeof (helper as any).dispose === 'function') { 
+          if (helper instanceof THREE.LineSegments) {
+            helper.geometry.dispose();
+            (helper.material as THREE.Material).dispose();
+          } else if (typeof (helper as any).dispose === 'function') { 
             (helper as any).dispose();
           }
         });
@@ -237,10 +243,13 @@ const SceneViewer: React.FC = () => {
   }, [cameraFov]);
 
   useEffect(() => {
-    if (sceneRef.current && worldBackgroundColor) {
-      sceneRef.current.background = new THREE.Color(worldBackgroundColor);
+    if (sceneRef.current) {
+      sceneRef.current.background = new THREE.Color(appMode === 'modelling' ? 0xF0F0F0 : worldBackgroundColor);
     }
-  }, [worldBackgroundColor]);
+    if (rendererRef.current) {
+      rendererRef.current.shadowMap.enabled = appMode === 'rendering';
+    }
+  }, [worldBackgroundColor, appMode]);
 
 
   const clearLastMeasurement = useCallback(() => {
@@ -278,8 +287,6 @@ const SceneViewer: React.FC = () => {
         }
         clearLastMeasurement(); 
       } else if (activeTool === 'tape') {
-        // When tape tool becomes active, clear any previous persistent measurement
-        // to ensure a clean state for a new measurement.
         clearLastMeasurement();
       }
     }
@@ -318,7 +325,7 @@ const SceneViewer: React.FC = () => {
 
         if (startPointForDrawingOrMeasure && sceneRef.current) { 
             if (!drawingState.startPoint || drawingState.tool !== activeTool || drawingState.measureDistance !== null) { 
-                clearLastMeasurement(); // Clear previous persistent measurement before starting a new one
+                clearLastMeasurement(); 
                 setDrawingState({ 
                     isActive: true, 
                     startPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], 
@@ -355,8 +362,8 @@ const SceneViewer: React.FC = () => {
                     if (tempMeasureLineRef.current && mountRef.current && cameraRef.current) {
                         lastCompletedMeasureLineRef.current = tempMeasureLineRef.current.clone();
                         sceneRef.current.add(lastCompletedMeasureLineRef.current);
-                        tempMeasureLineRef.current = null; 
-
+                        // Don't null out tempMeasureLineRef.current here, let the tool persistence logic handle it if needed
+                        
                         const midPointDisplay = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
                         const screenPos = midPointDisplay.clone().project(cameraRef.current);
                         const x = (screenPos.x * 0.5 + 0.5) * mountRef.current.clientWidth;
@@ -509,7 +516,7 @@ const SceneViewer: React.FC = () => {
         raycaster.current.setFromCamera(mouse.current, cameraRef.current);
         const ray = raycaster.current.ray;
         
-        const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(ray.direction.clone().negate(), initialWorldIntersectVec);
+        const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(worldFaceNormalVec, initialWorldIntersectVec);
         const currentDragPlaneIntersectionPoint = new THREE.Vector3();
 
         if (ray.intersectPlane(dragPlane, currentDragPlaneIntersectionPoint)) {
@@ -563,7 +570,6 @@ const SceneViewer: React.FC = () => {
                 const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2); 
                 newPositionArray = new THREE.Vector3().fromArray(originalPosition).add(extrusionOffset).toArray() as [number,number,number];
                 if (Math.abs(worldFaceNormalVec.y) < 0.9) { 
-                  // No special rotation change if extruding from a side-facing plane
                 } else { 
                      newRotationArray = [0,0,0]; 
                 }
@@ -581,7 +587,7 @@ const SceneViewer: React.FC = () => {
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
     
-    const toolIsPersistent = ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc', 'pushpull', 'tape', 'eraser', 'paint'].includes(activeTool || '');
+    const toolIsPersistent = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint'].includes(activeTool || '');
 
     if (drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(drawingState.tool || '')) {
       const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
@@ -627,17 +633,14 @@ const SceneViewer: React.FC = () => {
         const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
         toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
       }
-      // For drawing tools, reset drawing state but keep tool active if persistent
-      if (toolIsPersistent && drawingState.tool && drawingTools.includes(drawingState.tool)) {
+      if (toolIsPersistent && drawingState.tool) {
         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: drawingState.tool });
       } else {
         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
-        if (!toolIsPersistent && activeTool) setActiveTool(undefined); // Deactivate non-persistent tools
+        if (!toolIsPersistent && activeTool) setActiveTool(undefined); 
       }
       return; 
     } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
-        // Logic for completing tape measure is in onPointerDown's second click.
-        // Here, just ensure the tool remains active for another measurement.
         if (toolIsPersistent) {
              setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool as DrawingState['tool'], measureDistance: drawingState.measureDistance });
         } else {
@@ -701,18 +704,15 @@ const SceneViewer: React.FC = () => {
       }
     }
     
-    // General cleanup for non-persistent tools or when drawing state is not active
     if (!toolIsPersistent && activeTool) {
-      setActiveTool(undefined); // This will also clear drawingState via setActiveTool's logic
+      setActiveTool(undefined); 
     } else if (!drawingState.isActive && drawingState.tool !== null && !persistentTools.includes(drawingState.tool)) {
-      // If drawing state somehow became inactive for a non-persistent tool, clear it
       setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, pushPullFaceInfo: null, measureDistance: null });
     }
 
-  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, measureDisplay, measurementUnit, setActiveTool]);
+  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, measureDisplay, setActiveTool]);
 
   const persistentTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint'];
-  const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'];
 
   useEffect(() => {
     const currentMount = mountRef.current;
@@ -758,7 +758,6 @@ const SceneViewer: React.FC = () => {
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
 
-    // Ambient Light
     let ambientLight = scene.getObjectByName('ambientLight') as THREE.AmbientLight;
     if (!ambientLight) {
       ambientLight = new THREE.AmbientLight(ambientLightProps.color, ambientLightProps.intensity);
@@ -766,18 +765,11 @@ const SceneViewer: React.FC = () => {
       scene.add(ambientLight);
     }
     ambientLight.color.set(ambientLightProps.color);
-    ambientLight.intensity = appMode === 'modelling' ? 1.0 : ambientLightProps.intensity; 
+    ambientLight.intensity = appMode === 'modelling' ? 2.0 : ambientLightProps.intensity; 
 
-    // Context Directional Light (Main scene light, potentially with shadows)
     let dirLight = scene.getObjectByName(directionalLightProps.id) as THREE.DirectionalLight;
     let dirLightHelper = scene.getObjectByName(`${directionalLightProps.id}_helper`) as THREE.DirectionalLightHelper;
-
-    // Simplified Directional Light for Modelling Mode
-    const modellingDirLightName = 'modelling_dir_light';
-    let modellingDirLight = scene.getObjectByName(modellingDirLightName) as THREE.DirectionalLight;
-    let modellingDirLightHelper = scene.getObjectByName(`${modellingDirLightName}_helper`) as THREE.DirectionalLightHelper;
-
-
+    
     if (appMode === 'rendering') {
         if (!dirLight) {
           dirLight = new THREE.DirectionalLight(directionalLightProps.color, directionalLightProps.intensity);
@@ -814,40 +806,19 @@ const SceneViewer: React.FC = () => {
           dirLight.shadow.camera.top = shadowCamSize; dirLight.shadow.camera.bottom = -shadowCamSize;
           dirLight.shadow.camera.updateProjectionMatrix();
         }
-        // Hide modelling light in rendering mode
-        if (modellingDirLight) modellingDirLight.visible = false;
-        if (modellingDirLightHelper) modellingDirLightHelper.visible = false;
-
-    } else { // Modelling mode for main directional light
+    } else { 
         if (dirLight) dirLight.visible = false;
         if (dirLightHelper) dirLightHelper.visible = false;
-
-        // Setup modelling light
-        if (!modellingDirLight) {
-            modellingDirLight = new THREE.DirectionalLight(0xffffff, 0.3); // Reduced intensity
-            modellingDirLight.name = modellingDirLightName;
-            modellingDirLight.position.set(1, 1.5, 1).normalize();
-            modellingDirLight.castShadow = false; // No shadows in modelling mode
-            scene.add(modellingDirLight);
-            if (modellingDirLight.target && !modellingDirLight.target.parent) scene.add(modellingDirLight.target);
-            // Modelling light helper is not typically shown
-        }
-        modellingDirLight.visible = true;
-        modellingDirLight.intensity = 0.3; // Ensure intensity is set
-        if (modellingDirLight.target) modellingDirLight.target.position.set(0,0,0);
     }
 
-
-    // Other Lights (Point, Spot, Area) - only visible in rendering mode
     const existingLightIdsInThree = scene.children
-      .filter(child => child instanceof THREE.Light && child.name !== 'ambientLight' && child.name !== directionalLightProps.id && child.name !== modellingDirLightName && !(child instanceof THREE.HemisphereLight) ) 
+      .filter(child => child instanceof THREE.Light && child.name !== 'ambientLight' && child.name !== directionalLightProps.id && !(child instanceof THREE.HemisphereLight) ) 
       .map(child => child.name);
     const contextLightIds = (otherLights || []).map(l => l.id);
 
     (otherLights || []).forEach(lightData => {
       let lightObject = scene.getObjectByName(lightData.id) as THREE.Light;
       let helper = scene.getObjectByName(`${lightData.id}_helper`);
-
       const isVisibleInCurrentMode = appMode === 'rendering' && (lightData.visible ?? true);
 
       if (!lightObject) {
@@ -902,32 +873,33 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-
   }, [ambientLightProps, directionalLightProps, otherLights, appMode]);
 
 
   useEffect(() => {
     if (!sceneRef.current || !getMaterialById) return;
     const scene = sceneRef.current;
-
+  
     const existingObjectIdsInThree = scene.children
-      .filter(child => child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current) && !(child === lastCompletedMeasureLineRef.current) && !child.name.startsWith('modelling_dir_light') )
+      .filter(child => child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current) && !(child === lastCompletedMeasureLineRef.current) && !child.userData.isEdgeHelper)
       .map(child => child.name);
-      
+        
     const contextObjectIds = sceneContextObjects.map(obj => obj.id);
-
+  
     sceneContextObjects.forEach(objData => {
       let meshOrGroup = scene.getObjectByName(objData.id) as THREE.Mesh | THREE.Group;
+      let edgeHelper = scene.getObjectByName(`${objData.id}_edgeHelper`) as THREE.LineSegments;
+      
       const materialProps = getMaterialById(objData.materialId);
       
       if (!materialProps && objData.type !== 'cadPlan') { 
         console.warn(`Material ${objData.materialId} not found for object ${objData.id}, using default or skipping.`);
       }
-
+  
       if (meshOrGroup) { 
         const isTransforming = transformControlsRef.current?.object === meshOrGroup && transformControlsRef.current?.dragging;
         const isPushPulling = drawingState.isActive && drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === objData.id;
-
+  
         if (objData.type === 'cadPlan' && meshOrGroup instanceof THREE.Group) {
             if (!isTransforming) { 
                 meshOrGroup.position.set(...objData.position);
@@ -935,28 +907,41 @@ const SceneViewer: React.FC = () => {
                 meshOrGroup.scale.set(...objData.scale);
             }
             meshOrGroup.visible = objData.visible ?? true;
-            if (materialProps) {
-                meshOrGroup.children.forEach(child => {
-                    if (child instanceof THREE.LineSegments && child.material instanceof THREE.LineBasicMaterial) {
-                        child.material.color.set(materialProps.color);
-                        child.material.needsUpdate = true;
-                    }
-                });
-            }
+            // Material for CAD plan lines (currently a single color)
+            const cadLineMaterial = appMode === 'modelling' ? modellingEdgeMaterialRef.current : new THREE.LineBasicMaterial({ color: materialProps?.color || 0x888888 });
+            meshOrGroup.children.forEach(child => {
+                if (child instanceof THREE.LineSegments) {
+                    child.material = cadLineMaterial;
+                }
+            });
+
         } else if (meshOrGroup instanceof THREE.Mesh) { 
             if (!isTransforming && !isPushPulling) { 
               updateMeshProperties(meshOrGroup, objData);
             }
             meshOrGroup.visible = objData.visible ?? true;
             
-            if (materialProps) {
-              if(Array.isArray(meshOrGroup.material)){
-                  (meshOrGroup.material as THREE.Material[]).forEach(m => {
-                      if (m instanceof THREE.MeshStandardMaterial) createOrUpdateMaterial(materialProps, m);
-                  });
-              } else {
-                  createOrUpdateMaterial(materialProps, meshOrGroup.material as THREE.MeshStandardMaterial);
+            if (appMode === 'modelling') {
+              meshOrGroup.material = modellingBasicMaterialRef.current;
+              if (!edgeHelper) {
+                const edges = new THREE.EdgesGeometry(meshOrGroup.geometry);
+                edgeHelper = new THREE.LineSegments(edges, modellingEdgeMaterialRef.current);
+                edgeHelper.name = `${objData.id}_edgeHelper`;
+                edgeHelper.userData.isEdgeHelper = true;
+                meshOrGroup.add(edgeHelper); // Add as child for easier transform management
               }
+              edgeHelper.visible = true;
+            } else { // Rendering mode
+              if (materialProps) {
+                if(Array.isArray(meshOrGroup.material)){
+                    (meshOrGroup.material as THREE.Material[]).forEach(m => {
+                        if (m instanceof THREE.MeshStandardMaterial) createOrUpdateMaterial(materialProps, m);
+                    });
+                } else {
+                    createOrUpdateMaterial(materialProps, meshOrGroup.material as THREE.MeshStandardMaterial);
+                }
+              }
+              if (edgeHelper) edgeHelper.visible = false;
             }
         }
       } else { 
@@ -965,12 +950,7 @@ const SceneViewer: React.FC = () => {
             planGroup.name = objData.id;
             planGroup.userData = { objectType: 'cadPlan' }; 
 
-            const cadMaterial = new THREE.LineBasicMaterial({
-                color: materialProps?.color || 0x888888, 
-                linewidth: 1, 
-                depthTest: true, 
-            });
-
+            const cadMaterial = appMode === 'modelling' ? modellingEdgeMaterialRef.current : new THREE.LineBasicMaterial({ color: materialProps?.color || 0x888888 });
             const points: THREE.Vector3[] = [];
             objData.planData.lines.forEach(line => {
                 points.push(new THREE.Vector3(line.start[0], 0, line.start[1])); 
@@ -978,22 +958,28 @@ const SceneViewer: React.FC = () => {
             });
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             const lineSegments = new THREE.LineSegments(geometry, cadMaterial);
-            lineSegments.renderOrder = 0; 
-            
             planGroup.add(lineSegments);
+
             planGroup.position.set(...objData.position);
             planGroup.rotation.set(...objData.rotation);
             planGroup.scale.set(...objData.scale);
             planGroup.visible = objData.visible ?? true;
             scene.add(planGroup);
-        } else if (objData.type !== 'cadPlan' && materialProps) { 
-            const material = createOrUpdateMaterial(materialProps);
-            const newMesh = createPrimitive(objData, material);
+        } else if (objData.type !== 'cadPlan') { 
+            const materialToUse = appMode === 'modelling' ? modellingBasicMaterialRef.current : (materialProps ? createOrUpdateMaterial(materialProps) : new THREE.MeshStandardMaterial({color: 0x888888}));
+            const newMesh = createPrimitive(objData, materialToUse);
             scene.add(newMesh);
+            if (appMode === 'modelling') {
+              const edges = new THREE.EdgesGeometry(newMesh.geometry);
+              edgeHelper = new THREE.LineSegments(edges, modellingEdgeMaterialRef.current);
+              edgeHelper.name = `${objData.id}_edgeHelper`;
+              edgeHelper.userData.isEdgeHelper = true;
+              newMesh.add(edgeHelper);
+            }
         }
       }
     });
-
+  
     existingObjectIdsInThree.forEach(id => {
       if (!contextObjectIds.includes(id)) {
         const objectToRemove = scene.getObjectByName(id);
@@ -1001,6 +987,18 @@ const SceneViewer: React.FC = () => {
           if (transformControlsRef.current?.object === objectToRemove) {
             transformControlsRef.current.detach();
           }
+          // Remove associated edge helper if it exists
+          const edgeHelperToRemove = scene.getObjectByName(`${id}_edgeHelper`) as THREE.LineSegments;
+          if (edgeHelperToRemove && edgeHelperToRemove.parent === objectToRemove) {
+            objectToRemove.remove(edgeHelperToRemove);
+            edgeHelperToRemove.geometry.dispose();
+            (edgeHelperToRemove.material as THREE.Material).dispose();
+          } else if (edgeHelperToRemove) { // If edge helper was added directly to scene
+            scene.remove(edgeHelperToRemove);
+            edgeHelperToRemove.geometry.dispose();
+            (edgeHelperToRemove.material as THREE.Material).dispose();
+          }
+
           if (objectToRemove instanceof THREE.Mesh) {
             objectToRemove.geometry.dispose();
             if (Array.isArray(objectToRemove.material)) {
@@ -1013,7 +1011,7 @@ const SceneViewer: React.FC = () => {
                 if (child instanceof THREE.LineSegments) {
                     child.geometry.dispose();
                     if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-                    else child.material.dispose();
+                    else (child.material as THREE.Material).dispose();
                 }
             });
           }
@@ -1021,13 +1019,13 @@ const SceneViewer: React.FC = () => {
         }
       }
     });
-
-  }, [sceneContextObjects, getMaterialById, drawingState.isActive, drawingState.tool, drawingState.pushPullFaceInfo?.objectId]);
+  
+  }, [sceneContextObjects, getMaterialById, drawingState.isActive, drawingState.tool, drawingState.pushPullFaceInfo?.objectId, appMode]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
     sceneRef.current.children.forEach(child => {
-      if (child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current) && !(child === lastCompletedMeasureLineRef.current) && !child.name.startsWith('modelling_dir_light')) { 
+      if (child.name && child.name !== 'gridHelper' && !(child === tempDrawingMeshRef.current) && !(child === tempMeasureLineRef.current) && !(child === lastCompletedMeasureLineRef.current) && !child.userData.isEdgeHelper) { 
           const isMesh = child instanceof THREE.Mesh;
           const isGroup = child instanceof THREE.Group; 
 
@@ -1036,9 +1034,20 @@ const SceneViewer: React.FC = () => {
             const isTransforming = transformControlsRef.current?.object === child && transformControlsRef.current?.visible && transformControlsRef.current.dragging;
             const isPushPullTarget = drawingState.tool === 'pushpull' && drawingState.pushPullFaceInfo?.objectId === child.name && drawingState.isActive;
 
-            if (isMesh && Array.isArray(child.material)) {
-              // Handle array of materials if necessary (e.g. multi-material objects)
-            } else if (isMesh && child.material instanceof THREE.MeshStandardMaterial) {
+            // Highlighting logic for modelling mode (edges)
+            if (appMode === 'modelling') {
+                const edgeHelper = child.getObjectByName(`${child.name}_edgeHelper`) as THREE.LineSegments || (isGroup && child.userData.objectType === 'cadPlan' ? child.children[0] as THREE.LineSegments : null);
+                if (edgeHelper && edgeHelper.material instanceof THREE.LineBasicMaterial) {
+                    if (isSelected && !isTransforming && !isPushPullTarget) {
+                        edgeHelper.material.color.setHex(0x00B8D9); // Blue for selection
+                    } else {
+                        edgeHelper.material.color.setHex(0x000000); // Black for default edges
+                    }
+                    edgeHelper.material.needsUpdate = true;
+                }
+            } 
+            // Highlighting logic for rendering mode (emissive - if applicable)
+            else if (isMesh && child.material instanceof THREE.MeshStandardMaterial) {
                 if (child.userData.originalEmissive === undefined) { 
                     child.userData.originalEmissive = child.material.emissive.getHex(); 
                 }
@@ -1060,7 +1069,7 @@ const SceneViewer: React.FC = () => {
                     }
                 }
                 child.material.needsUpdate = true;
-            } else if (isGroup && child.userData.objectType === 'cadPlan' && isSelected && !isTransforming) {
+            } else if (isGroup && child.userData.objectType === 'cadPlan' && isSelected && !isTransforming && appMode === 'rendering') { // CAD Plan selection in rendering
                 child.children.forEach(lineSegment => {
                     if (lineSegment instanceof THREE.LineSegments && lineSegment.material instanceof THREE.LineBasicMaterial) {
                         if (lineSegment.userData.originalColor === undefined) {
@@ -1070,7 +1079,7 @@ const SceneViewer: React.FC = () => {
                         lineSegment.material.needsUpdate = true;
                     }
                 });
-            } else if (isGroup && child.userData.objectType === 'cadPlan' && !isSelected) {
+            } else if (isGroup && child.userData.objectType === 'cadPlan' && !isSelected && appMode === 'rendering') {
                 child.children.forEach(lineSegment => {
                     if (lineSegment instanceof THREE.LineSegments && lineSegment.material instanceof THREE.LineBasicMaterial && lineSegment.userData.originalColor !== undefined) {
                         lineSegment.material.color.setHex(lineSegment.userData.originalColor);
@@ -1081,7 +1090,7 @@ const SceneViewer: React.FC = () => {
           }
       }
     });
-  }, [selectedObjectId, activeTool, drawingState, sceneContextObjects, getMaterialById]); 
+  }, [selectedObjectId, activeTool, drawingState, sceneContextObjects, getMaterialById, appMode]); 
 
   useEffect(() => {
     if (!requestedViewPreset || !cameraRef.current || !orbitControlsRef.current) return;
@@ -1158,7 +1167,7 @@ const SceneViewer: React.FC = () => {
               threeObject !== tempMeasureLineRef.current && 
               threeObject !== lastCompletedMeasureLineRef.current &&
               threeObject.name !== 'gridHelper' &&
-              !threeObject.name.startsWith('modelling_dir_light')
+              !threeObject.userData.isEdgeHelper
             ) {
             objectsToConsider.push(threeObject);
           }

@@ -26,7 +26,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Removed AlertDialogTrigger, not used directly here
+} from "@/components/ui/alert-dialog"; 
 import {
   Dialog,
   DialogContent,
@@ -66,7 +66,7 @@ const Vector2Input: React.FC<{
             onChange(newVector);
           }}
           step={step}
-          className="h-9 text-sm" // Updated size
+          className="h-9 text-sm" 
         />
       ))}
     </div>
@@ -121,7 +121,7 @@ const TextureInput: React.FC<{
               type="button"
               variant="outline"
               size="sm"
-              className="w-full text-sm flex-1 h-9" // Updated size
+              className="w-full text-sm flex-1 h-9" 
               onClick={() => fileInputRef.current?.click()}
             >
             <UploadCloud size={14} className="mr-2" /> Upload Image
@@ -199,7 +199,7 @@ const MaterialEditorDialog: React.FC<{
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Palette size={20}/> Edit Material: {editedMaterial.name || "Unnamed Material"}</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[70vh] md:max-h-[75vh] p-1 pr-3 -mr-2"> {/* Negative margin to offset scrollbar padding */}
+        <ScrollArea className="max-h-[70vh] md:max-h-[75vh] p-1 pr-3 -mr-2"> 
           <Accordion type="multiple" defaultValue={defaultOpenAccordions} className="w-full space-y-3">
             
             <AccordionItem value="basic-props">
@@ -319,7 +319,7 @@ const MaterialEditorDialog: React.FC<{
 };
 
 
-const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid conflict if this file is named materials-panel.tsx
+const MaterialsPanelAccordion = () => { 
   const { 
     materials, 
     addMaterial, 
@@ -395,7 +395,7 @@ const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid 
         </div>
       </AccordionTrigger>
       <AccordionContent className="space-y-3 p-1">
-        <Button onClick={handleAddNewMaterial} size="sm" className="w-full text-sm h-9"> {/* Updated size */}
+        <Button onClick={handleAddNewMaterial} size="sm" className="w-full text-sm h-9"> 
           <PlusCircle size={16} className="mr-2" /> Add New Material
         </Button>
         
@@ -406,7 +406,7 @@ const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid 
               <div 
                 key={material.id} 
                 className={cn(
-                  "flex items-center justify-between p-2 rounded-md cursor-pointer text-sm hover:bg-muted/50", // Updated text size
+                  "flex items-center justify-between p-2 rounded-md cursor-pointer text-sm hover:bg-muted/50", 
                   selectedMaterialForList === material.id && 'bg-muted ring-1 ring-primary',
                   activePaintMaterialId === material.id && activeTool === 'paint' && 'ring-2 ring-primary ring-offset-1 ring-offset-background'
                 )}
@@ -428,7 +428,7 @@ const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid 
                             toast({title: "Material Updated", description: `${updatedMat.name} saved.`});
                         }}
                         trigger={
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-70 hover:opacity-100" // Updated size
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-70 hover:opacity-100" 
                               disabled={material.id === DEFAULT_MATERIAL_ID && material.name === DEFAULT_MATERIAL_NAME && JSON.stringify(material) === JSON.stringify(getDefaultSceneData().materials[0]) }
                             >
                                 <Edit3 size={14} />
@@ -439,7 +439,7 @@ const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid 
                   {material.id !== DEFAULT_MATERIAL_ID && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-70 hover:opacity-100 text-destructive hover:text-destructive"> {/* Updated size */}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-70 hover:opacity-100 text-destructive hover:text-destructive"> 
                           <Trash2 size={14} />
                         </Button>
                       </AlertDialogTrigger>
@@ -464,7 +464,7 @@ const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid 
         </ScrollArea>
         
         {selectedMaterialForList && selectedObjectId && activeTool !== 'paint' && (
-             <Button onClick={handleAssignToSelectedObject} size="sm" variant="outline" className="w-full text-sm h-9"> {/* Updated size */}
+             <Button onClick={handleAssignToSelectedObject} size="sm" variant="outline" className="w-full text-sm h-9"> 
                 Assign to Selected Object
              </Button>
         )}
@@ -482,5 +482,4 @@ const MaterialsPanelAccordion = () => { // Renamed from MaterialsPanel to avoid 
   );
 };
 
-export default MaterialsPanelAccordion; // Exporting the accordion item
-
+export default MaterialsPanelAccordion; 

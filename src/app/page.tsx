@@ -19,7 +19,7 @@ import {
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Layers3, Orbit, Settings2, Construction, Loader2, FolderArchive } from "lucide-react"; 
+import { Layers3, Orbit, Settings2, Construction, Loader2, FolderArchive, Aperture } from "lucide-react"; 
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppMode, PrimitiveType, ToolType } from '@/types';
@@ -76,7 +76,7 @@ const AppModeSwitcher: React.FC = () => {
           value="rendering" 
           className="h-full rounded-r-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm px-4 text-xs"
         >
-          <Orbit size={14} className="mr-1.5" /> Visualize & Export
+          <Aperture size={14} className="mr-1.5" /> Visualize & Export
         </TabsTrigger>
       </TabsList>
     </Tabs>
@@ -89,10 +89,10 @@ interface NodeEditorSectionProps {
 }
 
 const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen, setIsNodeEditorOpen }) => {
-  const getNodeEditorTitle = () => "Procedural Editor"; 
+  const getNodeEditorTitle = () => "Procedural Geometry & Material Editor"; 
   
   const getNodeEditorPlaceholder = () => {
-    return "Create complex geometries, custom materials, and advanced rendering effects using a node-based workflow. Define procedural rules, link parameters, and build sophisticated shaders. (Coming Soon)";
+    return "Create complex geometries, custom materials, and advanced rendering effects using a node-based workflow. Define procedural rules, link parameters, and build sophisticated shaders for unparalleled creative control. (Future Development)";
   }
 
   return (
@@ -188,12 +188,12 @@ const ArchiVisionLayout: React.FC = () => {
 
       if (toolToSet) {
         setActiveTool(toolToSet);
-        if (toolLabel) { // Only show toast if toolLabel is defined (to avoid toasts for implicit 'select' changes)
+        if (toolLabel) { 
              toast({ title: "Tool Changed", description: `${toolLabel} tool activated.` });
         }
       }
       if (newObjectToAdd) {
-        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan'>); // Ensure cadPlan is excluded
+        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan'>); 
       }
     };
 
@@ -206,19 +206,18 @@ const ArchiVisionLayout: React.FC = () => {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <SidebarProvider defaultOpen side="left">
-        {/* Left Tools Sidebar */}
         <Sidebar 
             variant="sidebar" 
             collapsible="icon" 
             side="left" 
             className={cn(
-              "border-r shadow-sm w-64 bg-card transition-all duration-300 ease-in-out",
-              appMode === 'modelling' ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-full w-0" 
+              "border-r shadow-sm bg-card transition-all duration-300 ease-in-out",
+              appMode === 'modelling' ? "w-64 opacity-100 translate-x-0" : "w-0 opacity-0 -translate-x-full" 
             )}
-            sheetTitle="Tools"
-            open={appMode === 'modelling' ? undefined : false}
+            sheetTitle="Modeling Tools"
+            open={appMode === 'modelling' ? undefined : false} // Control sheet open state for mobile
         >
-          <SidebarContent className={cn("p-0 m-0", appMode !== 'modelling' && "hidden")}> 
+          <SidebarContent className={cn("p-0 m-0", appMode !== 'modelling' && "hidden md:block")}> 
              <ToolsSidebar />
           </SidebarContent>
         </Sidebar>
@@ -226,7 +225,6 @@ const ArchiVisionLayout: React.FC = () => {
 
 
       <div className="flex flex-col flex-grow overflow-hidden">
-         {/* Top Bar: App Mode Switcher + Project Actions */}
         <div className="flex items-center justify-between border-b bg-card shadow-sm flex-none h-14 px-4">
           <div className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
@@ -236,7 +234,7 @@ const ArchiVisionLayout: React.FC = () => {
           </div>
           <AppModeSwitcher />
           <div className="w-auto"> 
-             <Button variant="outline" size="sm" onClick={() => { /* Logic to open project dashboard or menu */ console.log("Project actions clicked"); }}>
+             <Button variant="outline" size="sm" onClick={() => { console.log("Project actions clicked"); }}>
                 <FolderArchive size={16} className="mr-2"/> {currentProject?.name || "Projects"}
              </Button>
           </div>
@@ -244,9 +242,7 @@ const ArchiVisionLayout: React.FC = () => {
         
         <SidebarProvider defaultOpen side="right">
           <div className="flex flex-row flex-grow overflow-hidden">
-            {/* Main Viewport Area */}
             <div className="flex flex-col flex-grow bg-background relative overflow-hidden">
-                {/* Mobile Header with Tools/Inspector Toggles */}
                 <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-card z-20 shadow-sm h-12">
                     <div className="flex items-center gap-1">
                         <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-primary">
@@ -266,7 +262,6 @@ const ArchiVisionLayout: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Inspector Panel */}
             <Sidebar 
                 variant="sidebar" 
                 collapsible="icon" 
@@ -287,28 +282,6 @@ const ArchiVisionLayout: React.FC = () => {
   );
 };
 
-const DialogTriggerForTools: React.FC = () => (
-  <Dialog> 
-    <DialogTrigger asChild>
-      <Button variant="ghost" size="icon" className="md:hidden">
-        <Construction size={20} />
-        <span className="sr-only">Open Tools</span>
-      </Button>
-    </DialogTrigger>
-    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col" aria-describedby={undefined}>
-      <DialogHeader className="p-4 border-b flex-none">
-        <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
-      </DialogHeader>
-      <ScrollArea className="flex-grow p-1">
-        <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
-          <ToolsPanel />
-        </Accordion>
-      </ScrollArea>
-    </DialogContent>
-  </Dialog>
-);
-
-// A wrapper around DialogTriggerForTools to manage its open state
 const SidebarTriggerForTools: React.FC = () => {
     const [isToolsDialogOpen, setIsToolsDialogOpen] = useState(false);
 
@@ -318,20 +291,18 @@ const SidebarTriggerForTools: React.FC = () => {
                 <Construction size={20} />
                 <span className="sr-only">Open Tools</span>
             </Button>
-            {isToolsDialogOpen && (
-                 <Dialog open={isToolsDialogOpen} onOpenChange={setIsToolsDialogOpen}>
-                    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col" aria-describedby={undefined}>
-                        <DialogHeader className="p-4 border-b flex-none">
-                            <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
-                        </DialogHeader>
-                        <ScrollArea className="flex-grow p-1">
-                            <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
-                            <ToolsPanel />
-                            </Accordion>
-                        </ScrollArea>
-                    </DialogContent>
-                 </Dialog>
-            )}
+            <Dialog open={isToolsDialogOpen} onOpenChange={setIsToolsDialogOpen}>
+              <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col">
+                  <DialogHeader className="p-4 border-b flex-none">
+                      <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="flex-grow p-1">
+                      <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
+                      <ToolsPanel />
+                      </Accordion>
+                  </ScrollArea>
+              </DialogContent>
+            </Dialog>
         </>
     );
 }
@@ -367,5 +338,3 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
-
-    
