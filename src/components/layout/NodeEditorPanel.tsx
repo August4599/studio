@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Share2, SquareFunction, Palette as PaletteIcon, Image as ImageIcon, Combine, Wand2Icon } from 'lucide-react';
+import { ChevronDown, ChevronUp, Share2, SquareFunction, Palette as PaletteIcon, Image as ImageIcon, Combine, Wand2Icon, Settings, Sigma, Type, Sun } from 'lucide-react'; // Added more icons
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -19,29 +19,58 @@ const NodeEditorIcon = () => (
   </svg>
 );
 
-const NodePlaceholder: React.FC<{ title: string; color: string; icon?: React.ReactNode; inputs?: number; outputs?: number; position: { top: string; left: string } }> = 
-  ({ title, color, icon, inputs = 1, outputs = 1, position }) => (
+interface NodePlaceholderProps {
+  title: string;
+  color: string; // Tailwind color class prefix e.g., 'green', 'blue'
+  icon?: React.ReactNode;
+  inputs?: Array<{name: string; type: string}>;
+  outputs?: Array<{name: string; type: string}>;
+  position: { top: string; left: string };
+  nodeType?: 'geometry' | 'shader' | 'texture' | 'utility' | 'input' | 'output';
+  width?: string; // e.g. 'w-48'
+}
+
+const NodePlaceholder: React.FC<NodePlaceholderProps> = 
+  ({ title, color, icon, inputs = [{name: 'Input', type: 'any'}], outputs = [{name: 'Output', type: 'any'}], position, nodeType = 'utility', width = "w-48" }) => (
   <div 
     className={cn(
-      "absolute w-40 bg-card border rounded-md shadow-lg text-foreground p-2 text-xs",
-      `border-${color}-500/50`
+      "absolute bg-card border rounded-lg shadow-xl text-foreground p-2.5 text-xs flex flex-col",
+      `border-${color}-500/60 shadow-${color}-500/10`, // More subtle shadow
+      width
     )}
     style={{ top: position.top, left: position.left }}
+    data-node-type={nodeType}
   >
-    <div className={cn("font-semibold mb-1 pb-1 border-b flex items-center gap-1.5", `border-${color}-500/30 text-${color}-400`)}>
-      {icon || <Share2 size={12}/>} {title}
+    <div className={cn("font-semibold mb-2 pb-1.5 border-b flex items-center gap-2", `border-${color}-500/40 text-${color}-400`)}>
+      {icon || <Share2 size={14}/>} {title}
     </div>
-    <div className="flex justify-between text-muted-foreground">
-      <div>{Array.from({length: inputs}).map((_, i) => <div key={i} className="my-1">Input {i+1} &bull;</div>)}</div>
-      <div className="text-right">{Array.from({length: outputs}).map((_, i) => <div key={i} className="my-1">&bull; Output {i+1}</div>)}</div>
+    <div className="flex justify-between text-muted-foreground/80 flex-grow">
+      {/* Inputs */}
+      <div className="space-y-1.5 pr-2">
+        {inputs.map((input, i) => (
+            <div key={`in-${i}`} className="flex items-center">
+                <div className="w-2 h-2 rounded-full bg-primary/50 border border-primary/70 mr-1.5 shrink-0"></div>
+                <span className="truncate text-[11px]" title={`${input.name} (${input.type})`}>{input.name}</span>
+            </div>
+        ))}
+      </div>
+      {/* Outputs */}
+      <div className="space-y-1.5 pl-2 text-right">
+        {outputs.map((output, i) => (
+             <div key={`out-${i}`} className="flex items-center justify-end">
+                <span className="truncate text-[11px]" title={`${output.name} (${output.type})`}>{output.name}</span>
+                <div className="w-2 h-2 rounded-full bg-accent/50 border border-accent/70 ml-1.5 shrink-0"></div>
+            </div>
+        ))}
+      </div>
     </div>
   </div>
 );
 
 const NodeEditorPanel: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); // Default to closed
 
-  const getNodeEditorTitle = () => "Procedural Editor (Geometry & Materials)";
+  const getNodeEditorTitle = () => "Procedural Editor (Geometry & Materials - WIP)";
   
   return (
     <div className={cn(
@@ -67,23 +96,44 @@ const NodeEditorPanel: React.FC = () => {
       </div>
       {isOpen && (
         <div className="flex-grow p-4 relative bg-muted/10 overflow-auto">
-          {/* Placeholder Nodes Visual */}
-          <NodePlaceholder title="Geometry Input" color="green" icon={<Combine size={12}/>} inputs={0} outputs={1} position={{top: '2rem', left: '2rem'}} />
-          <NodePlaceholder title="Transform" color="blue" icon={<SquareFunction size={12}/>} inputs={2} outputs={1} position={{top: '6rem', left: '16rem'}} />
-          <NodePlaceholder title="Image Texture" color="purple" icon={<ImageIcon size={12}/>} inputs={1} outputs={1} position={{top: '14rem', left: '2rem'}} />
-          <NodePlaceholder title="Principled BSDF" color="orange" icon={<Wand2Icon size={12}/>} inputs={5} outputs={1} position={{top: '10rem', left: '30rem'}} />
-          <NodePlaceholder title="Material Output" color="red" icon={<PaletteIcon size={12}/>} inputs={1} outputs={0} position={{top: '8rem', left: '44rem'}} />
+          {/* Input Nodes */}
+          <NodePlaceholder title="Geometry Input" color="green" icon={<Combine size={14}/>} inputs={[]} outputs={[{name:'Geometry', type:'Geometry'}]} position={{top: '2rem', left: '2rem'}} nodeType="input" />
+          <NodePlaceholder title="Object Info" color="blue" icon={<Settings size={14}/>} inputs={[]} outputs={[{name:'Location', type:'Vector'}, {name:'Rotation', type:'Vector'}, {name:'Scale', type:'Vector'}]} position={{top: '10rem', left: '2rem'}} nodeType="input" width="w-52"/>
+          <NodePlaceholder title="Image Texture" color="purple" icon={<ImageIcon size={14}/>} inputs={[{name:'UV', type:'Vector'}]} outputs={[{name:'Color', type:'Color'}, {name:'Alpha', type:'Float'}]} position={{top: '18rem', left: '2rem'}} nodeType="texture" width="w-56"/>
+          <NodePlaceholder title="RGB Color" color="pink" icon={<PaletteIcon size={14}/>} inputs={[]} outputs={[{name:'Color', type:'Color'}]} position={{top: '26rem', left: '2rem'}} nodeType="input"/>
+          <NodePlaceholder title="Value" color="gray" icon={<Type size={14}/>} inputs={[]} outputs={[{name:'Value', type:'Float'}]} position={{top: '32rem', left: '2rem'}} nodeType="input"/>
+
+
+          {/* Geometry Nodes */}
+          <NodePlaceholder title="Transform Geometry" color="blue" icon={<SquareFunction size={14}/>} inputs={[{name:'Geometry', type:'Geometry'}, {name:'Translation', type:'Vector'}, {name:'Rotation', type:'Vector'}, {name:'Scale', type:'Vector'}]} outputs={[{name:'Geometry', type:'Geometry'}]} position={{top: '4rem', left: '20rem'}} nodeType="geometry" width="w-60"/>
+          <NodePlaceholder title="Extrude Mesh" color="blue" icon={<Sigma size={14}/>} inputs={[{name:'Mesh', type:'Geometry'}, {name:'Offset Scale', type:'Float'}]} outputs={[{name:'Mesh', type:'Geometry'}]} position={{top: '14rem', left: '20rem'}} nodeType="geometry" width="w-56"/>
+
+          {/* Shader Nodes */}
+          <NodePlaceholder title="Principled BSDF" color="orange" icon={<Wand2Icon size={14}/>} 
+            inputs={[
+                {name:'Base Color', type:'Color'}, {name:'Metallic', type:'Float'}, {name:'Roughness', type:'Float'}, {name:'Normal', type:'Vector'}, {name:'Emission', type:'Color'}
+            ]} 
+            outputs={[{name:'BSDF', type:'Shader'}]} position={{top: '10rem', left: '40rem'}} nodeType="shader" width="w-60"/>
+          <NodePlaceholder title="Mix Shader" color="yellow" icon={<Share2 size={14}/>} inputs={[{name:'Factor', type:'Float'}, {name:'Shader 1', type:'Shader'}, {name:'Shader 2', type:'Shader'}]} outputs={[{name:'Shader', type:'Shader'}]} position={{top: '22rem', left: '40rem'}} nodeType="shader" width="w-56"/>
+          
+          {/* Output Nodes */}
+          <NodePlaceholder title="Material Output" color="red" icon={<PaletteIcon size={14}/>} inputs={[{name:'Surface', type:'Shader'}, {name:'Displacement', type:'Vector'}]} outputs={[]} position={{top: '16rem', left: '60rem'}} nodeType="output"/>
+          <NodePlaceholder title="Scene Output" color="teal" icon={<Sun size={14}/>} inputs={[{name:'Geometry', type:'Geometry'}]} outputs={[]} position={{top: '6rem', left: '60rem'}} nodeType="output"/>
+
 
           {/* Placeholder Connections (simple SVG lines) */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
-            {/* Geom Input -> Transform */}
-            <line x1="calc(2rem + 10rem)" y1="calc(2rem + 1.5rem)" x2="calc(16rem + 0.5rem)" y2="calc(6rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="2" />
-            {/* Transform -> Material Output (as Geometry) */}
-            {/* <line x1="calc(16rem + 10rem)" y1="calc(6rem + 1.5rem)" x2="calc(44rem + 0.5rem)" y2="calc(8rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="2" /> */}
-            {/* Image Texture -> Principled BSDF */}
-            <line x1="calc(2rem + 10rem)" y1="calc(14rem + 1.5rem)" x2="calc(30rem + 0.5rem)" y2="calc(10rem + 2.5rem)" stroke="hsl(var(--border))" strokeWidth="2" />
+            {/* Geom Input -> Transform Geom */}
+            <line x1="calc(2rem + 12rem)" y1="calc(2rem + 2.5rem)" x2="calc(20rem + 0.5rem)" y2="calc(4rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="1.5" />
+            {/* Transform Geom -> Scene Output */}
+            <line x1="calc(20rem + 15rem)" y1="calc(4rem + 2.5rem)" x2="calc(60rem + 0.5rem)" y2="calc(6rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="1.5" />
+            
+            {/* Image Texture -> Principled BSDF (Base Color) */}
+            <line x1="calc(2rem + 14rem)" y1="calc(18rem + 1.5rem)" x2="calc(40rem + 0.5rem)" y2="calc(10rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="1.5" />
             {/* Principled BSDF -> Material Output */}
-            <line x1="calc(30rem + 10rem)" y1="calc(10rem + 1.5rem)" x2="calc(44rem + 0.5rem)" y2="calc(8rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="2" />
+            <line x1="calc(40rem + 15rem)" y1="calc(10rem + 2.5rem)" x2="calc(60rem + 0.5rem)" y2="calc(16rem + 1.5rem)" stroke="hsl(var(--border))" strokeWidth="1.5" />
+             {/* RGB Color -> Principled BSDF (Emission) */}
+            <line x1="calc(2rem + 12rem)" y1="calc(26rem + 1.5rem)" x2="calc(40rem + 0.5rem)" y2="calc(10rem + 5.5rem)" stroke="hsl(var(--border))" strokeWidth="1.5" />
           </svg>
            <p className="absolute bottom-2 right-2 text-xs text-muted-foreground italic">Node Editor (WIP) - Visual Placeholder</p>
         </div>

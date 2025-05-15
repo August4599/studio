@@ -1,4 +1,5 @@
 
+
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
 
 export interface MaterialProperties {
@@ -15,6 +16,7 @@ export interface MaterialProperties {
   aoMap?: string; // Ambient Occlusion map
   emissive?: string; // Emissive color
   emissiveIntensity?: number;
+  emissiveMap?: string; // Emissive texture (WIP)
   opacity?: number; 
   transparent?: boolean; 
   alphaMap?: string; 
@@ -25,39 +27,54 @@ export interface MaterialProperties {
   clearcoat?: number; // For car paint like effects
   clearcoatRoughness?: number; 
   clearcoatNormalMap?: string; 
-  // Future V-Ray/D5 like specific props (as placeholders)
-  materialType?: 'generic' | 'glass' | 'foliage' | 'car_paint' | 'water'; // Conceptual
-  twoSided?: boolean; // For foliage, thin geometry
+  clearcoatMap?: string; // WIP
+  sheen?: number; // WIP for cloth/velvet
+  sheenColor?: string; // WIP
+  sheenRoughness?: number; // WIP
+  sheenColorMap?: string; // WIP
+  subsurfaceScattering?: number; // WIP (Weight/Factor)
+  subsurfaceColor?: string; // WIP (Radius color)
+  subsurfaceRadius?: [number, number, number]; // WIP (Actual radius per channel)
+  anisotropy?: number; // WIP for brushed metal
+  anisotropyRotation?: number; // WIP (Angle in degrees or radians)
+  anisotropyMap?: string; // WIP
+
+  // UVW Mapping Placeholders (WIP)
+  uvwMappingType?: 'box' | 'planar' | 'cylindrical' | 'spherical' | 'triplanar' | 'channel';
+  uvTiling?: [number, number];
+  uvOffset?: [number, number];
+  uvRotation?: number; // Angle in degrees
+  uvChannel?: number; // For multi-UV setups
+
+  // Conceptual Material Type (D5/V-Ray inspired - for UI grouping/presets)
+  materialType?: 'generic' | 'glass' | 'water' | 'foliage' | 'car_paint' | 'cloth' | 'leather' | 'metal' | 'plastic' | 'wood' | 'concrete' | 'emissive_light';
+  twoSided?: boolean; 
 }
 
 export interface CadPlanLine {
-  start: [number, number]; // [x, y] in 2D CAD space (becomes [x, z] in 3D scene)
-  end: [number, number];   // [x, y] in 2D CAD space
-  // layer?: string; // Optional: CAD layer name
-  // color?: string; // Optional: Original CAD color
+  start: [number, number]; 
+  end: [number, number];   
 }
 
 export interface CadPlanData {
   lines: CadPlanLine[];
-  // entities?: DxfEntity[]; // Store raw entities for potential future advanced editing
-  // layers?: string[]; // List of layers found in the CAD file
 }
 
 export interface SceneObjectDimensions {
-  width?: number; // X-axis for cube, plane
-  height?: number; // Y-axis for cube, cylinder, cone; Z-axis for plane (when flat on XZ)
-  depth?: number; // Z-axis for cube
-  radius?: number; // Sphere, cone (base), torus (major), polygon, circle
-  radiusTop?: number; // Cylinder
-  radiusBottom?: number; // Cylinder
-  radialSegments?: number; // Cylinder, sphere, cone, torus, polygon, circle
-  heightSegments?: number; // Cylinder (body), sphere
-  tube?: number; // Torus (minor radius)
-  tubularSegments?: number; // Torus
-  arc?: number; // Torus (angle, for partial torus)
-  sides?: number; // Polygon, Circle (for CircleGeometry segments)
-  text?: string; // For 3D text
-  fontSize?: number; // For 3D text
+  width?: number; 
+  height?: number; 
+  depth?: number; 
+  radius?: number; 
+  radiusTop?: number; 
+  radiusBottom?: number; 
+  radialSegments?: number; 
+  heightSegments?: number; 
+  tube?: number; 
+  tubularSegments?: number; 
+  arc?: number; 
+  sides?: number; 
+  text?: string; 
+  fontSize?: number; 
 }
 
 export interface SceneObject {
@@ -65,15 +82,17 @@ export interface SceneObject {
   type: PrimitiveType;
   name: string;
   position: [number, number, number];
-  rotation: [number, number, number]; // Euler angles in radians
+  rotation: [number, number, number]; 
   scale: [number, number, number];
   dimensions: SceneObjectDimensions; 
-  materialId: string; // ID of a MaterialProperties object
+  materialId: string; 
   visible?: boolean; 
-  planData?: CadPlanData; // For 'cadPlan' type
-  locked?: boolean; // WIP placeholder
-  layerId?: string; // WIP placeholder for layer/tag assignment
-  modifiers?: any[]; // WIP placeholder for modifier stack
+  planData?: CadPlanData; 
+  locked?: boolean; 
+  layerId?: string; 
+  modifiers?: any[]; 
+  parentId?: string; // WIP for grouping
+  isGroup?: boolean; // WIP for grouping
 }
 
 export interface AmbientLightProps {
@@ -81,7 +100,7 @@ export interface AmbientLightProps {
   intensity: number;
 }
 
-export type LightType = 'ambient' | 'directional' | 'point' | 'spot' | 'area';
+export type LightType = 'ambient' | 'directional' | 'point' | 'spot' | 'area' | 'skylight' | 'photometric'; // Added more types
 
 export interface BaseLightProps {
   id: string;
@@ -93,10 +112,9 @@ export interface BaseLightProps {
 }
 export interface DirectionalLightSceneProps extends BaseLightProps {
   type: 'directional';
-  position: [number, number, number]; // Typically direction, but often set as position for helpers
+  position: [number, number, number]; 
   castShadow: boolean;
   shadowBias: number;
-  // WIP: Sun specific (angle, size for soft shadows)
   sunAngle?: number; 
   sunSize?: number;
 }
@@ -104,51 +122,67 @@ export interface PointLightSceneProps extends BaseLightProps {
   type: 'point';
   position: [number, number, number];
   distance?: number;
-  decay?: number;
+  decay?: number; // 0: none, 1: linear, 2: quadratic
   castShadow?: boolean;
   shadowBias?: number;
-  // WIP: Radius for area-like point light / soft shadows
-  radius?: number; 
+  radius?: number; // For soft shadows / area point light
 }
 
 export interface SpotLightSceneProps extends BaseLightProps {
   type: 'spot';
   position: [number, number, number];
-  targetPosition?: [number, number, number]; // Or target object ID
-  angle?: number; // Cone angle in radians
-  penumbra?: number; // Softness of cone edge (0-1)
+  targetPosition?: [number, number, number]; 
+  angle?: number; 
+  penumbra?: number; 
   distance?: number;
   decay?: number;
   castShadow?: boolean;
   shadowBias?: number;
-  // WIP: IES Profile path
-  iesProfile?: string; 
+  iesProfile?: string; // Path to IES file (WIP)
+  barnDoors?: { top: number, bottom: number, left: number, right: number }; // WIP
 }
 
 export interface AreaLightSceneProps extends BaseLightProps {
-  type: 'area'; // Rectangle area light
+  type: 'area'; 
   position: [number, number, number];
-  rotation?: [number, number, number]; // To orient the rectangle
+  rotation?: [number, number, number]; 
   width?: number;
   height?: number;
-  // WIP: Shape (Rectangle, Disk, Sphere, Cylinder), Visible in render, two-sided
-  shape?: 'rectangle' | 'disk';
-  isPortal?: boolean; // For portals in interior rendering
+  shape?: 'rectangle' | 'disk' | 'sphere' | 'cylinder'; // WIP
+  isPortal?: boolean; 
+  texture?: string; // WIP for textured area lights
+  twoSided?: boolean; // WIP
 }
 
-export type SceneLight = DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps | AreaLightSceneProps;
+export interface SkyLightSceneProps extends BaseLightProps { // D5/V-Ray inspired
+    type: 'skylight';
+    hdriPath?: string; // Path to HDRI texture
+    hdriRotation?: number; // Degrees
+    useSun?: boolean; // Link to directional light as sun
+}
+export interface PhotometricLightSceneProps extends BaseLightProps { // 3ds Max/V-Ray
+    type: 'photometric';
+    position: [number,number,number];
+    targetPosition?: [number,number,number];
+    iesFilePath?: string;
+    filterColor?: string;
+    shadowSamples?: number;
+}
+
+
+export type SceneLight = DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps | AreaLightSceneProps | SkyLightSceneProps | PhotometricLightSceneProps;
 
 
 export type ToolType = 
   | 'select' 
   | 'line' 
   | 'rectangle' 
-  | 'rotatedRectangle' // WIP
+  | 'rotatedRectangle' 
   | 'circle'
-  | 'arc' // Could be a parent for 2-Point, 3-Point, Pie
-  | 'arc2Point' // WIP
-  | 'arc3Point' // WIP
-  | 'pie' // WIP
+  | 'arc' // Main category
+  | 'arc2Point' 
+  | 'arc3Point' 
+  | 'pie' 
   | 'polygon'
   | 'freehand'
   | 'pushpull' 
@@ -156,30 +190,29 @@ export type ToolType =
   | 'rotate' 
   | 'scale' 
   | 'offset' 
-  | 'followme' // WIP
-  | 'intersectFaces' // WIP
-  | 'outerShell' // WIP
+  | 'followme' 
+  | 'intersectFaces' 
+  | 'outerShell' // Placeholder for Solid Tools
   | 'tape' 
-  | 'protractor' // WIP
-  | 'dimension' // WIP
-  | 'axes' // WIP
-  | 'sectionPlane' // WIP
-  | 'addText' // 3D Text Tool
+  | 'protractor' 
+  | 'dimension' 
+  | 'axes' 
+  | 'sectionPlane' 
+  | 'addText' 
   | 'paint'
   | 'eraser'
-  | 'orbit' // Typically handled by OrbitControls, but can be a tool state
+  | 'orbit' 
   | 'pan'
-  | 'zoom' 
+  | 'zoom' // Could be specific zoom tool
+  | 'zoomWindow' // WIP
   | 'zoomExtents'
-  // Primitive adding tools (might be deprecated if using a "Create" menu/panel)
+  // Primitive adding tools (less direct usage if using menus/outliner for creation)
   | 'addCube'
   | 'addCylinder'
   | 'addPlane'
   | 'addSphere'
   | 'addCone'
-  | 'addTorus'
-  | 'addPolygonShape' // Differentiates from polygon drawing tool
-  | 'addCircleShape';
+  | 'addTorus';
 
 
 export interface PushPullFaceInfo {
@@ -187,11 +220,11 @@ export interface PushPullFaceInfo {
   initialMeshWorldPosition: [number, number, number];
   initialLocalIntersectPoint: [number,number,number];
   initialWorldIntersectionPoint: [number, number, number]; 
-  localFaceNormal: [number,number,number]; // Normal of the face in object's local space
-  worldFaceNormal: [number,number,number]; // Normal of the face in world space
+  localFaceNormal: [number,number,number]; 
+  worldFaceNormal: [number,number,number]; 
   originalDimensions: SceneObjectDimensions;
   originalPosition: [number, number, number];
-  originalRotation: [number, number, number]; // Euler angles in radians
+  originalRotation: [number, number, number]; 
   originalType: PrimitiveType;
 }
 
@@ -199,14 +232,12 @@ export type MeasurementUnit = 'units' | 'm' | 'cm' | 'mm' | 'ft' | 'in';
 
 export interface DrawingState {
   isActive: boolean;
-  tool: ToolType | null; // Updated to use ToolType
+  tool: ToolType | null; 
   startPoint: [number, number, number] | null;
   currentPoint?: [number, number, number] | null;
-  measureDistance?: number | null; // For tape measure tool
+  measureDistance?: number | null; 
   pushPullFaceInfo?: PushPullFaceInfo | null;
   polygonSides?: number; 
-  // Other tool-specific states can be added here
-  // e.g., for arc tool: centerPoint, secondPoint, etc.
 }
 
 
@@ -240,24 +271,47 @@ export const AVAILABLE_TOOLS: { id: ToolType; label: string; icon?: React.Elemen
 
 export type AppMode = 'modelling' | 'rendering'; 
 
-export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective';
+export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective' | 'isoTopRight' | 'isoTopLeft'; // Added ISO views
 
-export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt'; // Added path_traced_rt for D5-like placeholder
+export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt' | 'vray_mock' | 'corona_mock'; // Added more mock engines
 
 export interface RenderSettings {
   engine: RenderEngineType;
-  resolution: string; // e.g., "1920x1080"
-  outputFormat: 'png' | 'jpeg' | 'exr'; // Added EXR
-  samples: number; // For ray/path tracing engines
-  denoiser?: 'none' | 'optix' | 'oidn' | 'intel_gauss'; // WIP
-  timeLimit?: number; // In minutes, WIP
-  // WIP Placeholders
-  giMode?: 'brute_force' | 'irradiance_cache' | 'light_cache'; // V-Ray like
+  resolution: string; 
+  outputFormat: 'png' | 'jpeg' | 'exr' | 'tiff' | 'mp4' | 'avi'; // Added more formats
+  samples: number; 
+  denoiser?: 'none' | 'optix' | 'oidn' | 'intel_gauss' | 'vray_denoiser_mock' | 'corona_denoiser_mock'; 
+  timeLimit?: number; 
+  giMode?: 'brute_force' | 'irradiance_cache' | 'light_cache' | 'path_tracing_gi'; 
   caustics?: boolean;
-  renderElements?: string[]; // e.g., ['ZDepth', 'Normals', 'AO']
+  renderElements?: string[]; 
   outputPath?: string;
-  colorManagement?: { displayDevice: string, viewTransform: string, look: string, exposure: number, gamma: number };
+  colorManagement?: { displayDevice: string, viewTransform: string, look: string, exposure: number, gamma: number, lutFile?: string }; // Added LUT
+  distributedRendering?: { enabled: boolean; slaves: string[] }; // WIP
+  frameRange?: string; // WIP for animation e.g., "1-100, 150"
 }
+
+export interface SceneLayer {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+  color?: string; // For UI identification
+  objectCount?: number; // Dynamic, not stored in localStorage directly for now
+}
+
+export interface SavedSceneView { // For "Scenes" panel
+  id: string;
+  name: string;
+  thumbnail?: string; // data URL
+  cameraPosition: [number, number, number];
+  cameraTarget: [number, number, number];
+  cameraFov: number;
+  // layerVisibilityStates: Record<string, boolean>; // WIP
+  // activeStyle: string; // WIP
+}
+
+
 export interface SceneData {
   objects: SceneObject[];
   materials: MaterialProperties[];
@@ -272,23 +326,60 @@ export interface SceneData {
   measurementUnit?: MeasurementUnit; 
   requestedViewPreset?: ViewPreset | null; 
   zoomExtentsTrigger?: { timestamp: number; targetObjectId?: string }; 
-  cameraFov?: number; // For perspective camera
-  worldBackgroundColor?: string; // For rendering mode background
+  cameraFov?: number; 
+  worldBackgroundColor?: string; 
   renderSettings?: RenderSettings;
-  // WIP Placeholders for scene-level settings
-  layers?: { id: string, name: string, visible: boolean, locked: boolean }[]; // Tags
-  savedViews?: { id: string, name: string, cameraState: any }[]; // Scenes
+  
+  layers?: SceneLayer[]; 
+  savedViews?: SavedSceneView[]; 
   activeLayerId?: string;
-  // Environment settings (for rendering)
+  
   environment?: {
     hdriPath?: string;
     hdriIntensity?: number;
     hdriRotation?: number;
     usePhysicalSky?: boolean;
-    physicalSkySettings?: { turbidity: number, sunPositionMode: 'manual' | 'datetime', azimuth: number, altitude: number, intensity: number };
-    fog?: { enabled: boolean, color: string, density: number, near: number, far: number };
+    physicalSkySettings?: { 
+        turbidity: number, 
+        sunPositionMode: 'manual' | 'datetime_location', 
+        azimuth: number, 
+        altitude: number, 
+        intensity: number,
+        sunDiskSize: number,
+        groundAlbedo: number,
+        // Datetime location WIP
+        date?: string, // YYYY-MM-DD
+        time?: string, // HH:MM
+        latitude?: number,
+        longitude?: number,
+    };
+    fog?: { 
+        enabled: boolean, 
+        color: string, 
+        density: number, 
+        heightFog?: boolean, // D5 style height fog
+        heightFalloff?: number, // D5 style
+        startDistance?: number, // SketchUp style
+        endDistance?: number, // SketchUp style
+    };
+    volumetricLighting?: { // D5 style
+        enabled: boolean;
+        samples?: number;
+        scattering?: number;
+    };
+    atmosphere?: { // D5 style
+        haze?: number;
+        ozone?: number;
+    };
+    weatherEffects?: { // D5 placeholder
+        rain?: { enabled: boolean; intensity: number; puddleAmount: number };
+        snow?: { enabled: boolean; accumulation: number; melting: number };
+    }
   };
 }
 
-export const DEFAULT_MATERIAL_ID = 'default-material';
+export const DEFAULT_MATERIAL_ID = 'default-material-archvision'; // Make more unique
 export const DEFAULT_MATERIAL_NAME = 'ArchiVision Default';
+
+export const DEFAULT_LAYER_ID = 'default-layer-0';
+export const DEFAULT_LAYER_NAME = 'Default Layer';

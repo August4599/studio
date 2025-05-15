@@ -6,11 +6,11 @@ import { SceneProvider, useScene } from "@/context/scene-context";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import SceneViewer from "@/components/scene/viewer";
 import MainToolbar from '@/components/layout/main-toolbar';
-import ToolsSidebar from '@/components/sidebar/tools-sidebar';
-import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel';
-import NodeEditorPanel from '@/components/layout/NodeEditorPanel';
-import StatusBar from '@/components/layout/StatusBar';
-import ViewportOverlayControls from '@/components/scene/ViewportOverlayControls';
+import ToolsSidebar from '@/components/sidebar/ToolsSidebar'; // Corrected casing
+import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel'; // Corrected casing
+import NodeEditorPanel from '@/components/layout/NodeEditorPanel'; // Corrected casing
+import StatusBar from '@/components/layout/StatusBar'; // Corrected casing
+import ViewportOverlayControls from '@/components/scene/ViewportOverlayControls'; // Corrected casing
 import ProjectDashboard from '@/components/project/project-dashboard';
 import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
@@ -18,7 +18,7 @@ import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 
 const ArchiVisionLayout: React.FC = () => {
-  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool } = useScene();
+  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState } = useScene();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -42,44 +42,49 @@ const ArchiVisionLayout: React.FC = () => {
           case 'E': toolToSet = 'rotate'; toolLabel = 'Rotate'; break;
           case 'R': toolToSet = 'scale'; toolLabel = 'Scale'; break;
           case 'L': toolToSet = 'line'; toolLabel = 'Line'; break;
-          case 'B': toolToSet = 'paint'; toolLabel = 'Paint'; break;
+          case 'B': 
+            if (activeTool === 'paint') { // If paint tool is already active, cycle or do nothing, for now just toast
+                toast({ title: "Paint Tool", description: "Paint tool already active. Select material from panel."});
+            } else {
+                toolToSet = 'paint'; toolLabel = 'Paint Bucket';
+            }
+            break;
           case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
           case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
           case 'F':
             triggerZoomExtents(selectedObjectId || undefined);
             toast({ title: "View Reset", description: selectedObjectId ? "Zoomed to selected object." : "Zoomed to fit all objects." });
-            return; // Direct action, no tool change
-          case ' ': // Spacebar for Select tool
-            event.preventDefault(); // Prevent page scroll
+            return; 
+          case ' ': 
+            event.preventDefault(); 
             toolToSet = 'select';
             toolLabel = 'Select';
             break;
           case 'ESCAPE':
-            setActiveTool('select'); // Reset to select tool
-            toast({ title: "Tool Reset", description: "Switched to Select tool." });
-            return; // Direct action
+            setActiveTool('select'); 
+            setDrawingState({ isActive: false, startPoint: null, currentPoint: null, pushPullFaceInfo: null, measureDistance: null });
+            toast({ title: "Tool Reset", description: "Switched to Select tool. Drawing cancelled." });
+            return; 
         }
       }
 
       // Add primitive shortcuts (Shift + Key)
       if (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         switch (key) {
-          case 'A': // Shift + A for Add Cube
+          case 'A': 
             event.preventDefault();
             newObjectToAdd = 'cube';
             break;
-          case 'C': // Shift + C for Circle tool
+          case 'C': 
              event.preventDefault();
              toolToSet = 'circle';
              toolLabel = 'Circle Tool';
              break;
-          // Add more Shift + Key shortcuts here for other primitives or tools if needed
-          // Example for rectangle tool with Shift + R (if not conflicting)
-          // case 'R':
-          //   event.preventDefault();
-          //   toolToSet = 'rectangle';
-          //   toolLabel = 'Rectangle Tool';
-          //   break;
+          case 'R': // Shift + R for Rectangle tool
+            event.preventDefault();
+            toolToSet = 'rectangle';
+            toolLabel = 'Rectangle Tool';
+            break;
         }
       }
 
@@ -90,7 +95,7 @@ const ArchiVisionLayout: React.FC = () => {
         }
       }
       if (newObjectToAdd) {
-        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan' | 'cadPlan'>);
+        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan'>);
       }
     };
 
@@ -98,7 +103,7 @@ const ArchiVisionLayout: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setActiveTool, addObject, toast, triggerZoomExtents, selectedObjectId]);
+  }, [setActiveTool, addObject, toast, triggerZoomExtents, selectedObjectId, activeTool, setDrawingState]);
 
 
   return (

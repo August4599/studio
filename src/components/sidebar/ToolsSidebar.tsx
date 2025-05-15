@@ -1,13 +1,14 @@
 
 "use client";
 import React from 'react';
-import ToolsPanel from "./tools-panel";
+import ToolsPanel from "./ToolsPanel"; // Corrected casing
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion } from "@/components/ui/accordion";
 import { Construction } from 'lucide-react';
+import { useScene } from '@/context/scene-context'; // Corrected import
 
 const ToolsSidebar = () => {
-  const { appMode } = useScene(); // Assuming useScene gives appMode
+  const { appMode } = useScene(); 
 
   // Only render tools sidebar in modelling mode
   if (appMode !== 'modelling') {
@@ -29,6 +30,4 @@ const ToolsSidebar = () => {
   );
 };
 
-// Need to import useScene if not already
-import { useScene } from '@/context/scene-context'; 
 export default ToolsSidebar;
