@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Share2, SquareFunction, Palette as PaletteIcon, Image as ImageIcon, Combine, Wand2Icon, Settings, Sigma, Type, Sun, BrainCircuit, Box, Cylinder, Plane, Globe, Torus, MessageSquare, FileInput, FileOutput, Shuffle, Filter, GitCompareArrows, VenetianBlind, Waves, TextQuote, Sparkles as EffectIcon, CameraIcon, LightbulbIcon, GroupIcon } from 'lucide-react'; // Added more icons
+import { ChevronDown, ChevronUp, Share2, SquareFunction, Palette as PaletteIcon, Image as ImageIcon, Combine, Wand2Icon, Settings, Sigma, Type, Sun, BrainCircuit, Box, Cylinder, Plane, Globe, Torus, MessageSquare, FileInput, FileOutput, Shuffle, Filter, GitCompareArrows, Waves, TextQuote, Sparkles as EffectIcon, CameraIcon, LightbulbIcon, GroupIcon, Layers, GitBranchPlus } from 'lucide-react'; // Added Layers, GitBranchPlus
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -129,7 +129,7 @@ const NodeEditorPanel: React.FC = () => {
           <NodePlaceholder title="Transform Geometry" color={typeColors.geometry} icon={<SquareFunction size={14}/>} inputs={[{name:'Geometry', type:'Geometry', color:typeColors.geometry}, {name:'Translation', type:'Vector', color:typeColors.vector}, {name:'Rotation', type:'Vector', color:typeColors.vector}, {name:'Scale', type:'Vector', color:typeColors.vector}]} outputs={[{name:'Geometry', type:'Geometry', color:typeColors.geometry}]} position={{top: '14rem', left: '2rem'}} nodeType="geometry" width="w-60"/>
           <NodePlaceholder title="Extrude Mesh" color={typeColors.geometry} icon={<Sigma size={14}/>} inputs={[{name:'Mesh', type:'Geometry', color:typeColors.geometry}, {name:'Offset Scale', type:'Float', color:typeColors.float}]} outputs={[{name:'Mesh', type:'Geometry', color:typeColors.geometry}]} position={{top: '14rem', left: '18rem'}} nodeType="geometry" width="w-56"/>
           <NodePlaceholder title="Boolean" color={typeColors.geometry} icon={<GitCompareArrows size={14}/>} inputs={[{name:'A',type:'Geometry', color:typeColors.geometry}, {name:'B',type:'Geometry', color:typeColors.geometry}, {name:'Operation',type:'String', color:typeColors.string}]} outputs={[{name:'Result', type:'Geometry', color:typeColors.geometry}]} position={{top: '23rem', left: '2rem'}} nodeType="geometry" width="w-52"/>
-          <NodePlaceholder title="Subdivision Surface" color={typeColors.geometry} icon={<VenetianBlind size={14}/>} inputs={[{name:'Mesh',type:'Geometry', color:typeColors.geometry}, {name:'Levels',type:'Int', color:typeColors.int}]} outputs={[{name:'Mesh', type:'Geometry', color:typeColors.geometry}]} position={{top: '23rem', left: '16rem'}} nodeType="geometry" width="w-60"/>
+          <NodePlaceholder title="Subdivision Surface" color={typeColors.geometry} icon={<Layers size={14}/>} inputs={[{name:'Mesh',type:'Geometry', color:typeColors.geometry}, {name:'Levels',type:'Int', color:typeColors.int}]} outputs={[{name:'Mesh', type:'Geometry', color:typeColors.geometry}]} position={{top: '23rem', left: '16rem'}} nodeType="geometry" width="w-60"/>
 
 
           {/* Group: Texture & Color Inputs */}
