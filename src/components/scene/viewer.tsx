@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import type React from 'react';
@@ -54,7 +53,7 @@ const SceneViewer: React.FC = () => {
     setZoomExtentsTriggered,
     cameraFov, 
     worldBackgroundColor,
-    appMode, // Added appMode from context
+    appMode, 
   } = useScene();
 
   const raycaster = useRef(new THREE.Raycaster());
@@ -83,7 +82,7 @@ const SceneViewer: React.FC = () => {
         c !== tempDrawingMeshRef.current && 
         c !== tempMeasureLineRef.current &&
         c !== lastCompletedMeasureLineRef.current &&
-        !c.name.endsWith('_modelling_dir_light_helper') // Exclude modelling mode specific helper
+        !c.name.endsWith('_modelling_dir_light_helper') 
     );
 
     const intersects = raycaster.current.intersectObjects(allIntersectables, true);
@@ -217,7 +216,7 @@ const SceneViewer: React.FC = () => {
         (tempMeasureLineRef.current.material as THREE.Material).dispose();
         tempMeasureLineRef.current = null;
       }
-      clearLastMeasurement(); // Ensure persistent measurement is cleaned up on unmount
+      clearLastMeasurement(); 
       scene.children
         .filter(obj => obj.name && (obj.name.endsWith('_helper') || obj.name.endsWith('_modelling_dir_light_helper'))) 
         .forEach(helper => {
@@ -255,7 +254,7 @@ const SceneViewer: React.FC = () => {
       lastCompletedMeasureDisplayTextRef.current.parentElement.removeChild(lastCompletedMeasureDisplayTextRef.current);
       lastCompletedMeasureDisplayTextRef.current = null;
     }
-    setMeasureDisplay(null); // Also clear the dynamic display
+    setMeasureDisplay(null); 
   }, []);
   
 
@@ -278,6 +277,10 @@ const SceneViewer: React.FC = () => {
           tempMeasureLineRef.current = null;
         }
         clearLastMeasurement(); 
+      } else if (activeTool === 'tape') {
+        // When tape tool becomes active, clear any previous persistent measurement
+        // to ensure a clean state for a new measurement.
+        clearLastMeasurement();
       }
     }
   }, [activeTool, clearLastMeasurement]); 
@@ -311,16 +314,11 @@ const SceneViewer: React.FC = () => {
         }
       }
     } else if (activeTool === 'tape' || activeTool === 'protractor') { 
-        if (intersectionWithObject && intersectionWithObject.object) {
-          startPointForDrawingOrMeasure = intersectionWithObject.point;
-        } else if(pointOnXZPlane) {
-          startPointForDrawingOrMeasure = pointOnXZPlane;
-        }
+        startPointForDrawingOrMeasure = intersectionWithObject?.point || pointOnXZPlane;
 
         if (startPointForDrawingOrMeasure && sceneRef.current) { 
-            clearLastMeasurement(); // Clear previous persistent measurement before starting a new one
-
             if (!drawingState.startPoint || drawingState.tool !== activeTool || drawingState.measureDistance !== null) { 
+                clearLastMeasurement(); // Clear previous persistent measurement before starting a new one
                 setDrawingState({ 
                     isActive: true, 
                     startPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], 
@@ -458,11 +456,11 @@ const SceneViewer: React.FC = () => {
             const radius = startVec.distanceTo(endVec);
             const segments = activeTool === 'circle' ? 32 : (drawingState.polygonSides || 6);
             const tempPointsVec: THREE.Vector3[] = [];
-            // Assuming drawing on XZ plane, so up is Y axis
+            
             const up = new THREE.Vector3(0,1,0); 
             const forward = cameraRef.current ? cameraRef.current.getWorldDirection(new THREE.Vector3()) : new THREE.Vector3(0,0,-1);
-            const right = new THREE.Vector3().crossVectors(up, forward).normalize(); // Right vector on XZ plane relative to camera
-            const planeNormal = up; // Circle lies on plane with this normal (XZ plane if drawing on ground)
+            const right = new THREE.Vector3().crossVectors(up, forward).normalize(); 
+            const planeNormal = up; 
 
             for (let i = 0; i < segments; i++) {
                 const angle = (i / segments) * Math.PI * 2;
@@ -485,11 +483,7 @@ const SceneViewer: React.FC = () => {
         }
       }
     } else if (activeTool && ['tape','protractor'].includes(activeTool) && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && sceneRef.current && tempMeasureLineRef.current && drawingState.tool === activeTool && cameraRef.current && mountRef.current) {
-        if (intersectionWithObject && intersectionWithObject.object) {
-          currentMovePoint = intersectionWithObject.point; 
-        } else if(pointOnXZPlane) {
-          currentMovePoint = pointOnXZPlane; 
-        }
+        currentMovePoint = intersectionWithObject?.point || pointOnXZPlane;
         
         if (currentMovePoint) {
             setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
@@ -515,7 +509,7 @@ const SceneViewer: React.FC = () => {
         raycaster.current.setFromCamera(mouse.current, cameraRef.current);
         const ray = raycaster.current.ray;
         
-        const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(worldFaceNormalVec, initialWorldIntersectVec);
+        const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(ray.direction.clone().negate(), initialWorldIntersectVec);
         const currentDragPlaneIntersectionPoint = new THREE.Vector3();
 
         if (ray.intersectPlane(dragPlane, currentDragPlaneIntersectionPoint)) {
@@ -539,8 +533,8 @@ const SceneViewer: React.FC = () => {
                     else if (absY > absX && absY > absZ) dimensionToModify = 'height';
                     else if (absZ > absX && absZ > absY) dimensionToModify = 'depth';
                 } else if (originalType === 'cylinder' || originalType === 'polygon' || originalType === 'circle') {
-                    if (Math.abs(localFaceNormalVec.y) > 0.9) dimensionToModify = 'height'; // Top/bottom face of cylinder/extruded polygon
-                    else dimensionToModify = 'radius'; // Side face of cylinder/polygon (modifies overall radius)
+                    if (Math.abs(localFaceNormalVec.y) > 0.9) dimensionToModify = 'height'; 
+                    else dimensionToModify = 'radius'; 
                 }
 
                 if (dimensionToModify) {
@@ -568,11 +562,10 @@ const SceneViewer: React.FC = () => {
                 };
                 const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2); 
                 newPositionArray = new THREE.Vector3().fromArray(originalPosition).add(extrusionOffset).toArray() as [number,number,number];
-                if (Math.abs(worldFaceNormalVec.y) < 0.9) { // Extruding sideways from a plane that wasn't flat on XZ
-                    // This case might need more complex rotation handling. For now, assume original rotation is mostly for orientation.
-                    // If the plane was vertical and extruded along X or Z, the new cube's height is along Y.
-                } else { // Extruding up/down from an XZ plane
-                     newRotationArray = [0,0,0]; // Reset rotation to align cube with world axes
+                if (Math.abs(worldFaceNormalVec.y) < 0.9) { 
+                  // No special rotation change if extruding from a side-facing plane
+                } else { 
+                     newRotationArray = [0,0,0]; 
                 }
             } else {
                 newPositionArray = [...originalPosition] as [number,number,number];
@@ -588,7 +581,7 @@ const SceneViewer: React.FC = () => {
   const onPointerUp = useCallback((event: PointerEvent) => {
     if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
     
-    const toolIsPersistent = ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc', 'pushpull', 'tape', 'eraser', 'paint'].includes(drawingState.tool || activeTool || '');
+    const toolIsPersistent = ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc', 'pushpull', 'tape', 'eraser', 'paint'].includes(activeTool || '');
 
     if (drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(drawingState.tool || '')) {
       const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
@@ -633,22 +626,23 @@ const SceneViewer: React.FC = () => {
       if (primitiveType && newObjProps.dimensions) {
         const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
         toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
-        if (toolIsPersistent) {
-            setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool as DrawingState['tool'] });
-        } else {
-            setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
-        }
+      }
+      // For drawing tools, reset drawing state but keep tool active if persistent
+      if (toolIsPersistent && drawingState.tool && drawingTools.includes(drawingState.tool)) {
+        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: drawingState.tool });
       } else {
-         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: toolIsPersistent ? activeTool as DrawingState['tool'] : null }); 
+        setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null });
+        if (!toolIsPersistent && activeTool) setActiveTool(undefined); // Deactivate non-persistent tools
       }
       return; 
     } else if (activeTool === 'tape' && drawingState.isActive && drawingState.startPoint && !drawingState.measureDistance && drawingState.tool === activeTool) {
-        // This case handles the completion of a tape measure (second click)
-        // Logic for this is in onPointerDown. Here we just ensure state is reset for next measurement.
+        // Logic for completing tape measure is in onPointerDown's second click.
+        // Here, just ensure the tool remains active for another measurement.
         if (toolIsPersistent) {
              setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: activeTool as DrawingState['tool'], measureDistance: drawingState.measureDistance });
         } else {
              setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, measureDistance: drawingState.measureDistance });
+             if (activeTool) setActiveTool(undefined);
         }
         return;
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
@@ -662,11 +656,11 @@ const SceneViewer: React.FC = () => {
             setDrawingState({ isActive: false, tool: activeTool as DrawingState['tool'], pushPullFaceInfo: null }); 
         } else {
             setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
+            if (activeTool) setActiveTool(undefined);
         }
         return;
     }
 
-    // Clear dynamic measure display if no longer measuring and tool is not tape/protractor
     if (measureDisplay && activeTool !== 'tape' && activeTool !== 'protractor') {
          setMeasureDisplay(null);
     }
@@ -706,12 +700,19 @@ const SceneViewer: React.FC = () => {
          }
       }
     }
-    if (!toolIsPersistent && drawingState.tool !== null) {
-         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, pushPullFaceInfo: null, measureDistance: null });
+    
+    // General cleanup for non-persistent tools or when drawing state is not active
+    if (!toolIsPersistent && activeTool) {
+      setActiveTool(undefined); // This will also clear drawingState via setActiveTool's logic
+    } else if (!drawingState.isActive && drawingState.tool !== null && !persistentTools.includes(drawingState.tool)) {
+      // If drawing state somehow became inactive for a non-persistent tool, clear it
+      setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: null, pushPullFaceInfo: null, measureDistance: null });
     }
 
-  }, [activeTool, drawingState, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, measureDisplay, measurementUnit, setActiveTool]);
+  }, [activeTool, drawingState, getMouseIntersection, setDrawingState, addObject, sceneContextObjects, toast, selectObject, activePaintMaterialId, getMaterialById, updateObject, removeObject, measureDisplay, measurementUnit, setActiveTool]);
 
+  const persistentTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint'];
+  const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'];
 
   useEffect(() => {
     const currentMount = mountRef.current;
@@ -765,11 +766,17 @@ const SceneViewer: React.FC = () => {
       scene.add(ambientLight);
     }
     ambientLight.color.set(ambientLightProps.color);
-    ambientLight.intensity = appMode === 'modelling' ? 1.0 : ambientLightProps.intensity; // Modified for appMode
+    ambientLight.intensity = appMode === 'modelling' ? 1.0 : ambientLightProps.intensity; 
 
     // Context Directional Light (Main scene light, potentially with shadows)
     let dirLight = scene.getObjectByName(directionalLightProps.id) as THREE.DirectionalLight;
     let dirLightHelper = scene.getObjectByName(`${directionalLightProps.id}_helper`) as THREE.DirectionalLightHelper;
+
+    // Simplified Directional Light for Modelling Mode
+    const modellingDirLightName = 'modelling_dir_light';
+    let modellingDirLight = scene.getObjectByName(modellingDirLightName) as THREE.DirectionalLight;
+    let modellingDirLightHelper = scene.getObjectByName(`${modellingDirLightName}_helper`) as THREE.DirectionalLightHelper;
+
 
     if (appMode === 'rendering') {
         if (!dirLight) {
@@ -792,7 +799,13 @@ const SceneViewer: React.FC = () => {
         if (dirLightHelper) {
           dirLightHelper.visible = directionalLightProps.visible ?? true; 
           dirLightHelper.update();
+        } else {
+            dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 1);
+            dirLightHelper.name = `${directionalLightProps.id}_helper`;
+            scene.add(dirLightHelper);
+            dirLightHelper.visible = directionalLightProps.visible ?? true;
         }
+
         if (directionalLightProps.castShadow) {
           dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
           dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 500; 
@@ -801,31 +814,31 @@ const SceneViewer: React.FC = () => {
           dirLight.shadow.camera.top = shadowCamSize; dirLight.shadow.camera.bottom = -shadowCamSize;
           dirLight.shadow.camera.updateProjectionMatrix();
         }
+        // Hide modelling light in rendering mode
+        if (modellingDirLight) modellingDirLight.visible = false;
+        if (modellingDirLightHelper) modellingDirLightHelper.visible = false;
+
     } else { // Modelling mode for main directional light
         if (dirLight) dirLight.visible = false;
         if (dirLightHelper) dirLightHelper.visible = false;
-    }
 
-    // Simplified Directional Light for Modelling Mode
-    const modellingDirLightName = 'modelling_dir_light';
-    let modellingDirLight = scene.getObjectByName(modellingDirLightName) as THREE.DirectionalLight;
-    if (appMode === 'modelling') {
+        // Setup modelling light
         if (!modellingDirLight) {
-            modellingDirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            modellingDirLight = new THREE.DirectionalLight(0xffffff, 0.3); // Reduced intensity
             modellingDirLight.name = modellingDirLightName;
             modellingDirLight.position.set(1, 1.5, 1).normalize();
-            modellingDirLight.castShadow = false;
+            modellingDirLight.castShadow = false; // No shadows in modelling mode
             scene.add(modellingDirLight);
             if (modellingDirLight.target && !modellingDirLight.target.parent) scene.add(modellingDirLight.target);
+            // Modelling light helper is not typically shown
         }
         modellingDirLight.visible = true;
+        modellingDirLight.intensity = 0.3; // Ensure intensity is set
         if (modellingDirLight.target) modellingDirLight.target.position.set(0,0,0);
-    } else {
-        if (modellingDirLight) modellingDirLight.visible = false;
     }
 
 
-    // Other Lights (Point, Spot, Area)
+    // Other Lights (Point, Spot, Area) - only visible in rendering mode
     const existingLightIdsInThree = scene.children
       .filter(child => child instanceof THREE.Light && child.name !== 'ambientLight' && child.name !== directionalLightProps.id && child.name !== modellingDirLightName && !(child instanceof THREE.HemisphereLight) ) 
       .map(child => child.name);
@@ -1230,4 +1243,3 @@ const SceneViewer: React.FC = () => {
 };
 
 export default SceneViewer;
-

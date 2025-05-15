@@ -12,7 +12,7 @@ import WorldSettingsPanel from "./world-settings-panel";
 import ObjectHierarchyPanel from "./object-hierarchy-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
-import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Construction } from "lucide-react";
+import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Construction, Layers3 } from "lucide-react";
 import { Accordion } from "@/components/ui/accordion";
 
 const MainSidebar = () => {
@@ -27,7 +27,7 @@ const MainSidebar = () => {
   // More focused default accordions
   const modellingSelectionDefaults = ['item-object-props'];
   const modellingMaterialsDefaults = ['item-materials'];
-  const modellingSceneDefaults = ['item-object-hierarchy', 'item-lighting', 'item-world-settings'];
+  const modellingSceneDefaults = ['item-object-hierarchy']; // Changed: Only hierarchy open by default
   const modellingProjectDefaults = ['item-scene'];
 
   const renderingRenderDefaults = ['item-render-settings'];
@@ -60,7 +60,7 @@ const MainSidebar = () => {
         return <RenderSettingsPanel />;
       case 'camera':
         return <CameraSettingsPanel />;
-      case 'project': // Mobile + Desktop general project settings
+      case 'project': 
         return <ScenePanel />;
       default:
         return null;
@@ -81,7 +81,7 @@ const MainSidebar = () => {
                 <Palette size={16} /> Materials
               </TabsTrigger>
               <TabsTrigger value="scene" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-                <Globe size={16} /> Scene
+                <Layers3 size={16} /> Scene {/* Changed icon for better clarity */}
               </TabsTrigger>
                <TabsTrigger value="project" className="flex-1 flex items-center justify-center gap-1.5 text-xs h-full rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
                 <Settings2 size={16}/> Project
@@ -151,4 +151,3 @@ const MainSidebar = () => {
 };
 
 export default MainSidebar;
-
