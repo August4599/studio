@@ -4,18 +4,19 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit } from '@/types';
 import { DEFAULT_MATERIAL_ID } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
   appMode: AppMode;
   activePaintMaterialId: string | null | undefined;
   drawingState: DrawingState;
+  measurementUnit: MeasurementUnit;
   requestedViewPreset: ViewPreset | null | undefined;
   zoomExtentsTrigger: { timestamp: number; targetObjectId?: string };
   cameraFov: number;
@@ -45,6 +46,7 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   setActiveTool: (tool: ToolType | undefined, preserveSelection?: boolean) => void;
   setActivePaintMaterialId: (materialId: string | null) => void;
   setDrawingState: (newState: Partial<DrawingState>) => void;
+  setMeasurementUnit: (unit: MeasurementUnit) => void;
   getCurrentSceneData: () => SceneData; 
   setCameraViewPreset: (preset: ViewPreset | null) => void;
   triggerZoomExtents: (targetObjectId?: string) => void; 
@@ -68,6 +70,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       cameraFov: data.cameraFov ?? getDefaultSceneData().cameraFov,
       worldBackgroundColor: data.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
       renderSettings: data.renderSettings ? { ...getDefaultSceneData().renderSettings, ...data.renderSettings } : getDefaultSceneData().renderSettings,
+      measurementUnit: data.measurementUnit ?? getDefaultSceneData().measurementUnit,
       zoomExtentsTrigger: data.zoomExtentsTrigger || { timestamp: 0 },
      };
   });
@@ -85,6 +88,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             cameraFov: initialSceneOverride.cameraFov ?? prev.cameraFov ?? getDefaultSceneData().cameraFov,
             worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
             renderSettings: initialSceneOverride.renderSettings ? { ...getDefaultSceneData().renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? getDefaultSceneData().renderSettings),
+            measurementUnit: initialSceneOverride.measurementUnit ?? prev.measurementUnit ?? getDefaultSceneData().measurementUnit,
             zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || { timestamp: 0 } 
         }));
     }
@@ -393,6 +397,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         ...data, 
         otherLights: data.otherLights || defaultData.otherLights, 
         drawingState: data.drawingState || defaultData.drawingState, 
+        measurementUnit: data.measurementUnit || defaultData.measurementUnit,
         zoomExtentsTrigger: data.zoomExtentsTrigger || { timestamp: 0 },
         cameraFov: data.cameraFov ?? defaultData.cameraFov,
         worldBackgroundColor: data.worldBackgroundColor ?? defaultData.worldBackgroundColor,
@@ -411,12 +416,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const getCurrentSceneData = useCallback((): SceneData => {
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, 
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit,
       requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
-      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, 
+      selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit, 
       requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings
     };
   }, [sceneData]);
@@ -425,24 +430,25 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   const setActiveTool = useCallback((tool: ToolType | undefined, preserveSelection: boolean = false) => {
     setSceneData(prev => {
       let newActivePaintMaterialId = prev.activePaintMaterialId;
-      let newDrawingState: DrawingState = { ...prev.drawingState }; // Preserve existing drawing state by default
+      let newDrawingState: DrawingState = { ...prev.drawingState }; 
       
       if (tool !== 'paint') {
         newActivePaintMaterialId = null; 
       }
+      
+      const persistentTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint'];
+      const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'circle', 'polygon', 'freehand'];
 
-      const drawingTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor'];
-      if (tool && drawingTools.includes(tool)) {
+
+      if (tool && persistentTools.includes(tool)) {
         newDrawingState.tool = tool as DrawingState['tool'];
-        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6; 
+        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6;
       } else {
-         // If not a drawing tool, reset drawing-specific parts of state but keep general tool info if needed
          newDrawingState.tool = null;
          newDrawingState.isActive = false;
          newDrawingState.startPoint = null;
          newDrawingState.currentPoint = null;
          newDrawingState.pushPullFaceInfo = null;
-         // newDrawingState.measureDistance = null; // Keep measure distance for display if switching tools right after
       }
       
       let newSelectedObjectId = prev.selectedObjectId;
@@ -469,6 +475,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       ...prev,
       drawingState: { ...prev.drawingState, ...newState }
     }));
+  }, []);
+
+  const setMeasurementUnit = useCallback((unit: MeasurementUnit) => {
+    setSceneData(prev => ({ ...prev, measurementUnit: unit }));
   }, []);
 
   const setCameraViewPreset = useCallback((preset: ViewPreset | null) => {
@@ -520,6 +530,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     activePaintMaterialId: sceneData.activePaintMaterialId,
     setActivePaintMaterialId,
     setDrawingState,
+    measurementUnit: sceneData.measurementUnit ?? getDefaultSceneData().measurementUnit,
+    setMeasurementUnit,
     getCurrentSceneData,
     requestedViewPreset: sceneData.requestedViewPreset,
     setCameraViewPreset,
@@ -532,7 +544,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setWorldBackgroundColor,
     renderSettings: sceneData.renderSettings ?? getDefaultSceneData().renderSettings,
     updateRenderSettings,
-  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings]);
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings]);
 
   return (
     <SceneContext.Provider value={contextValue}>

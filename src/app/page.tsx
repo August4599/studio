@@ -178,7 +178,7 @@ const ArchiVisionLayout: React.FC = () => {
                 toolToSet = 'circle';
                 toolLabel = 'Circle Tool';
                 break;
-            // case 'R':  // This was conflicting with Scale (R key)
+            // case 'R': // This was conflicting with Scale (R key)
             //     event.preventDefault();
             //     toolToSet = 'rectangle';
             //     toolLabel = 'Rectangle Tool';
@@ -205,16 +205,24 @@ const ArchiVisionLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Left Tools Sidebar */}
-      <div
-        className={cn(
-          "flex-none md:flex flex-col bg-card border-r shadow-sm transition-all duration-300 ease-in-out",
-          appMode === 'modelling' ? "w-64 opacity-100" : "w-0 opacity-0 p-0 border-0",
-          appMode !== 'modelling' && "overflow-hidden" 
-        )}
-      >
-        {appMode === 'modelling' && <ToolsSidebar />}
-      </div>
+      <SidebarProvider defaultOpen side="left">
+        {/* Left Tools Sidebar */}
+        <Sidebar 
+            variant="sidebar" 
+            collapsible="icon" 
+            side="left" 
+            className={cn(
+              "border-r shadow-sm w-64 bg-card transition-all duration-300 ease-in-out",
+              appMode === 'modelling' ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-full w-0" 
+            )}
+            sheetTitle="Tools"
+            open={appMode === 'modelling' ? undefined : false}
+        >
+          <SidebarContent className={cn("p-0 m-0", appMode !== 'modelling' && "hidden")}> 
+             <ToolsSidebar />
+          </SidebarContent>
+        </Sidebar>
+      </SidebarProvider>
 
 
       <div className="flex flex-col flex-grow overflow-hidden">
@@ -247,8 +255,8 @@ const ArchiVisionLayout: React.FC = () => {
                         <h1 className="text-base font-semibold">ArchiVision</h1>
                     </div>
                     <div className="flex items-center gap-0.5">
-                        {appMode === 'modelling' && <DialogTriggerForTools />}
-                        <SidebarTrigger /> 
+                        {appMode === 'modelling' && <SidebarTriggerForTools />}
+                         <SidebarTrigger /> 
                     </div>
                 </div>
               
@@ -272,7 +280,7 @@ const ArchiVisionLayout: React.FC = () => {
             </Sidebar>
           </div>
         </SidebarProvider>
-        
+      
         <NodeEditorSection isNodeEditorOpen={isNodeEditorOpen} setIsNodeEditorOpen={setIsNodeEditorOpen} />
       </div>
     </div>
@@ -280,14 +288,14 @@ const ArchiVisionLayout: React.FC = () => {
 };
 
 const DialogTriggerForTools: React.FC = () => (
-  <Dialog>
+  <Dialog> 
     <DialogTrigger asChild>
       <Button variant="ghost" size="icon" className="md:hidden">
         <Construction size={20} />
         <span className="sr-only">Open Tools</span>
       </Button>
     </DialogTrigger>
-    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col">
+    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col" aria-describedby={undefined}>
       <DialogHeader className="p-4 border-b flex-none">
         <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
       </DialogHeader>
@@ -299,6 +307,34 @@ const DialogTriggerForTools: React.FC = () => (
     </DialogContent>
   </Dialog>
 );
+
+// A wrapper around DialogTriggerForTools to manage its open state
+const SidebarTriggerForTools: React.FC = () => {
+    const [isToolsDialogOpen, setIsToolsDialogOpen] = useState(false);
+
+    return (
+        <>
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsToolsDialogOpen(true)}>
+                <Construction size={20} />
+                <span className="sr-only">Open Tools</span>
+            </Button>
+            {isToolsDialogOpen && (
+                 <Dialog open={isToolsDialogOpen} onOpenChange={setIsToolsDialogOpen}>
+                    <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col" aria-describedby={undefined}>
+                        <DialogHeader className="p-4 border-b flex-none">
+                            <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
+                        </DialogHeader>
+                        <ScrollArea className="flex-grow p-1">
+                            <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
+                            <ToolsPanel />
+                            </Accordion>
+                        </ScrollArea>
+                    </DialogContent>
+                 </Dialog>
+            )}
+        </>
+    );
+}
 
 const AppCore: React.FC = () => {
   const { currentProject, isLoading } = useProject();
@@ -331,3 +367,5 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
+
+    

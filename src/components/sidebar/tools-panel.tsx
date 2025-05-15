@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from "react";
@@ -10,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useScene } from "@/context/scene-context";
-import type { ToolType, PrimitiveType } from "@/types";
+import type { ToolType, PrimitiveType, MeasurementUnit } from "@/types";
 import { 
   MousePointer2, 
   Move, 
@@ -39,11 +40,20 @@ import {
   Edit3,
   Image as ImageIcon, 
   ZoomIn, 
-  Target 
+  Target,
+  Settings2
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 
 interface ToolConfig {
@@ -56,7 +66,7 @@ interface ToolConfig {
 }
 
 const ToolsPanel = () => {
-  const { activeTool, setActiveTool, addObject, drawingState, setDrawingState, triggerZoomExtents, selectedObjectId } = useScene();
+  const { activeTool, setActiveTool, addObject, drawingState, setDrawingState, triggerZoomExtents, selectedObjectId, measurementUnit, setMeasurementUnit } = useScene();
   const { toast } = useToast();
 
   const handleAddPrimitive = (type: PrimitiveType) => {
@@ -87,7 +97,7 @@ const ToolsPanel = () => {
   };
 
   const handleZoomExtents = () => {
-    triggerZoomExtents(selectedObjectId || undefined); // Pass selectedObjectId
+    triggerZoomExtents(selectedObjectId || undefined);
     toast({ title: "View Reset", description: selectedObjectId ? "Zoomed to selected object." : "Zoomed to fit all objects." });
   }
 
@@ -141,8 +151,32 @@ const ToolsPanel = () => {
     {
       title: "Construction & Utilities",
       tools: [
-        { id: 'tape', label: 'Measure', icon: Ruler, action: () => activateGenericTool('tape', 'Tape Measure Tool', 'Click two points to measure. Dynamic display active.') }, 
-        { id: 'protractor', label: 'Protractor', icon: Target, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.'), isWip: true }, 
+        { 
+          id: 'tape', 
+          label: 'Measure', 
+          icon: Ruler, 
+          action: () => activateGenericTool('tape', 'Tape Measure Tool', 'Click two points to measure. Dynamic display active.'),
+          options: (
+            <div className="mt-1 space-y-1">
+              <Label htmlFor="measure-unit" className="text-xs">Unit:</Label>
+              <Select 
+                value={measurementUnit} 
+                onValueChange={(value: MeasurementUnit) => setMeasurementUnit(value)}
+              >
+                <SelectTrigger id="measure-unit" className="h-8 text-xs">
+                  <SelectValue placeholder="Unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="units" className="text-xs">Units</SelectItem>
+                  <SelectItem value="m" className="text-xs">Meters (m)</SelectItem>
+                  <SelectItem value="ft" className="text-xs">Feet (ft)</SelectItem>
+                  <SelectItem value="in" className="text-xs">Inches (in)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        }, 
+        { id: 'protractor', label: 'Protractor', icon: Settings2, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.'), isWip: true }, 
         { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
         { id: 'paint', label: 'Paint', icon: PaintBucket, action: () => activateGenericTool('paint', 'Paint Tool', 'Select material, then click object/face.') },
         { id: 'eraser', label: 'Eraser', icon: Eraser, action: () => activateGenericTool('eraser', 'Eraser Tool', 'Click objects to delete.') },
@@ -162,8 +196,8 @@ const ToolsPanel = () => {
      {
       title: "Navigation",
       tools: [
-        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (Orbit controls handle pan).'), isWip: true }, // Pan is part of orbit controls usually
-        { id: 'zoomExtents', label: 'Zoom Fit', icon: Expand, action: handleZoomExtents }, // Updated label
+        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view (Orbit controls handle pan).'), isWip: true }, 
+        { id: 'zoomExtents', label: 'Zoom Fit', icon: Expand, action: handleZoomExtents }, 
       ]
     }
   ];

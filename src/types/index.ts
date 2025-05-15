@@ -167,6 +167,8 @@ export interface PushPullFaceInfo {
   originalType: PrimitiveType;
 }
 
+export type MeasurementUnit = 'units' | 'm' | 'ft' | 'in';
+
 export interface DrawingState {
   isActive: boolean;
   tool: 'rectangle' | 'line' | 'arc' | 'tape' | 'pushpull' | 'circle' | 'polygon' | 'freehand' | 'protractor' | null;
@@ -227,6 +229,7 @@ export interface SceneData {
   activePaintMaterialId?: string | null;
   appMode: AppMode; 
   drawingState: DrawingState;
+  measurementUnit?: MeasurementUnit; 
   requestedViewPreset?: ViewPreset | null; 
   zoomExtentsTrigger?: { timestamp: number; targetObjectId?: string }; 
   cameraFov?: number; 

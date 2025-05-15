@@ -1,6 +1,6 @@
 
 
-import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings } from '@/types';
+import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings, MeasurementUnit } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
 
@@ -70,6 +70,7 @@ export const getDefaultSceneData = (): SceneData => ({
   activePaintMaterialId: null,
   appMode: 'modelling', 
   drawingState: initialDrawingState,
+  measurementUnit: 'units', 
   requestedViewPreset: null,
   zoomExtentsTrigger: { timestamp: 0 },
   cameraFov: 60, 
