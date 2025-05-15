@@ -4,15 +4,15 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"; // Corrected import
 import { useScene } from "@/context/scene-context";
-import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Lightbulb, Puzzle, Film, Wand2, Clapperboard, SunMoon, SlidersHorizontal, Sigma, Edit, Sun, Droplet, Wind, Cloud, Shapes } from "lucide-react"; // Removed EyeDropper, Trees, added SlidersHorizontal
+import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Shapes, Lightbulb, Puzzle, Film, Wand2, Clapperboard, SunMoon, SlidersHorizontal, Sigma, Edit, Sun, Droplet, Wind, Cloud } from "lucide-react"; // Replaced EyeDropper with SlidersHorizontal, removed Trees
 
 // Import all necessary panel components
 import ToolPropertiesPanel from "./ToolPropertiesPanel";
 import ObjectPropertiesPanel from "./object-properties-panel";
-import MaterialsPanelAccordion from "./materials-panel"; // Corrected import
-import ObjectHierarchyPanel from "./object-hierarchy-panel"; // Corrected import
+import MaterialsPanelAccordion from "./materials-panel"; 
+import ObjectHierarchyPanel from "./object-hierarchy-panel"; 
 import LayersPanel from "./LayersPanel"; 
 import ScenesPanel from "./ScenesPanel";   
 import StylesPanel from "./StylesPanel";   
@@ -20,7 +20,6 @@ import ShadowsPanel from "./ShadowsPanel";
 import LightingPanel from "./lighting-panel";
 // WorldSettingsPanel was conceptually replaced by EnvironmentPanel for rendering,
 // but some aspects might be in StylesPanel or a simplified World for modelling.
-// Let's assume EnvironmentPanel handles the bulk of "World" settings for rendering.
 import EnvironmentPanel from './EnvironmentPanel'; 
 import CameraSettingsPanel from "./camera-settings-panel";
 import RenderSettingsPanel from "./render-settings-panel";
@@ -32,7 +31,6 @@ import PostProcessingEffectsPanel from "./PostProcessingEffectsPanel";
 const RightInspectorPanel: React.FC = () => {
   const { appMode, selectedObjectId } = useScene();
 
-  // Determine default tabs based on app mode
   const modellingDefaultTab = "modify"; 
   const renderingDefaultTab = "render-settings";
 
@@ -48,7 +46,7 @@ const RightInspectorPanel: React.FC = () => {
               <TabsTrigger value="modify" className="text-xs px-2 py-3"><BoxSelect size={14}/> Modify</TabsTrigger>
               <TabsTrigger value="structure" className="text-xs px-2 py-3"><LayersIcon size={14}/> Structure</TabsTrigger>
               <TabsTrigger value="materials" className="text-xs px-2 py-3"><Palette size={14}/> Materials</TabsTrigger>
-              <TabsTrigger value="display" className="text-xs px-2 py-3"><SlidersHorizontal size={14}/> Display</TabsTrigger> {/* Replaced EyeDropper */}
+              <TabsTrigger value="display" className="text-xs px-2 py-3"><SlidersHorizontal size={14}/> Display</TabsTrigger>
             </>
           ) : ( // Rendering Mode
             <>
