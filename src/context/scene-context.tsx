@@ -85,6 +85,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         setSceneData(prev => ({
             ...getDefaultSceneData(), // Ensure all defaults are present
             ...initialSceneOverride, // Apply overrides
+            // Ensure objects, materials, otherlights from initialSceneOverride are used if present, else from defaults
+            objects: initialSceneOverride.objects || prev.objects || getDefaultSceneData().objects,
+            materials: initialSceneOverride.materials || prev.materials || getDefaultSceneData().materials,
+            otherLights: initialSceneOverride.otherLights || prev.otherLights || getDefaultSceneData().otherLights,
             cameraFov: initialSceneOverride.cameraFov ?? prev.cameraFov ?? getDefaultSceneData().cameraFov,
             worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
             renderSettings: initialSceneOverride.renderSettings ? { ...getDefaultSceneData().renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? getDefaultSceneData().renderSettings),
@@ -127,14 +131,18 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     let defaultRotation: [number, number, number] = [0, 0, 0];
     let defaultScale: [number, number, number] = [1, 1, 1];
 
+    const getInitialY = (dimHeight?: number, defaultDimHeight?: number) => {
+        return (dimHeight ?? defaultDimHeight ?? 1) / 2;
+    };
+
     switch (type) {
       case 'cube':
         defaultDimensions = { width: 1, height: 1, depth: 1 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1) / 2, 0];
+        defaultPosition = [0, getInitialY(initialProps?.dimensions?.height, defaultDimensions.height), 0];
         break;
       case 'cylinder':
         defaultDimensions = { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 32 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1) / 2, 0];
+        defaultPosition = [0, getInitialY(initialProps?.dimensions?.height, defaultDimensions.height), 0];
         break;
       case 'plane':
         defaultDimensions = { width: 10, height: 10 }; 
@@ -143,7 +151,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         break;
       case 'text': 
         defaultDimensions = { text: "3D Text", fontSize: 1, depth: 0.2, width: 2, height: 0.5 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 0.5) / 2, 0]; 
+        defaultPosition = [0, getInitialY(initialProps?.dimensions?.height, defaultDimensions.height), 0]; 
         break;
       case 'sphere':
         defaultDimensions = { radius: 0.5, radialSegments: 32, heightSegments: 16 }; 
@@ -151,7 +159,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         break;
       case 'cone':
         defaultDimensions = { radius: 0.5, height: 1, radialSegments: 32 };
-        defaultPosition = [0, (initialProps?.dimensions?.height ?? defaultDimensions.height ?? 1) / 2, 0];
+        defaultPosition = [0, getInitialY(initialProps?.dimensions?.height, defaultDimensions.height), 0];
         break;
       case 'torus':
         defaultDimensions = { radius: 0.5, tube: 0.2, radialSegments: 16, tubularSegments: 32 };
@@ -227,6 +235,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             updatedObj.dimensions = { ...obj.dimensions, ...updates.dimensions };
           }
           
+          // Auto-adjust Y position for Y-up objects only if height/radius changes AND position isn't explicitly set in this update AND object is upright
           const isYUpObject = ['cube', 'cylinder', 'text', 'sphere', 'cone'].includes(updatedObj.type);
           const isTorus = updatedObj.type === 'torus';
           
@@ -235,17 +244,21 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
           else if (updatedObj.type === 'torus') heightLikeDimensionKey = 'tube';
           else if (updatedObj.dimensions.height !== undefined) heightLikeDimensionKey = 'height';
 
-          const heightChanged = heightLikeDimensionKey ? (updates.dimensions?.[heightLikeDimensionKey] !== undefined && updates.dimensions?.[heightLikeDimensionKey] !== obj.dimensions[heightLikeDimensionKey]) : false;
+          const dimensionRelevantToYPos = heightLikeDimensionKey ? updatedObj.dimensions[heightLikeDimensionKey] : undefined;
+          const oldDimensionRelevantToYPos = heightLikeDimensionKey ? obj.dimensions[heightLikeDimensionKey] : undefined;
+          
+          const dimensionChanged = dimensionRelevantToYPos !== undefined && oldDimensionRelevantToYPos !== undefined && dimensionRelevantToYPos !== oldDimensionRelevantToYPos;
           const positionNotExplicitlySet = updates.position === undefined;
-          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
+          const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; // Approximately upright
 
-          if ((isYUpObject || isTorus) && heightChanged && positionNotExplicitlySet && isUpright) {
-            updatedObj.position = [...updatedObj.position]; 
+          if ((isYUpObject || isTorus) && dimensionChanged && positionNotExplicitlySet && isUpright) {
+            updatedObj.position = [...updatedObj.position]; // Ensure new array
             let yPos = 0;
-            if (updatedObj.type === 'sphere') yPos = updatedObj.dimensions.radius || 0;
-            else if (updatedObj.type === 'torus') yPos = updatedObj.dimensions.tube || 0; 
-            else yPos = (updatedObj.dimensions.height || 0) / 2;
-            updatedObj.position[1] = Math.max(0.001, yPos); 
+            if (updatedObj.type === 'sphere' && updatedObj.dimensions.radius !== undefined) yPos = updatedObj.dimensions.radius;
+            else if (updatedObj.type === 'torus' && updatedObj.dimensions.tube !== undefined) yPos = updatedObj.dimensions.tube; 
+            else if (updatedObj.dimensions.height !== undefined) yPos = updatedObj.dimensions.height / 2;
+            
+            updatedObj.position[1] = Math.max(0.001, yPos); // Ensure it's slightly above or on ground
           }
           return updatedObj;
         }
@@ -395,6 +408,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       setSceneData({
         ...defaultData, 
         ...data, 
+        objects: data.objects || defaultData.objects, // Ensure these arrays are always present
+        materials: data.materials || defaultData.materials,
         otherLights: data.otherLights || defaultData.otherLights, 
         drawingState: data.drawingState || defaultData.drawingState, 
         measurementUnit: data.measurementUnit || defaultData.measurementUnit,
@@ -449,6 +464,12 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
          newDrawingState.startPoint = null;
          newDrawingState.currentPoint = null;
          newDrawingState.pushPullFaceInfo = null;
+         // Keep measureDistance if tool is changing from tape, but don't reset if it's just deselected
+         if (prev.drawingState.tool === 'tape' && tool !== 'tape') {
+            // Do nothing specific to measureDistance here, it's handled by onPointerDown/clearLastMeasurement
+         } else if (tool !== 'tape') {
+            newDrawingState.measureDistance = null;
+         }
       }
       
       let newSelectedObjectId = prev.selectedObjectId;
@@ -560,3 +581,4 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
+
