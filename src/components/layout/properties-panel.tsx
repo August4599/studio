@@ -4,8 +4,8 @@
 // For now, I'll make it an empty component to avoid import errors if it's still referenced somewhere temporarily.
 import React from 'react';
 
-const MainSidebar: React.FC = () => {
-  return null;
+const PropertiesPanel: React.FC = () => {
+  return null; 
 };
 
-export default MainSidebar;
+export default PropertiesPanel;

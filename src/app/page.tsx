@@ -5,135 +5,28 @@ import React, { useState, useEffect }from 'react';
 import { SceneProvider, useScene } from "@/context/scene-context";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import SceneViewer from "@/components/scene/viewer";
-import ViewToolbar from "@/components/scene/view-toolbar";
-import MainSidebar from "@/components/sidebar/main-sidebar";
+import MainToolbar from '@/components/layout/main-toolbar';
 import ToolsSidebar from '@/components/sidebar/tools-sidebar';
-import ToolsPanel from '@/components/sidebar/tools-panel';
+import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel';
+import NodeEditorPanel from '@/components/layout/NodeEditorPanel';
+import StatusBar from '@/components/layout/StatusBar';
+import ViewportOverlayControls from '@/components/scene/ViewportOverlayControls';
 import ProjectDashboard from '@/components/project/project-dashboard';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarTrigger,
-  SidebarContent,
-} from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Layers3, Orbit, Settings2, Construction, Loader2, FolderArchive, Aperture } from "lucide-react"; 
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { AppMode, PrimitiveType, ToolType } from '@/types';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion } from "@/components/ui/accordion";
+import { Loader2 } from "lucide-react";
+import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 
-
-// Inline SVG for Node Editor Icon
-const NodeEditorIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 opacity-80">
-    <rect x="3" y="3" width="7" height="7" rx="1" ry="1"></rect>
-    <rect x="14" y="3" width="7" height="7" rx="1" ry="1"></rect>
-    <rect x="3" y="14" width="7" height="7" rx="1" ry="1"></rect>
-    <rect x="14" y="14" width="7" height="7" rx="1" ry="1"></rect>
-    <line x1="10" y1="6.5" x2="14" y2="6.5"></line>
-    <line x1="6.5" y1="10" x2="6.5" y2="14"></line>
-    <line x1="17.5" y1="10" x2="17.5" y2="14"></line>
-    <line x1="10" y1="17.5" x2="14" y2="17.5"></line>
-  </svg>
-);
-
-
-const AppModeSwitcher: React.FC = () => {
-  const { appMode, setAppMode } = useScene();
-  const [currentMode, setCurrentMode] = useState<AppMode>(appMode || 'modelling');
-
-  useEffect(() => {
-    setCurrentMode(appMode || 'modelling');
-  }, [appMode]);
-  
-  const handleModeChange = (mode: string) => {
-    setAppMode(mode as AppMode);
-    setCurrentMode(mode as AppMode);
-  };
-
-  return (
-    <Tabs value={currentMode} onValueChange={handleModeChange} className="w-auto">
-      <TabsList className="grid grid-cols-2 h-9 rounded-md p-0 bg-muted/60 border">
-        <TabsTrigger 
-          value="modelling" 
-          className="h-full rounded-l-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm px-4 text-xs"
-        >
-          <Layers3 size={14} className="mr-1.5" /> Shape & Material
-        </TabsTrigger>
-        <TabsTrigger 
-          value="rendering" 
-          className="h-full rounded-r-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm px-4 text-xs"
-        >
-          <Aperture size={14} className="mr-1.5" /> Visualize & Export
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
-};
-
-interface NodeEditorSectionProps {
-  isNodeEditorOpen: boolean;
-  setIsNodeEditorOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-const NodeEditorSection: React.FC<NodeEditorSectionProps> = ({ isNodeEditorOpen, setIsNodeEditorOpen }) => {
-  const getNodeEditorTitle = () => "Procedural Geometry & Material Editor"; 
-  
-  const getNodeEditorPlaceholder = () => {
-    return "Create complex geometries, custom materials, and advanced rendering effects using a node-based workflow. Define procedural rules, link parameters, and build sophisticated shaders for unparalleled creative control. (Future Development)";
-  }
-
-  return (
-    <div className={cn(
-      "flex-none flex flex-col bg-background border-t overflow-hidden transition-all duration-300 ease-in-out shadow-inner",
-      isNodeEditorOpen ? "h-[35%] min-h-[200px]" : "h-12"
-    )}>
-      <div className="p-3 border-b bg-card/80 flex justify-between items-center h-12 cursor-pointer hover:bg-muted/30" onClick={() => setIsNodeEditorOpen(!isNodeEditorOpen)}>
-        <h2 className="text-base font-semibold text-foreground flex items-center">
-          <NodeEditorIcon />
-          {getNodeEditorTitle()}
-        </h2>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7" 
-          aria-label={isNodeEditorOpen ? "Collapse Node Editor" : "Expand Node Editor"}
-        >
-          {isNodeEditorOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-        </Button>
-      </div>
-      {isNodeEditorOpen && (
-        <div className="flex-grow p-6 flex items-center justify-center text-muted-foreground overflow-auto bg-muted/10">
-          <span className="italic text-sm text-center max-w-md">{getNodeEditorPlaceholder()}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 const ArchiVisionLayout: React.FC = () => {
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); 
-  const { appMode, setActiveTool, addObject, triggerZoomExtents, selectedObjectId } = useScene();
+  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool } = useScene();
   const { toast } = useToast();
-  const { currentProject } = useProject();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
+      // Ignore shortcuts if an input, textarea, or contentEditable element is focused
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return; 
+        return;
       }
 
       const key = event.key.toUpperCase();
@@ -141,7 +34,8 @@ const ArchiVisionLayout: React.FC = () => {
       let newObjectToAdd: PrimitiveType | undefined = undefined;
       let toolLabel: string | undefined = undefined;
 
-      if (!event.shiftKey && !event.ctrlKey && !event.altKey) {
+      // Standard tool shortcuts (no modifiers)
+      if (!event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         switch (key) {
           case 'Q': toolToSet = 'select'; toolLabel = 'Select'; break;
           case 'W': toolToSet = 'move'; toolLabel = 'Move'; break;
@@ -151,49 +45,52 @@ const ArchiVisionLayout: React.FC = () => {
           case 'B': toolToSet = 'paint'; toolLabel = 'Paint'; break;
           case 'P': toolToSet = 'pushpull'; toolLabel = 'Push/Pull'; break;
           case 'T': toolToSet = 'tape'; toolLabel = 'Tape Measure'; break;
-          case 'F': 
+          case 'F':
             triggerZoomExtents(selectedObjectId || undefined);
             toast({ title: "View Reset", description: selectedObjectId ? "Zoomed to selected object." : "Zoomed to fit all objects." });
-            return;
-          case ' ': 
-            event.preventDefault(); 
-            toolToSet = 'select'; 
-            toolLabel = 'Select'; 
+            return; // Direct action, no tool change
+          case ' ': // Spacebar for Select tool
+            event.preventDefault(); // Prevent page scroll
+            toolToSet = 'select';
+            toolLabel = 'Select';
             break;
-          case 'ESCAPE': 
-            setActiveTool('select'); 
+          case 'ESCAPE':
+            setActiveTool('select'); // Reset to select tool
             toast({ title: "Tool Reset", description: "Switched to Select tool." });
-            return; 
+            return; // Direct action
         }
       }
-      
-      if (event.shiftKey && !event.ctrlKey && !event.altKey) {
+
+      // Add primitive shortcuts (Shift + Key)
+      if (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         switch (key) {
-            case 'A': 
-                event.preventDefault(); 
-                newObjectToAdd = 'cube'; 
-                break;
-            case 'C': 
-                event.preventDefault();
-                toolToSet = 'circle';
-                toolLabel = 'Circle Tool';
-                break;
-            // case 'R': // This was conflicting with Scale (R key)
-            //     event.preventDefault();
-            //     toolToSet = 'rectangle';
-            //     toolLabel = 'Rectangle Tool';
-            //     break;
+          case 'A': // Shift + A for Add Cube
+            event.preventDefault();
+            newObjectToAdd = 'cube';
+            break;
+          case 'C': // Shift + C for Circle tool
+             event.preventDefault();
+             toolToSet = 'circle';
+             toolLabel = 'Circle Tool';
+             break;
+          // Add more Shift + Key shortcuts here for other primitives or tools if needed
+          // Example for rectangle tool with Shift + R (if not conflicting)
+          // case 'R':
+          //   event.preventDefault();
+          //   toolToSet = 'rectangle';
+          //   toolLabel = 'Rectangle Tool';
+          //   break;
         }
       }
 
       if (toolToSet) {
         setActiveTool(toolToSet);
-        if (toolLabel) { 
-             toast({ title: "Tool Changed", description: `${toolLabel} tool activated.` });
+        if (toolLabel) {
+          toast({ title: "Tool Changed", description: `${toolLabel} tool activated.` });
         }
       }
       if (newObjectToAdd) {
-        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan'>); 
+        addObject(newObjectToAdd as Exclude<PrimitiveType, 'cadPlan' | 'cadPlan'>);
       }
     };
 
@@ -203,109 +100,25 @@ const ArchiVisionLayout: React.FC = () => {
     };
   }, [setActiveTool, addObject, toast, triggerZoomExtents, selectedObjectId]);
 
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <SidebarProvider defaultOpen side="left">
-        <Sidebar 
-            variant="sidebar" 
-            collapsible="icon" 
-            side="left" 
-            className={cn(
-              "border-r shadow-sm bg-card transition-all duration-300 ease-in-out",
-              appMode === 'modelling' ? "w-64 opacity-100 translate-x-0" : "w-0 opacity-0 -translate-x-full" 
-            )}
-            sheetTitle="Modeling Tools"
-            open={appMode === 'modelling' ? undefined : false} // Control sheet open state for mobile
-        >
-          <SidebarContent className={cn("p-0 m-0", appMode !== 'modelling' && "hidden md:block")}> 
-             <ToolsSidebar />
-          </SidebarContent>
-        </Sidebar>
-      </SidebarProvider>
-
-
-      <div className="flex flex-col flex-grow overflow-hidden">
-        <div className="flex items-center justify-between border-b bg-card shadow-sm flex-none h-14 px-4">
-          <div className="flex items-center gap-2">
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-            </svg>
-            <h1 className="text-xl font-semibold hidden sm:block">ArchiVision</h1>
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground">
+      <MainToolbar />
+      <div className="flex flex-row flex-grow overflow-hidden">
+        <ToolsSidebar />
+        <div className="flex flex-col flex-grow relative overflow-hidden">
+          <div className="flex-grow relative">
+            <SceneViewer />
+            <ViewportOverlayControls />
           </div>
-          <AppModeSwitcher />
-          <div className="w-auto"> 
-             <Button variant="outline" size="sm" onClick={() => { console.log("Project actions clicked"); }}>
-                <FolderArchive size={16} className="mr-2"/> {currentProject?.name || "Projects"}
-             </Button>
-          </div>
+          <NodeEditorPanel />
         </div>
-        
-        <SidebarProvider defaultOpen side="right">
-          <div className="flex flex-row flex-grow overflow-hidden">
-            <div className="flex flex-col flex-grow bg-background relative overflow-hidden">
-                <div className="p-2 md:hidden border-b flex items-center justify-between sticky top-0 bg-card z-20 shadow-sm h-12">
-                    <div className="flex items-center gap-1">
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-primary">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                        </svg>
-                        <h1 className="text-base font-semibold">ArchiVision</h1>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                        {appMode === 'modelling' && <SidebarTriggerForTools />}
-                         <SidebarTrigger /> 
-                    </div>
-                </div>
-              
-              <div className="flex-grow overflow-hidden relative">
-                <SceneViewer />
-                <ViewToolbar />
-              </div>
-            </div>
-
-            <Sidebar 
-                variant="sidebar" 
-                collapsible="icon" 
-                side="right" 
-                className="border-l shadow-lg w-72 md:w-80 lg:w-96 bg-card"
-                sheetTitle="Inspector" 
-            >
-              <SidebarContent className="p-0 m-0"> 
-                <MainSidebar />
-              </SidebarContent>
-            </Sidebar>
-          </div>
-        </SidebarProvider>
-      
-        <NodeEditorSection isNodeEditorOpen={isNodeEditorOpen} setIsNodeEditorOpen={setIsNodeEditorOpen} />
+        <RightInspectorPanel />
       </div>
+      <StatusBar />
     </div>
   );
 };
-
-const SidebarTriggerForTools: React.FC = () => {
-    const [isToolsDialogOpen, setIsToolsDialogOpen] = useState(false);
-
-    return (
-        <>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsToolsDialogOpen(true)}>
-                <Construction size={20} />
-                <span className="sr-only">Open Tools</span>
-            </Button>
-            <Dialog open={isToolsDialogOpen} onOpenChange={setIsToolsDialogOpen}>
-              <DialogContent className="p-0 m-0 h-full max-h-[90vh] w-full max-w-[90vw] sm:max-w-sm flex flex-col">
-                  <DialogHeader className="p-4 border-b flex-none">
-                      <DialogTitle className="flex items-center gap-2"><Construction size={18}/> Modeling Tools</DialogTitle>
-                  </DialogHeader>
-                  <ScrollArea className="flex-grow p-1">
-                      <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
-                      <ToolsPanel />
-                      </Accordion>
-                  </ScrollArea>
-              </DialogContent>
-            </Dialog>
-        </>
-    );
-}
 
 const AppCore: React.FC = () => {
   const { currentProject, isLoading } = useProject();
