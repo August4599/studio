@@ -7,10 +7,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useScene } from "@/context/scene-context";
-import { Eye, EyeOff, Trash2, Layers, ChevronDown, Lock, Unlock, Group, Ungroup, Search, LayoutList } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useScene } from '@/context/scene-context';
+import { Eye, EyeOff, Trash2, LayoutList, ChevronDown, Lock, Unlock, Group, Ungroup, Search, Box, Component, Link2Off } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,9 +21,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 const ITEMS_PER_PAGE = 100; 
 
@@ -40,7 +40,7 @@ const ObjectHierarchyPanel = () => {
   const handleToggleLock = (id: string, currentLockState?: boolean) => {
     updateObject(id, { locked: !(currentLockState ?? false) });
     const obj = objects.find(o => o.id === id);
-    toast({ title: `Object ${currentLockState ? "Unlocked" : "Locked"}`, description: `${obj?.name || 'Object'} is now ${currentLockState ? "editable" : "protected"}.` });
+    toast({ title: `Object ${currentLockState ? "Unlocked" : "Locked"}`, description: `${obj?.name || 'Object'} is now ${currentLockState ? "editable" : "protected from changes via properties panel."}.` });
   };
 
 
@@ -58,6 +58,12 @@ const ObjectHierarchyPanel = () => {
   const handleLoadMore = () => {
     setVisibleItemsCount(prevCount => Math.min(prevCount + ITEMS_PER_PAGE, filteredObjects.length));
   };
+  
+  const getObjectIcon = (type: string, isGroup?: boolean, parentId?: string) => {
+    if (isGroup) return <Group size={12} className="mr-1 text-blue-400"/>;
+    if (parentId) return <Component size={12} className="mr-1 text-green-400"/>; // Conceptual: component instance
+    return <Box size={12} className="mr-1 text-muted-foreground/80"/>; // Default icon
+  }
 
   return (
     <AccordionItem value="item-object-hierarchy">
@@ -78,7 +84,8 @@ const ObjectHierarchyPanel = () => {
                 />
             </div>
             <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Create Group (WIP)"><Group size={14}/></Button>
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Ungroup (WIP)"><Ungroup size={14}/></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Make Component (WIP)"><Component size={14}/></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Ungroup/Explode (WIP)"><Link2Off size={14}/></Button>
         </div>
         <ScrollArea className="h-[250px] w-full rounded-md border">
           {displayedObjects.length === 0 && (
@@ -95,11 +102,15 @@ const ObjectHierarchyPanel = () => {
                   selectedObjectId === obj.id && "bg-primary/20 ring-1 ring-primary"
                 )}
                 onClick={() => selectObject(obj.id)}
-                title={`Name: ${obj.name}\nType: ${obj.type}\nID: ${obj.id.substring(0,8)}...`}
+                title={`Name: ${obj.name}\nType: ${obj.type}\nLayer: ${obj.layerId || 'Default'}\nID: ${obj.id.substring(0,8)}...`}
               >
-                <span className={cn("truncate flex-grow", !(obj.visible ?? true) && "line-through text-muted-foreground/70", obj.locked && "opacity-70")}>
-                  {obj.name} <span className="text-muted-foreground/60 text-[10px]">({obj.type})</span>
-                </span>
+                <div className="flex items-center gap-1 overflow-hidden flex-grow">
+                  {getObjectIcon(obj.type, obj.isGroup, obj.parentId)}
+                  <span className={cn("truncate", !(obj.visible ?? true) && "line-through text-muted-foreground/70", obj.locked && "opacity-70")}>
+                    {obj.name} 
+                    {/* <span className="text-muted-foreground/60 text-[10px] ml-1">({obj.type})</span> */}
+                  </span>
+                </div>
                 <div className="flex items-center shrink-0">
                   <Button
                     variant="ghost"
@@ -127,6 +138,7 @@ const ObjectHierarchyPanel = () => {
                         className="h-6 w-6 text-destructive hover:text-destructive opacity-70 hover:opacity-100"
                         onClick={(e) => e.stopPropagation()} 
                         title="Delete Object"
+                        disabled={obj.locked}
                       >
                         <Trash2 size={12} />
                       </Button>
@@ -162,6 +174,7 @@ const ObjectHierarchyPanel = () => {
             Load More ({filteredObjects.length - visibleItemsCount} remaining)
           </Button>
         )}
+         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">WIP: Drag & drop for parenting, context menus for group/component actions.</p>
       </AccordionContent>
     </AccordionItem>
   );

@@ -12,20 +12,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, Image as ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown // Added ChevronDown
+  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2 // Added more icons
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-// Input and Select are removed as options are moved to ToolPropertiesPanel
+
 
 interface ToolConfig {
   id: ToolType;
   label: string;
   icon: React.ElementType;
   action?: () => void;
-  // options?: React.ReactNode; // Options removed from here
   isWip?: boolean;
-  flyoutTools?: ToolConfig[]; // For tools like Arc that have sub-tools
+  flyoutTools?: ToolConfig[]; 
 }
 
 const ToolsPanel = () => {
@@ -39,7 +38,7 @@ const ToolsPanel = () => {
       title: "Object Added",
       description: `${newObj.name} added and selected.`,
     });
-    setActiveTool('select'); // Revert to select tool after adding primitive
+    setActiveTool('select'); 
   };
   
   const handleAddTextPlaceholder = () => {
@@ -55,10 +54,10 @@ const ToolsPanel = () => {
     setActiveTool(toolId);
     toast({
       title: `${toolLabel} Selected`,
-      description: message || `The ${toolLabel.toLowerCase()} is now active.`,
+      description: message || `The ${toolLabel.toLowerCase()} is now active. Check Tool Options panel.`,
       duration: 3000,
     });
-    setActiveFlyout(null); // Close any open flyout
+    setActiveFlyout(null); 
   };
 
   const handleZoomExtents = () => {
@@ -86,17 +85,17 @@ const ToolsPanel = () => {
       tools: [
         { id: 'line', label: 'Line', icon: Minus, action: () => activateGenericTool('line', 'Line Tool', 'Click to define line segments.') }, 
         { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => activateGenericTool('rectangle', 'Rectangle Tool') }, 
-        { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Square, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle Tool', 'WIP: Define base, then angle and width.')},
+        { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Square, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'WIP: Define base, then angle and width.')}, // Icon Square with slight rotation?
         { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') },
         { 
-          id: 'arc', label: 'Arc', icon: Spline, action: () => toggleFlyout('arc'), 
+          id: 'arc', label: 'Arc Tools', icon: Spline, action: () => toggleFlyout('arc'), 
           flyoutTools: [
             {id: 'arc2Point', label: '2-Point Arc', icon: Spline, isWip: true, action: () => activateGenericTool('arc2Point', '2-Point Arc', 'WIP')},
             {id: 'arc3Point', label: '3-Point Arc', icon: Spline, isWip: true, action: () => activateGenericTool('arc3Point', '3-Point Arc', 'WIP')},
             {id: 'pie', label: 'Pie', icon: GitBranchPlus, isWip: true, action: () => activateGenericTool('pie', 'Pie Tool', 'WIP')},
           ]
         }, 
-        { id: 'polygon', label: 'Polygon', icon: Hexagon, action: () => activateGenericTool('polygon', 'Polygon Tool', 'Click center, drag. Set sides in Properties.')},
+        { id: 'polygon', label: 'Polygon', icon: Hexagon, action: () => activateGenericTool('polygon', 'Polygon Tool', 'Click center, drag. Set sides in Options.')},
         { id: 'freehand', label: 'Freehand', icon: Edit3, action: () => activateGenericTool('freehand', 'Freehand Tool', 'Click and drag to draw freehand lines.'), isWip: true },
       ]
     },
@@ -106,21 +105,37 @@ const ToolsPanel = () => {
         { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => activateGenericTool('pushpull', 'Push/Pull Tool', 'Click a face and drag to extrude.') },
         { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset.'), isWip: true }, 
         { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude.'), isWip: true },
-        { id: 'intersectFaces', label: 'Intersect', icon: Combine, action: () => activateGenericTool('intersectFaces', 'Intersect Faces', 'WIP: With Model, With Selection, With Context.'), isWip: true },
-        { id: 'outerShell', label: 'Solid Tools', icon: Layers, action: () => activateGenericTool('outerShell', 'Solid Tools', 'WIP: Union, Subtract, Trim, Intersect.'), isWip: true }, // Conceptual placeholder
+        { 
+          id: 'intersectFaces', label: 'Intersect', icon: Combine, action: () => toggleFlyout('intersectFaces'), isWip: true,
+          flyoutTools: [
+            {id: 'intersectWithModel', label: 'With Model', icon: Combine, isWip: true, action: () => activateGenericTool('intersectWithModel', 'Intersect With Model', 'WIP')},
+            {id: 'intersectWithSelection', label: 'With Selection', icon: Users, isWip: true, action: () => activateGenericTool('intersectWithSelection', 'Intersect With Selection', 'WIP')},
+             {id: 'intersectWithContext', label: 'With Context', icon: Share2, isWip: true, action: () => activateGenericTool('intersectWithContext', 'Intersect With Context', 'WIP')},
+          ]
+        },
+        { 
+          id: 'outerShell', label: 'Solid Tools', icon: Layers, action: () => toggleFlyout('outerShell'), isWip: true, // Conceptual placeholder
+          flyoutTools: [
+            {id: 'solidUnion', label: 'Union', icon: Layers, isWip: true, action: () => activateGenericTool('solidUnion', 'Solid Union', 'WIP')},
+            {id: 'solidSubtract', label: 'Subtract', icon: Scissors, isWip: true, action: () => activateGenericTool('solidSubtract', 'Solid Subtract', 'WIP')},
+            {id: 'solidIntersect', label: 'Intersect', icon: Combine, isWip: true, action: () => activateGenericTool('solidIntersect', 'Solid Intersect', 'WIP')},
+            {id: 'solidTrim', label: 'Trim', icon: PenTool, isWip: true, action: () => activateGenericTool('solidTrim', 'Solid Trim', 'WIP')},
+          ]
+        },
+        { id: 'softenEdges', label: 'Soften Edges', icon: Eraser, isWip: true, action: () => activateGenericTool('softenEdges', 'Soften Edges', 'WIP: Select edges, adjust angle in options.')},
       ]
     },
     {
       title: "Construction & Utilities",
       tools: [
         { id: 'tape', label: 'Measure', icon: Ruler, action: () => activateGenericTool('tape', 'Tape Measure', 'Click two points to measure.') }, 
-        { id: 'protractor', label: 'Protractor', icon: Orbit, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.'), isWip: true }, // Changed icon
-        { id: 'dimension', label: 'Dimension', icon: Spline, isWip: true, action: () => activateGenericTool('dimension', 'Dimension Tool', 'WIP: Add linear dimensions.') },
-        { id: 'axes', label: 'Axes', icon: Move, isWip: true, action: () => activateGenericTool('axes', 'Axes Tool', 'WIP: Relocate model axes.') }, // Reused Move icon for simplicity
+        { id: 'protractor', label: 'Protractor', icon: Orbit, isWip: true, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.')}, 
+        { id: 'dimension', label: 'Dimension', icon: Spline, isWip: true, action: () => activateGenericTool('dimension', 'Dimension Tool', 'WIP: Add linear, angular, radial dimensions.') },
+        { id: 'axes', label: 'Axes', icon: Move, isWip: true, action: () => activateGenericTool('axes', 'Axes Tool', 'WIP: Relocate model axes.') }, // Reused Move icon
         { id: 'sectionPlane', label: 'Section Plane', icon: Slice, isWip: true, action: () => activateGenericTool('sectionPlane', 'Section Plane Tool', 'WIP: Create section cuts.') },
         { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
         { id: 'paint', label: 'Paint', icon: PaintBucket, action: () => activateGenericTool('paint', 'Paint Bucket', 'Select material, then click object/face.') },
-        { id: 'eraser', label: 'Eraser', icon: Eraser, action: () => activateGenericTool('eraser', 'Eraser Tool', 'Click objects to delete.') },
+        { id: 'eraser', label: 'Eraser', icon: Eraser, action: () => activateGenericTool('eraser', 'Eraser Tool', 'Click objects to delete or hide/soften edges.') },
       ]
     },
     {
@@ -137,29 +152,33 @@ const ToolsPanel = () => {
      {
       title: "Navigation",
       tools: [
-        { id: 'orbit', label: 'Orbit', icon: Orbit, isWip: true, action: () => activateGenericTool('orbit', 'Orbit Tool', 'Orbit view. Default mouse controls also orbit.') }, 
-        { id: 'pan', label: 'Pan', icon: Hand, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view.'), isWip: true }, 
+        { id: 'orbit', label: 'Orbit', icon: Orbit, isWip: true, action: () => activateGenericTool('orbit', 'Orbit Tool', 'Default mouse controls also orbit.') }, 
+        { id: 'pan', label: 'Pan', icon: Hand, isWip: true, action: () => activateGenericTool('pan', 'Pan Tool', 'Hold middle mouse or select tool to pan view.') }, 
         { id: 'zoomExtents', label: 'Zoom Fit', icon: Expand, action: handleZoomExtents }, 
         { id: 'zoomWindow', label: 'Zoom Window', icon: ZoomIn, isWip: true, action: () => activateGenericTool('zoomWindow', 'Zoom Window', 'WIP: Drag a rectangle to zoom.') },
+        { id: 'lookAround', label: 'Look Around', icon: LookAroundIcon, isWip: true, action: () => activateGenericTool('lookAround', 'Look Around Tool', 'WIP: Pivot camera from current viewpoint.')},
+        { id: 'walk', label: 'Walk', icon: Footprints, isWip: true, action: () => activateGenericTool('walk', 'Walk Tool', 'WIP: Navigate scene with WASD-like controls.')},
       ]
     }
   ];
   
   const renderToolButton = (tool: ToolConfig, isFlyoutItem: boolean = false) => (
-    <div key={tool.id} className="flex flex-col items-center relative"> {/* Added relative for flyout */}
+    <div key={tool.id} className="flex flex-col items-center relative">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant={activeTool === tool.id ? "secondary" : "outline"}
             size="icon"
-            className={`w-full h-14 flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative ${isFlyoutItem ? 'h-12 text-[9px]' : 'h-14'}`}
+            className={`w-full flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative ${isFlyoutItem ? 'h-12 text-[9px]' : 'h-14'}`}
             onClick={() => {
               if (tool.isWip) {
                   toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
+                  // Keep the current tool active if WIP tool is clicked, or switch to select
+                  // setActiveTool(activeTool || 'select'); 
                   return;
               }
               if (tool.action) tool.action();
-              else if (tool.id) setActiveTool(tool.id);
+              else if (tool.id) setActiveTool(tool.id); // Fallback, should be covered by activateGenericTool
             }}
             aria-label={tool.label}
             data-state={activeTool === tool.id ? 'active' : 'inactive'}
@@ -179,21 +198,16 @@ const ToolsPanel = () => {
             {tool.flyoutTools.map(flyoutTool => renderToolButton(flyoutTool, true))}
         </div>
       )}
-      {/* Tool options are now removed from here and handled by ToolPropertiesPanel */}
     </div>
   );
 
   return (
-    <AccordionItem value="item-tools">
-      <AccordionTrigger className="hover:no-underline">
-        <div className="flex items-center gap-2">
-          <Construction size={18} /> Modeling Tools
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="p-1 space-y-1">
+    <AccordionItem value="item-tools" className="border-none"> {/* Removed border for cleaner integration */}
+      {/* AccordionTrigger removed as this panel is always visible in its section */}
+      <AccordionContent className="p-0 space-y-1"> {/* p-0 to use full space */}
         <TooltipProvider delayDuration={100}>
           {toolCategories.map(category => (
-            <div key={category.title} className="space-y-1 py-1">
+            <div key={category.title} className="space-y-1 py-1 px-1"> {/* Added px-1 */}
               <Label className="text-xs font-medium text-muted-foreground px-1 pb-1 block">{category.title}</Label>
               <div className={`grid grid-cols-3 gap-1`}>
                 {category.tools.map(tool => renderToolButton(tool))}
@@ -207,4 +221,3 @@ const ToolsPanel = () => {
 };
 
 export default ToolsPanel;
-

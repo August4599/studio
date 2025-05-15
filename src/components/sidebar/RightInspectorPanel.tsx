@@ -6,10 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useScene } from "@/context/scene-context";
-import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Shapes, Lightbulb, Puzzle, Film, Wand2, Clapperboard, SunMoon, SlidersHorizontal, Sigma, Edit, Sun, Droplet, Wind, Cloud, LayoutList } from "lucide-react";
+import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Shapes, Lightbulb, Trees, Puzzle, Film, Wand2, Clapperboard, SunMoon, SlidersHorizontal, Sigma, Edit, Sun, Droplet, Wind, Cloud, LayoutList } from "lucide-react";
 
 // Import all necessary panel components
-import ToolPropertiesPanel from "./ToolPropertiesPanel";
+// ToolPropertiesPanel is now part of ToolsSidebar
 import ObjectPropertiesPanel from "./object-properties-panel";
 import MaterialsPanelAccordion from "./materials-panel";
 import ObjectHierarchyPanel from "./object-hierarchy-panel";
@@ -24,27 +24,24 @@ import RenderSettingsPanel from "./render-settings-panel";
 import AssetLibraryPanel from "./AssetLibraryPanel"; 
 import AnimationTimelinePanel from "./AnimationTimelinePanel"; 
 import PostProcessingEffectsPanel from "./PostProcessingEffectsPanel"; 
-// import FogPanel from "./FogPanel"; // Assuming FogPanel is created
 
 const RightInspectorPanel: React.FC = () => {
   const { appMode, selectedObjectId } = useScene();
 
-  // Determine default tab based on appMode
   const modellingDefaultTab = selectedObjectId ? "selection" : "structure";
-  const renderingDefaultTab = "render-settings";
+  const renderingDefaultTab = "render-settings"; // Default to render settings in visualize mode
   const defaultTab = appMode === 'modelling' ? modellingDefaultTab : renderingDefaultTab;
 
   return (
     <div className="w-80 md:w-96 flex flex-col h-full bg-card text-card-foreground border-l shadow-lg flex-none">
-      <ToolPropertiesPanel />
-      {/* Removed static "Properties" title; ToolPropertiesPanel has its own title */}
+      {/* ToolPropertiesPanel is removed from here, now part of ToolsSidebar */}
       
-      <Tabs defaultValue={defaultTab} className="flex flex-col flex-grow overflow-hidden" key={appMode}> {/* Key ensures Tabs re-renders on mode change */}
+      <Tabs defaultValue={defaultTab} className="flex flex-col flex-grow overflow-hidden" key={appMode}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 h-auto rounded-none border-b p-0 sticky top-0 z-10 bg-card shadow-sm flex-none min-h-12">
           {appMode === 'modelling' ? (
             <>
-              <TabsTrigger value="selection" className="text-xs px-2 py-3"><BoxSelect size={14}/> Selection</TabsTrigger>
-              <TabsTrigger value="structure" className="text-xs px-2 py-3"><LayoutList size={14}/> Structure</TabsTrigger> {/* Changed icon */}
+              <TabsTrigger value="selection" className="text-xs px-2 py-3"><Edit size={14}/> Modify</TabsTrigger>
+              <TabsTrigger value="structure" className="text-xs px-2 py-3"><LayoutList size={14}/> Structure</TabsTrigger>
               <TabsTrigger value="materials" className="text-xs px-2 py-3"><Palette size={14}/> Materials</TabsTrigger>
               <TabsTrigger value="display" className="text-xs px-2 py-3"><SlidersHorizontal size={14}/> Display</TabsTrigger>
             </>
@@ -55,7 +52,7 @@ const RightInspectorPanel: React.FC = () => {
               <TabsTrigger value="lighting" className="text-xs px-2 py-3"><Lightbulb size={14}/> Lights</TabsTrigger>
               <TabsTrigger value="cameras" className="text-xs px-2 py-3"><Video size={14}/> Cameras</TabsTrigger>
               <TabsTrigger value="shading" className="text-xs px-2 py-3"><Palette size={14}/> Shading</TabsTrigger>
-              <TabsTrigger value="effects" className="text-xs px-2 py-3"><Wand2 size={14}/> Effects</TabsTrigger>
+              <TabsTrigger value="effects" className="text-xs px-2 py-3"><Wand2 size={14}/> Post Effects</TabsTrigger>
               <TabsTrigger value="assets" className="text-xs px-2 py-3"><Puzzle size={14}/> Assets</TabsTrigger>
               <TabsTrigger value="animation" className="text-xs px-2 py-3"><Film size={14}/> Animation</TabsTrigger>
             </>
@@ -68,7 +65,7 @@ const RightInspectorPanel: React.FC = () => {
               <TabsContent value="selection" className="p-0 m-0">
                 <Accordion type="multiple" defaultValue={['item-object-props']} className="w-full">
                   <ObjectPropertiesPanel />
-                  {/* Modifier Stack placeholder moved to ObjectPropertiesPanel */}
+                  {/* Modifier Stack Placeholder is inside ObjectPropertiesPanel */}
                 </Accordion>
               </TabsContent>
               <TabsContent value="structure" className="p-0 m-0">
@@ -86,7 +83,6 @@ const RightInspectorPanel: React.FC = () => {
                 <Accordion type="multiple" defaultValue={['item-styles', 'item-shadows']} className="w-full">
                   <StylesPanel />
                   <ShadowsPanel />
-                  {/* Camera settings for modelling are simpler, mostly FOV - part of SceneContext, no specific panel here yet */}
                 </Accordion>
               </TabsContent>
             </>
@@ -100,7 +96,6 @@ const RightInspectorPanel: React.FC = () => {
               <TabsContent value="environment" className="p-0 m-0">
                 <Accordion type="multiple" defaultValue={['item-environment']} className="w-full">
                    <EnvironmentPanel />
-                   {/* <FogPanel /> Re-integrate if FogPanel is distinct and ready */}
                 </Accordion>
               </TabsContent>
               <TabsContent value="lighting" className="p-0 m-0">
@@ -114,10 +109,9 @@ const RightInspectorPanel: React.FC = () => {
                     <ScenesPanel />
                 </Accordion>
               </TabsContent>
-              <TabsContent value="shading" className="p-0 m-0"> {/* "Shading" tab is more specific than general "Materials" */}
+              <TabsContent value="shading" className="p-0 m-0"> 
                  <Accordion type="multiple" defaultValue={['item-materials']} className="w-full">
                     <MaterialsPanelAccordion /> 
-                    {/* Could also include global shader settings or material override panels here */}
                 </Accordion>
               </TabsContent>
               <TabsContent value="effects" className="p-0 m-0">
