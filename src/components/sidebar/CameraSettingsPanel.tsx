@@ -53,7 +53,7 @@ const CameraSettingsPanel = () => {
                 </AccordionTrigger>
                 <AccordionContent className="space-y-2 p-2 pt-0">
                     <Label htmlFor="camera-type">Camera Type</Label>
-                    <Select value={cameraSettings.type || 'standard'} onValueChange={(val) => handleSettingChange('type', val as CameraType)} disabled>
+                    <Select value={cameraSettings.type || 'standard'} onValueChange={(val) => handleSettingChange('type', val as CameraType)} >
                         <SelectTrigger id="camera-type" className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="standard" className="text-xs">Standard (Perspective)</SelectItem>
@@ -127,6 +127,28 @@ const CameraSettingsPanel = () => {
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
+
+        {/* Lens Distortion (WIP) */}
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="camera-lensdistortion-sub" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center gap-1.5"><Settings size={14}/> Lens Distortion (WIP)</div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                     <div className="flex items-center justify-between"><Label className="font-normal">Enable Lens Distortion</Label><Checkbox checked={cameraSettings.lensDistortion?.enabled} onCheckedChange={c => handleNestedSettingChange('lensDistortion', 'enabled', !!c)} disabled/></div>
+                     {cameraSettings.lensDistortion?.enabled && (
+                        <div className="grid grid-cols-2 gap-2">
+                            <div><Label>K1</Label><Input type="number" value={cameraSettings.lensDistortion.k1 || 0} step="0.01" className="h-7 text-xs" disabled/></div>
+                            <div><Label>K2</Label><Input type="number" value={cameraSettings.lensDistortion.k2 || 0} step="0.01" className="h-7 text-xs" disabled/></div>
+                            <div><Label>K3 (WIP)</Label><Input type="number" value={cameraSettings.lensDistortion.k3 || 0} step="0.01" className="h-7 text-xs" disabled/></div>
+                            <div><Label>P1 (WIP)</Label><Input type="number" value={cameraSettings.lensDistortion.p1 || 0} step="0.01" className="h-7 text-xs" disabled/></div>
+                            <div><Label>P2 (WIP)</Label><Input type="number" value={cameraSettings.lensDistortion.p2 || 0} step="0.01" className="h-7 text-xs" disabled/></div>
+                        </div>
+                     )}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+
         
         {/* Render Region (WIP) */}
         <Accordion type="single" collapsible className="w-full border rounded-md">

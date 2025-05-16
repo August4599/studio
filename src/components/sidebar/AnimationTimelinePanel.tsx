@@ -30,8 +30,8 @@ interface AnimationTrack {
   id: string;
   name: string;
   targetId: string; // ID of the object, light, material, or camera
-  targetType: 'object' | 'camera' | 'light' | 'material';
-  property: string; // e.g., 'position', 'rotation.x', 'color', 'intensity', 'fov'
+  targetType: 'object_transform' | 'object_property' | 'material_property' | 'light_property' | 'camera_property';
+  property: string; // e.g., 'position', 'rotation.y', 'color', 'intensity', 'fov'
   keyframes: Keyframe[];
   expanded?: boolean;
 }
@@ -43,9 +43,10 @@ const AnimationTimelinePanel = () => {
   const [totalDuration, setTotalDuration] = useState(10); // e.g., 10 seconds
   const [fps, setFps] = useState(24);
   const [tracks, setTracks] = useState<AnimationTrack[]>([
-    { id: 'track-cam-pos', name: 'Main Camera: Position', targetId: 'main-camera', targetType: 'camera', property: 'position', keyframes: []},
-    { id: 'track-cube1-rot', name: 'Cube 1: Rotation Y', targetId: 'cube-obj-id-1', targetType: 'object', property: 'rotation.y', keyframes: []},
-    { id: 'track-light1-int', name: 'Spot Light: Intensity', targetId: 'spot-light-id-1', targetType: 'light', property: 'intensity', keyframes: []},
+    { id: 'track-cam-pos', name: 'Main Camera: Position', targetId: 'main-camera', targetType: 'camera_property', property: 'position', keyframes: []},
+    { id: 'track-cube1-rot', name: 'Cube 1: Rotation Y', targetId: 'cube-obj-id-1', targetType: 'object_transform', property: 'rotation.y', keyframes: []},
+    { id: 'track-light1-int', name: 'Spot Light: Intensity', targetId: 'spot-light-id-1', targetType: 'light_property', property: 'intensity', keyframes: []},
+    { id: 'track-mat1-color', name: 'Wood Material: Base Color', targetId: 'wood-mat-id', targetType: 'material_property', property: 'color', keyframes: [{id:'k1', time:2, value:'#FF0000'}, {id:'k2', time:5, value:'#00FF00'}]},
   ]);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
 
@@ -73,6 +74,11 @@ const AnimationTimelinePanel = () => {
                 </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" title="Go to End (WIP)" disabled><SkipForward size={16}/></Button>
             </div>
+            <div className="flex items-center gap-1">
+                 <Label htmlFor="anim-current-frame" className="sr-only">Current Frame</Label>
+                 <Input id="anim-current-frame" type="number" value={Math.round(currentTime * fps)} onChange={e=>setCurrentTime(parseInt(e.target.value)/fps)} className="h-6 w-14 text-xs text-center" disabled title="Current Frame"/>
+                 <span className="text-muted-foreground">/ {Math.round(totalDuration * fps)}</span>
+            </div>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Add Keyframe to Selected Track (WIP)" onClick={() => selectedTrackId && handleAddKeyframe(selectedTrackId)} disabled={!selectedTrackId}><Key size={16}/></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Record Auto-Keyframes (WIP)" disabled><div className="w-3 h-3 rounded-full bg-red-500 border border-red-700"></div></Button>
         </div>
@@ -94,6 +100,7 @@ const AnimationTimelinePanel = () => {
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1"><Label htmlFor="anim-duration" className="whitespace-nowrap">Duration(s):</Label><Input type="number" id="anim-duration" value={totalDuration} onChange={e=>setTotalDuration(parseFloat(e.target.value))} min="0.1" step="0.1" className="h-6 text-xs w-12" disabled/></div>
                 <div className="flex items-center gap-1"><Label htmlFor="anim-fps" className="whitespace-nowrap">FPS:</Label><Input type="number" id="anim-fps" value={fps} onChange={e=>setFps(parseInt(e.target.value))} min="1" step="1" className="h-6 text-xs w-10" disabled/></div>
+                 <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Render Animation (WIP)</Button>
             </div>
         </div>
 
@@ -103,9 +110,10 @@ const AnimationTimelinePanel = () => {
                 <Label className="font-medium">Tracks (WIP)</Label>
                 <div className="flex gap-1">
                     <Select disabled>
-                        <SelectTrigger className="h-6 text-[10px] px-1.5"><PlusCircle size={10} className="mr-0.5"/> Add</SelectTrigger>
+                        <SelectTrigger className="h-6 text-[10px] px-1.5"><PlusCircle size={10} className="mr-0.5"/> Add Track</SelectTrigger>
                         <SelectContent>
                             <SelectItem value="obj-transform" className="text-xs">Object Transform</SelectItem>
+                            <SelectItem value="obj-property" className="text-xs">Object Property</SelectItem>
                             <SelectItem value="cam-property" className="text-xs">Camera Property</SelectItem>
                             <SelectItem value="light-property" className="text-xs">Light Property</SelectItem>
                             <SelectItem value="mat-property" className="text-xs">Material Property</SelectItem>
@@ -122,7 +130,7 @@ const AnimationTimelinePanel = () => {
                     >
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-1">
-                                {track.targetType === 'camera' ? <Camera size={10}/> : track.targetType === 'object' ? <Box size={10}/> : track.targetType === 'light' ? <SlidersHorizontal size={10}/> : <PaletteIcon size={10}/>}
+                                {track.targetType === 'camera_property' ? <Camera size={10}/> : track.targetType === 'object_transform' ? <Box size={10}/> : track.targetType === 'light_property' ? <SlidersHorizontal size={10}/> : <PaletteIcon size={10}/>}
                                 <span>{track.name}</span>
                             </div>
                             <div className="flex gap-0.5">
@@ -132,9 +140,10 @@ const AnimationTimelinePanel = () => {
                             </div>
                         </div>
                         {/* Placeholder for keyframes on this track */}
-                        <div className="h-3 bg-background/30 rounded-sm mt-0.5 relative border border-muted/30">
-                           {/* Example keyframe marker */}
-                           {track.id === 'track-cube1-rot' && <div className="absolute w-1 h-full bg-primary top-0" style={{left: `${(2/totalDuration)*100}%`}} title="Key at 2s"></div>}
+                        <div className="h-3 bg-background/30 rounded-sm mt-0.5 relative border border-muted/30 overflow-hidden">
+                           {track.keyframes.map(kf => (
+                               <div key={kf.id} className="absolute w-1 h-full bg-primary top-0" style={{left: `${(kf.time/totalDuration)*100}%`}} title={`Key at ${kf.time}s`}></div>
+                           ))}
                         </div>
                     </div>
                 ))}
@@ -145,8 +154,9 @@ const AnimationTimelinePanel = () => {
                     <Label className="font-medium text-[11px]">Keyframe Editor for: {selectedTrack.name} (WIP)</Label>
                      {/* Placeholder for keyframe list or curve editor */}
                     <div className="h-20 bg-muted/30 rounded-sm p-2 text-center text-muted-foreground text-[10px] flex items-center justify-center">
-                        Keyframe values and curve editor here.
+                        Keyframe values and curve editor will appear here.
                     </div>
+                    <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Open Curve Editor (WIP)</Button>
                 </div>
              )}
         </div>

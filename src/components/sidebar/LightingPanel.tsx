@@ -159,16 +159,27 @@ const LightEditorDialog: React.FC<{
                         <Slider id="light-penumbra" min={0} max={1} step={0.01} value={[((editedLight as SpotLightSceneProps).penumbra || 0.1)]} onValueChange={([val]) => handleChange('penumbra', val)} />
                     </div>
                     <Label htmlFor="spot-ies">IES Profile (WIP)</Label><Input id="spot-ies" placeholder="path/to/profile.ies" className="h-8" disabled/>
+                     {/* Placeholder for Barn Doors */}
+                    <Label className="text-muted-foreground">Barn Doors (Top, Bottom, Left, Right - WIP)</Label>
+                    <div className="grid grid-cols-2 gap-1">
+                        <Input type="number" placeholder="Top" className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Bottom" className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Left" className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Right" className="h-7 text-xs" disabled/>
+                    </div>
+                     <Label htmlFor="spot-aspect">Aspect Ratio (WIP)</Label><Input id="spot-aspect" type="number" value={(editedLight as SpotLightSceneProps).aspectRatio || 1} className="h-8" disabled/>
                 </>
             )}
             {editedLight.type === 'area' && (
                 <>
-                    <Label htmlFor="area-shape">Shape (WIP)</Label>
-                    <Select value={(editedLight as AreaLightSceneProps).shape || 'rectangle'} onValueChange={val => handleChange('shape', val as any)} disabled>
+                    <Label htmlFor="area-shape">Shape</Label>
+                    <Select value={(editedLight as AreaLightSceneProps).shape || 'rectangle'} onValueChange={val => handleChange('shape', val as any)} >
                         <SelectTrigger id="area-shape" className="h-8"><SelectValue/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="rectangle">Rectangle</SelectItem>
                             <SelectItem value="disk">Disk</SelectItem>
+                            <SelectItem value="sphere" className="text-xs">Sphere (WIP)</SelectItem>
+                            <SelectItem value="cylinder" className="text-xs">Cylinder (WIP)</SelectItem>
                         </SelectContent>
                     </Select>
                     <div className="grid grid-cols-2 gap-2">
@@ -181,6 +192,15 @@ const LightEditorDialog: React.FC<{
                             <Input id="area-height" type="number" min="0.1" step="0.1" value={(editedLight as AreaLightSceneProps).height || 1} onChange={(e) => handleChange('height', parseFloat(e.target.value))} className="h-8" />
                         </div>
                     </div>
+                    {((editedLight as AreaLightSceneProps).shape === 'disk' || (editedLight as AreaLightSceneProps).shape === 'sphere' || (editedLight as AreaLightSceneProps).shape === 'cylinder') && (
+                       <div className="space-y-1">
+                            <Label htmlFor="area-radius">Radius</Label>
+                            <Input id="area-radius" type="number" min="0.1" step="0.1" value={(editedLight as AreaLightSceneProps).radius || 1} onChange={(e) => handleChange('radius', parseFloat(e.target.value))} className="h-8" />
+                        </div>
+                    )}
+                    <div className="flex items-center space-x-2"><Checkbox id="area-twosided" checked={!!(editedLight as AreaLightSceneProps).twoSided} onCheckedChange={c => handleChange('twoSided', !!c)} disabled/> <Label htmlFor="area-twosided" className="font-normal">Two Sided (WIP)</Label></div>
+                    <Label htmlFor="area-texture">Texture (WIP)</Label><Input id="area-texture" placeholder="path/to/texture.png" className="h-8" disabled/>
+                    <Label htmlFor="area-spread">Spread (WIP): {((editedLight as AreaLightSceneProps).spread || 180).toFixed(0)}°</Label><Slider id="area-spread" value={[((editedLight as AreaLightSceneProps).spread || 180)]} min={10} max={180} step={1} disabled/>
                     <div className="flex items-center space-x-2"><Checkbox id="area-portal" checked={!!(editedLight as AreaLightSceneProps).isPortal} disabled/><Label htmlFor="area-portal" className="font-normal">Skylight Portal (WIP)</Label></div>
                 </>
             )}
@@ -189,6 +209,8 @@ const LightEditorDialog: React.FC<{
                  <Label htmlFor="skylight-hdri">HDRI Path (WIP)</Label><Input id="skylight-hdri" placeholder="path/to/hdri.hdr" className="h-8" disabled/>
                  <Label>HDRI Rotation (WIP): {((editedLight as SkyLightSceneProps).hdriRotation || 0)}°</Label><Slider value={[0]} disabled/>
                  <div className="flex items-center space-x-2"><Checkbox id="skylight-usesun" checked={!!(editedLight as SkyLightSceneProps).useSun} disabled/><Label htmlFor="skylight-usesun" className="font-normal">HDRI Sun Shadows (WIP)</Label></div>
+                 <Label htmlFor="sky-model">Sky Model (If No HDRI - WIP)</Label>
+                 <Select disabled><SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Hosek-Wilkie"/></SelectTrigger></Select>
                 </>
             )}
              {editedLight.type === 'photometric' && (
@@ -200,6 +222,8 @@ const LightEditorDialog: React.FC<{
              {editedLight.type === 'mesh_light' && (
                 <>
                  <Label htmlFor="meshlight-object">Mesh Object ID (WIP)</Label><Input id="meshlight-object" placeholder="Select object from scene" className="h-8" disabled/>
+                 <Label htmlFor="meshlight-texture">Texture (WIP)</Label><Input id="meshlight-texture" placeholder="path/to/texture.png" className="h-8" disabled/>
+                 <div className="flex items-center space-x-2"><Checkbox id="meshlight-multiplycolor" checked={!!(editedLight as MeshLightSceneProps).multiplyByColor} disabled/><Label htmlFor="meshlight-multiplycolor" className="font-normal">Multiply by Base Color (WIP)</Label></div>
                 </>
             )}
 
@@ -228,11 +252,25 @@ const LightEditorDialog: React.FC<{
                         <Label htmlFor="light-shadowRadius">Shadow Radius (Softness): {((editedLight as DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps).shadowRadius || 0).toFixed(2)}</Label>
                         <Slider id="light-shadowRadius" min={0} max={5} step={0.05} value={[((editedLight as DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps).shadowRadius || 0)]} onValueChange={([val]) => handleChange('shadowRadius', val)} disabled={!(editedLight as DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps).castShadow}/>
                     </div>
+                     {/* Placeholder for Shadow Map Size */}
+                     <Label htmlFor="light-shadowmapsize">Shadow Map Size (WIP)</Label>
+                     <Select value={((editedLight as PointLightSceneProps).shadowMapSize || 1024).toString()} disabled>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                        <SelectContent><SelectItem value="512">512</SelectItem><SelectItem value="1024">1024</SelectItem><SelectItem value="2048">2048</SelectItem><SelectItem value="4096">4096</SelectItem></SelectContent>
+                     </Select>
                 </>
             )}
              <div className="space-y-1">
-                <Label htmlFor="light-volumetric">Volumetric Contribution (WIP): {((editedLight as BaseLightProps).volumetricContribution || 1).toFixed(2)}</Label>
-                <Slider id="light-volumetric" min={0} max={1} step={0.01} value={[((editedLight as BaseLightProps).volumetricContribution || 1)]} onValueChange={([val]) => handleChange('volumetricContribution', val)} disabled/>
+                <Label htmlFor="light-volumetric">Volumetric Contribution (WIP): {((editedLight as SceneLight).volumetricContribution || 1).toFixed(2)}</Label>
+                <Slider id="light-volumetric" min={0} max={1} step={0.01} value={[((editedLight as SceneLight).volumetricContribution || 1)]} onValueChange={([val]) => handleChange('volumetricContribution', val)} disabled/>
+            </div>
+            {/* Placeholder for Light Linking/Exclusion */}
+            <div className="pt-2 border-t mt-2">
+                <Label className="font-medium">Light Linking/Exclusion (WIP)</Label>
+                <div className="flex gap-1 mt-1">
+                    <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Include Objects...</Button>
+                    <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Exclude Objects...</Button>
+                </div>
             </div>
           </div>
         </ScrollArea>
@@ -375,6 +413,10 @@ const LightingPanel = () => {
                     </div>
                      <Label htmlFor="dir-sunangle">Sun Angle (Softness - WIP): {(directionalLight.sunAngle || 0.5).toFixed(2)}°</Label>
                      <Slider id="dir-sunangle" min={0.1} max={5} step={0.01} value={[directionalLight.sunAngle || 0.5]} onValueChange={([val]) => handleDirLightChange('sunAngle', val)} disabled/>
+                     <Label htmlFor="dir-sunsize">Sun Size (WIP): {(directionalLight.sunSize || 1.0).toFixed(2)}</Label>
+                     <Slider id="dir-sunsize" min={0.1} max={10} step={0.1} value={[directionalLight.sunSize || 1.0]} onValueChange={([val]) => handleDirLightChange('sunSize', val)} disabled/>
+                     <Label htmlFor="dir-atmthick">Atmosphere Thickness (WIP): {(directionalLight.atmosphereThickness || 1.0).toFixed(2)}</Label>
+                     <Slider id="dir-atmthick" min={0} max={5} step={0.1} value={[directionalLight.atmosphereThickness || 1.0]} onValueChange={([val]) => handleDirLightChange('atmosphereThickness', val)} disabled/>
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
@@ -394,11 +436,11 @@ const LightingPanel = () => {
                             <SelectItem value="point" className="text-xs"><LampDesk size={14} className="inline mr-2"/> Point Light</SelectItem>
                             <SelectItem value="spot" className="text-xs"><LampCeiling size={14} className="inline mr-2"/> Spot Light</SelectItem>
                             <SelectItem value="area" className="text-xs"><LampWallUp size={14} className="inline mr-2"/> Area Light (Rect)</SelectItem>
-                            <SelectItem value="sphere" className="text-xs" disabled><LampWallUp size={14} className="inline mr-2"/> Sphere Light (WIP)</SelectItem>
-                            <SelectItem value="disk" className="text-xs" disabled><LampWallUp size={14} className="inline mr-2"/> Disk Light (WIP)</SelectItem>
-                            <SelectItem value="skylight" className="text-xs" disabled><CloudCog size={14} className="inline mr-2"/> Skylight/Dome (WIP)</SelectItem>
-                            <SelectItem value="photometric" className="text-xs" disabled><FileText size={14} className="inline mr-2"/> Photometric/IES (WIP)</SelectItem>
-                            <SelectItem value="mesh_light" className="text-xs" disabled><Cpu size={14} className="inline mr-2"/> Mesh Light (WIP)</SelectItem>
+                            <SelectItem value="sphere" className="text-xs"><LampWallUp size={14} className="inline mr-2"/> Sphere Light</SelectItem>
+                            <SelectItem value="disk" className="text-xs"><LampWallUp size={14} className="inline mr-2"/> Disk Light</SelectItem>
+                            <SelectItem value="skylight" className="text-xs"><CloudCog size={14} className="inline mr-2"/> Skylight/Dome (WIP)</SelectItem>
+                            <SelectItem value="photometric" className="text-xs"><FileText size={14} className="inline mr-2"/> Photometric/IES (WIP)</SelectItem>
+                            <SelectItem value="mesh_light" className="text-xs"><Cpu size={14} className="inline mr-2"/> Mesh Light (WIP)</SelectItem>
                         </SelectContent>
                     </Select>
                     <ScrollArea className="h-[150px] w-full rounded-sm border p-1 mt-1">

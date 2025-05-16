@@ -21,7 +21,7 @@ import type { PostProcessingSettings } from '@/types';
 
 
 const PostProcessingEffectsPanel = () => {
-  const { postProcessingSettings = {}, updatePostProcessingSettings } = useScene();
+  const { postProcessingSettings = {} as PostProcessingSettings, updatePostProcessingSettings } = useScene();
 
   const handleToggle = (effect: keyof PostProcessingSettings, subKey: 'enabled') => {
     const currentEffectSettings = postProcessingSettings[effect] || { enabled: false };
@@ -40,6 +40,14 @@ const PostProcessingEffectsPanel = () => {
   };
   
   const handleSelectChange = (effect: keyof PostProcessingSettings, subKey: string, value: string) => {
+    const currentEffectSettings = postProcessingSettings[effect] || { enabled: false };
+    updatePostProcessingSettings({ 
+        ...postProcessingSettings,
+        [effect]: { ...currentEffectSettings, enabled: currentEffectSettings.enabled ?? false, [subKey]: value }
+    });
+  };
+
+  const handleInputChange = (effect: keyof PostProcessingSettings, subKey: string, value: string | number) => {
     const currentEffectSettings = postProcessingSettings[effect] || { enabled: false };
     updatePostProcessingSettings({ 
         ...postProcessingSettings,
@@ -125,7 +133,9 @@ const PostProcessingEffectsPanel = () => {
                   {postProcessingSettings.vignette?.enabled && <>
                     <Label>Offset: {(postProcessingSettings.vignette?.offset || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.vignette?.offset || 0.5]} onValueChange={([v])=>handleSlider('vignette','offset',v)} min={0} max={1} step={0.01}/>
                     <Label>Darkness: {(postProcessingSettings.vignette?.darkness || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.vignette?.darkness || 0.5]} onValueChange={([v])=>handleSlider('vignette','darkness',v)} min={0} max={1} step={0.01}/>
-                    <Label htmlFor="vignette-color">Color (WIP)</Label><Input id="vignette-color" type="color" value={postProcessingSettings.vignette?.color || '#000000'} className="h-7 w-full" disabled/>
+                    <Label htmlFor="vignette-color">Color (WIP)</Label><Input id="vignette-color" type="color" value={postProcessingSettings.vignette?.color || '#000000'} onChange={e => handleInputChange('vignette', 'color', e.target.value)} className="h-7 w-full" disabled/>
+                    <Label>Roundness (WIP): {(postProcessingSettings.vignette?.roundness || 1).toFixed(2)}</Label><Slider value={[postProcessingSettings.vignette?.roundness || 1]} min={0} max={1} step={0.01} disabled/>
+                    <Label>Feather (WIP): {(postProcessingSettings.vignette?.feather || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.vignette?.feather || 0.5]} min={0} max={1} step={0.01} disabled/>
                   </>}
                 </AccordionContent>
             </AccordionItem>
@@ -143,6 +153,8 @@ const PostProcessingEffectsPanel = () => {
                 <AccordionContent className="space-y-2 p-2 pt-0">
                     {postProcessingSettings.chromaticAberration?.enabled && <>
                         <Label>Intensity: {(postProcessingSettings.chromaticAberration?.intensity || 0.01).toFixed(3)}</Label><Slider value={[postProcessingSettings.chromaticAberration?.intensity || 0.01]} onValueChange={([v])=>handleSlider('chromaticAberration','intensity',v)} min={0} max={0.1} step={0.001}/>
+                        <div className="flex items-center space-x-2"><Checkbox id="chroma-radial" checked={!!postProcessingSettings.chromaticAberration?.radialModulation} disabled/><Label htmlFor="chroma-radial" className="font-normal">Radial Modulation (WIP)</Label></div>
+                        <Label>Start Offset (WIP): {(postProcessingSettings.chromaticAberration?.startOffset || 0).toFixed(2)}</Label><Slider value={[postProcessingSettings.chromaticAberration?.startOffset || 0]} min={0} max={1} step={0.01} disabled/>
                     </>}
                 </AccordionContent>
             </AccordionItem>
@@ -161,6 +173,7 @@ const PostProcessingEffectsPanel = () => {
                     {postProcessingSettings.lensDirt?.enabled && <>
                         <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><UploadCloud size={12} className="mr-1"/>Upload Dirt Texture</Button>
                         <Label>Intensity: {(postProcessingSettings.lensDirt?.intensity || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.lensDirt?.intensity || 0.5]} onValueChange={([v])=>handleSlider('lensDirt','intensity',v)} min={0} max={1} step={0.01}/>
+                        <Label>Scale (WIP): {(postProcessingSettings.lensDirt?.scale || 1).toFixed(2)}</Label><Slider value={[postProcessingSettings.lensDirt?.scale || 1]} min={0.1} max={5} step={0.1} disabled/>
                     </>}
                 </AccordionContent>
             </AccordionItem>
@@ -196,6 +209,11 @@ const PostProcessingEffectsPanel = () => {
                 <AccordionContent className="space-y-2 p-2 pt-0">
                     {postProcessingSettings.sharpen?.enabled && <>
                         <Label>Intensity: {(postProcessingSettings.sharpen?.intensity || 0.3).toFixed(2)}</Label><Slider value={[postProcessingSettings.sharpen?.intensity || 0.3]} onValueChange={([v])=>handleSlider('sharpen','intensity',v)} min={0} max={1} step={0.01}/>
+                        <Label htmlFor="sharpen-technique">Technique (WIP)</Label>
+                        <Select value={postProcessingSettings.sharpen?.technique || 'unsharp_mask'} disabled>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="unsharp_mask">Unsharp Mask</SelectItem><SelectItem value="simple_laplacian">Simple Laplacian</SelectItem></SelectContent>
+                        </Select>
                         <Label>Radius (WIP): {(postProcessingSettings.sharpen?.radius || 1.0).toFixed(1)}</Label><Slider value={[postProcessingSettings.sharpen?.radius || 1.0]} min={0.1} max={3.0} step={0.1} disabled/>
                     </>}
                 </AccordionContent>
@@ -224,10 +242,85 @@ const PostProcessingEffectsPanel = () => {
                                 <SelectItem value="uncharted2">Uncharted 2</SelectItem>
                             </SelectContent>
                         </Select>
+                        <Label>Exposure Bias (WIP): {(postProcessingSettings.toneMapping?.exposureBias || 0).toFixed(2)}</Label><Slider value={[postProcessingSettings.toneMapping?.exposureBias || 0]} min={-2} max={2} step={0.01} disabled/>
                     </>}
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
+
+         {/* Film Grain */}
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-filmgrain" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                         <span className="flex items-center gap-1.5"><SlidersHorizontal size={14}/> Film Grain (WIP)</span>
+                         <Switch checked={postProcessingSettings.filmGrain?.enabled} onCheckedChange={()=>handleToggle('filmGrain','enabled')} onClick={(e)=>e.stopPropagation()} disabled/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.filmGrain?.enabled && <>
+                        <Label>Intensity: {(postProcessingSettings.filmGrain?.intensity || 0.1).toFixed(2)}</Label><Slider value={[postProcessingSettings.filmGrain?.intensity || 0.1]} min={0} max={1} step={0.01} disabled/>
+                        <Label>Size: {(postProcessingSettings.filmGrain?.size || 1.0).toFixed(2)}</Label><Slider value={[postProcessingSettings.filmGrain?.size || 1.0]} min={0.1} max={5} step={0.1} disabled/>
+                        <div className="flex items-center space-x-2"><Checkbox id="filmgrain-animated" checked={!!postProcessingSettings.filmGrain?.animated} disabled/><Label htmlFor="filmgrain-animated" className="font-normal">Animated</Label></div>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+
+         {/* Lens Flares */}
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-lensflares" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                         <span className="flex items-center gap-1.5"><Sun size={14}/> Lens Flares (WIP)</span>
+                         <Switch checked={postProcessingSettings.lensFlares?.enabled} onCheckedChange={()=>handleToggle('lensFlares','enabled')} onClick={(e)=>e.stopPropagation()} disabled/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.lensFlares?.enabled && <>
+                        <Label htmlFor="lensflare-type">Type</Label>
+                        <Select value={postProcessingSettings.lensFlares?.type || 'anamorphic'} disabled>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="anamorphic">Anamorphic</SelectItem><SelectItem value="ghosts">Ghosts & Halos</SelectItem></SelectContent>
+                        </Select>
+                        <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><UploadCloud size={12} className="mr-1"/>Upload Flare Texture</Button>
+                        <Label>Intensity: {(postProcessingSettings.lensFlares?.intensity || 0.2).toFixed(2)}</Label><Slider value={[postProcessingSettings.lensFlares?.intensity || 0.2]} min={0} max={1} step={0.01} disabled/>
+                        <Label>Threshold: {(postProcessingSettings.lensFlares?.threshold || 0.9).toFixed(2)}</Label><Slider value={[postProcessingSettings.lensFlares?.threshold || 0.9]} min={0} max={1} step={0.01} disabled/>
+                        <Label>Count: {postProcessingSettings.lensFlares?.count || 5}</Label><Slider value={[postProcessingSettings.lensFlares?.count || 5]} min={1} max={20} step={1} disabled/>
+                        <Label>Scale: {(postProcessingSettings.lensFlares?.scale || 1).toFixed(2)}</Label><Slider value={[postProcessingSettings.lensFlares?.scale || 1]} min={0.1} max={5} step={0.1} disabled/>
+                        <Label htmlFor="lensflare-color">Color</Label><Input id="lensflare-color" type="color" value={postProcessingSettings.lensFlares?.color || '#FFFFFF'} className="h-7 w-full" disabled/>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+
+
+        {/* Depth of Field (Post) */}
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-dofpost" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                         <span className="flex items-center gap-1.5"><Aperture size={14}/> Depth of Field (Post - WIP)</span>
+                         <Switch checked={postProcessingSettings.depthOfField_Post?.enabled} onCheckedChange={()=>handleToggle('depthOfField_Post','enabled')} onClick={(e)=>e.stopPropagation()} disabled/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.depthOfField_Post?.enabled && <>
+                        <Label>Focus Distance: {(postProcessingSettings.depthOfField_Post?.focusDistance || 10).toFixed(1)}</Label><Slider value={[postProcessingSettings.depthOfField_Post?.focusDistance || 10]} min={0.1} max={100} step={0.1} disabled/>
+                        <Label>Aperture (f-stop): {(postProcessingSettings.depthOfField_Post?.aperture || 2.8).toFixed(1)}</Label><Slider value={[postProcessingSettings.depthOfField_Post?.aperture || 2.8]} min={0.5} max={32} step={0.1} disabled/>
+                        <Label>Focal Length (mm): {(postProcessingSettings.depthOfField_Post?.focalLength || 50).toFixed(0)}</Label><Slider value={[postProcessingSettings.depthOfField_Post?.focalLength || 50]} min={10} max={300} step={1} disabled/>
+                        <Label htmlFor="dof-bokeh">Bokeh Shape</Label>
+                        <Select value={postProcessingSettings.depthOfField_Post?.bokehShape || 'circle'} disabled>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="circle">Circle</SelectItem><SelectItem value="hexagon">Hexagon</SelectItem><SelectItem value="custom_texture">Custom Texture (WIP)</SelectItem></SelectContent>
+                        </Select>
+                        <Label>Bokeh Scale: {(postProcessingSettings.depthOfField_Post?.bokehScale || 1).toFixed(2)}</Label><Slider value={[postProcessingSettings.depthOfField_Post?.bokehScale || 1]} min={0.1} max={5} step={0.1} disabled/>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+
+
 
         <p className="text-xs text-muted-foreground text-center pt-1 italic">Post-Processing effects for rendering. Most are WIP.</p>
       </div>
