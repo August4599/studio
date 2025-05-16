@@ -1,18 +1,20 @@
 
-
 "use client";
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit } from '@/types';
-import { DEFAULT_MATERIAL_ID } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit, SceneLayer } from '@/types'; // Added SceneLayer
+import { DEFAULT_MATERIAL_ID, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; // Added Layer Defaults
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit' | 'layers' | 'activeLayerId'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
+  layers: SceneLayer[]; // Added layers
+  activeLayerId: string; // Added activeLayerId
+
   appMode: AppMode;
   activePaintMaterialId: string | null | undefined;
   drawingState: DrawingState;
@@ -39,6 +41,13 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   updateLight: (id: string, updates: Partial<SceneLight>) => void;
   removeLight: (id: string) => void;
   getLightById: (id: string) => SceneLight | undefined;
+  
+  addLayer: (props?: Partial<Omit<SceneLayer, 'id'>>) => SceneLayer; // Added
+  updateLayer: (id: string, updates: Partial<SceneLayer>) => void; // Added
+  removeLayer: (id: string) => void; // Added
+  setActiveLayerId: (id: string) => void; // Added
+  getLayerById: (id: string) => SceneLayer | undefined; // Added
+
   loadScene: (data: SceneData) => void; 
   clearCurrentProjectScene: () => void; 
   selectedObjectId: string | null | undefined;
@@ -63,29 +72,30 @@ const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
   const [sceneData, setSceneData] = useState<SceneData>(() => {
     const data = initialSceneOverride || initialSceneDataBlueprint;
-    // Ensure all new fields have defaults
     return { 
-      ...getDefaultSceneData(), // Start with full defaults
-      ...data, // Override with provided data
+      ...getDefaultSceneData(), 
+      ...data, 
       cameraFov: data.cameraFov ?? getDefaultSceneData().cameraFov,
       worldBackgroundColor: data.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
       renderSettings: data.renderSettings ? { ...getDefaultSceneData().renderSettings, ...data.renderSettings } : getDefaultSceneData().renderSettings,
       measurementUnit: data.measurementUnit ?? getDefaultSceneData().measurementUnit,
       zoomExtentsTrigger: data.zoomExtentsTrigger || { timestamp: 0 },
+      layers: data.layers && data.layers.length > 0 ? data.layers : getDefaultSceneData().layers, // Added
+      activeLayerId: data.activeLayerId || getDefaultSceneData().activeLayerId, // Added
      };
   });
 
   const sceneObjectsRef = useRef(sceneData.objects);
   const sceneMaterialsRef = useRef(sceneData.materials);
   const sceneOtherLightsRef = useRef(sceneData.otherLights);
+  const sceneLayersRef = useRef(sceneData.layers); // Added
 
 
   useEffect(() => {
     if (initialSceneOverride) {
         setSceneData(prev => ({
-            ...getDefaultSceneData(), // Ensure all defaults are present
-            ...initialSceneOverride, // Apply overrides
-            // Ensure objects, materials, otherlights from initialSceneOverride are used if present, else from defaults
+            ...getDefaultSceneData(), 
+            ...initialSceneOverride, 
             objects: initialSceneOverride.objects || prev.objects || getDefaultSceneData().objects,
             materials: initialSceneOverride.materials || prev.materials || getDefaultSceneData().materials,
             otherLights: initialSceneOverride.otherLights || prev.otherLights || getDefaultSceneData().otherLights,
@@ -93,7 +103,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
             renderSettings: initialSceneOverride.renderSettings ? { ...getDefaultSceneData().renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? getDefaultSceneData().renderSettings),
             measurementUnit: initialSceneOverride.measurementUnit ?? prev.measurementUnit ?? getDefaultSceneData().measurementUnit,
-            zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || { timestamp: 0 } 
+            zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || { timestamp: 0 },
+            layers: initialSceneOverride.layers && initialSceneOverride.layers.length > 0 ? initialSceneOverride.layers : (prev.layers ?? getDefaultSceneData().layers), // Added
+            activeLayerId: initialSceneOverride.activeLayerId || prev.activeLayerId || getDefaultSceneData().activeLayerId, // Added
         }));
     }
   }, [initialSceneOverride]);
@@ -102,7 +114,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     sceneObjectsRef.current = sceneData.objects;
     sceneMaterialsRef.current = sceneData.materials;
     sceneOtherLightsRef.current = sceneData.otherLights;
-  }, [sceneData.objects, sceneData.materials, sceneData.otherLights]);
+    sceneLayersRef.current = sceneData.layers; // Added
+  }, [sceneData.objects, sceneData.materials, sceneData.otherLights, sceneData.layers]); // Added sceneData.layers
 
 
   const setAppMode = useCallback((mode: AppMode) => {
@@ -183,6 +196,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       dimensions: { ...defaultDimensions, ...initialProps?.dimensions },
       materialId: initialProps?.materialId || DEFAULT_MATERIAL_ID,
       visible: initialProps?.visible ?? true,
+      layerId: initialProps?.layerId || sceneData.activeLayerId || DEFAULT_LAYER_ID, // Assign to active layer or default
+      modifiers: [], // Initialize empty modifiers array
     };
     
     setSceneData(prev => ({
@@ -192,7 +207,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       drawingState: {...(prev.drawingState || getDefaultSceneData().drawingState), isActive: false, startPoint: null, currentPoint: null }, 
     }));
     return newObject;
-  }, []); 
+  }, [sceneData.activeLayerId]); 
 
   const importCadPlan = useCallback(async (parsedPlan: Partial<SceneObject>): Promise<SceneObject | null> => {
     if (!parsedPlan || parsedPlan.type !== 'cadPlan' || !parsedPlan.planData) {
@@ -211,6 +226,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         materialId: parsedPlan.materialId || DEFAULT_MATERIAL_ID, 
         visible: parsedPlan.visible ?? true,
         planData: parsedPlan.planData,
+        layerId: parsedPlan.layerId || sceneData.activeLayerId || DEFAULT_LAYER_ID,
     };
 
     setSceneData(prev => ({
@@ -222,7 +238,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     }));
     console.log("CAD Plan object added/updated in scene:", cadPlanObject);
     return cadPlanObject;
-  }, []);
+  }, [sceneData.activeLayerId]);
 
 
   const updateObject = useCallback((id: string, updates: Partial<SceneObject>) => {
@@ -247,7 +263,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
           const oldDimensionRelevantToYPos = heightLikeDimensionKey ? obj.dimensions[heightLikeDimensionKey] : undefined;
           
           const dimensionChanged = dimensionRelevantToYPos !== undefined && oldDimensionRelevantToYPos !== undefined && dimensionRelevantToYPos !== oldDimensionRelevantToYPos;
-          const positionNotExplicitlySet = updates.position === undefined; // Only auto-adjust if position isn't part of THIS update
+          const positionNotExplicitlySet = updates.position === undefined; 
           const isUpright = Math.abs(updatedObj.rotation[0]) < 0.01 && Math.abs(updatedObj.rotation[2]) < 0.01; 
 
           if ((isYUpObject || isTorus) && dimensionChanged && positionNotExplicitlySet && isUpright) {
@@ -401,6 +417,51 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
 
+  // Layer Management Functions
+  const addLayer = useCallback((props?: Partial<Omit<SceneLayer, 'id'>>): SceneLayer => {
+    const currentLayers = sceneLayersRef.current || [];
+    const newLayer: SceneLayer = {
+      id: uuidv4(),
+      name: `Layer ${currentLayers.length}`,
+      visible: true,
+      locked: false,
+      color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`, // Random color
+      ...props,
+    };
+    setSceneData(prev => ({
+      ...prev,
+      layers: [...(prev.layers || []), newLayer],
+    }));
+    return newLayer;
+  }, []);
+
+  const updateLayer = useCallback((id: string, updates: Partial<SceneLayer>) => {
+    setSceneData(prev => ({
+      ...prev,
+      layers: (prev.layers || []).map(layer => layer.id === id ? { ...layer, ...updates } : layer),
+    }));
+  }, []);
+
+  const removeLayer = useCallback((id: string) => {
+    if (id === DEFAULT_LAYER_ID) return; // Prevent deleting default layer
+    setSceneData(prev => ({
+      ...prev,
+      layers: (prev.layers || []).filter(layer => layer.id !== id),
+      // Optionally, reassign objects on this layer to the default layer
+      objects: (prev.objects || []).map(obj => obj.layerId === id ? { ...obj, layerId: DEFAULT_LAYER_ID } : obj),
+      activeLayerId: prev.activeLayerId === id ? DEFAULT_LAYER_ID : prev.activeLayerId,
+    }));
+  }, []);
+
+  const setActiveLayerId = useCallback((id: string) => {
+    setSceneData(prev => ({ ...prev, activeLayerId: id }));
+  }, []);
+  
+  const getLayerById = useCallback((id: string): SceneLayer | undefined => {
+    return sceneLayersRef.current?.find(layer => layer.id === id);
+  }, []);
+
+
   const loadScene = useCallback((data: SceneData) => {
     const defaultData = getDefaultSceneData();
     if (data && data.objects && data.materials && data.ambientLight && data.directionalLight) {
@@ -416,6 +477,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         cameraFov: data.cameraFov ?? defaultData.cameraFov,
         worldBackgroundColor: data.worldBackgroundColor ?? defaultData.worldBackgroundColor,
         renderSettings: data.renderSettings ? { ...defaultData.renderSettings, ...data.renderSettings } : defaultData.renderSettings,
+        layers: data.layers && data.layers.length > 0 ? data.layers : defaultData.layers,
+        activeLayerId: data.activeLayerId || defaultData.activeLayerId,
       });
     } else {
       console.error("Invalid scene data provided to loadScene, loading default scene.");
@@ -431,12 +494,14 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     const { 
       objects, materials, ambientLight, directionalLight, otherLights,
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit,
-      requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings
+      requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings,
+      layers, activeLayerId // Added layers and activeLayerId
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit, 
-      requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings
+      requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings,
+      layers: layers || [], activeLayerId: activeLayerId || DEFAULT_LAYER_ID // Added layers and activeLayerId
     };
   }, [sceneData]);
 
@@ -522,6 +587,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   
   const contextValue = useMemo(() => ({
     ...sceneData,
+    layers: sceneData.layers || [], // Ensure layers is always an array
+    activeLayerId: sceneData.activeLayerId || DEFAULT_LAYER_ID, // Ensure activeLayerId has a default
     setAppMode,
     addObject,
     importCadPlan,
@@ -538,6 +605,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     updateLight,
     removeLight,
     getLightById,
+    addLayer, // Added
+    updateLayer, // Added
+    removeLayer, // Added
+    setActiveLayerId, // Added
+    getLayerById, // Added
     loadScene,
     clearCurrentProjectScene,
     activeTool: sceneData.activeTool,
@@ -559,7 +631,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setWorldBackgroundColor,
     renderSettings: sceneData.renderSettings ?? getDefaultSceneData().renderSettings,
     updateRenderSettings,
-  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings]);
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, addLayer, updateLayer, removeLayer, setActiveLayerId, getLayerById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings]);
 
   return (
     <SceneContext.Provider value={contextValue}>
@@ -575,4 +647,3 @@ export const useScene = (): SceneContextType => {
   }
   return context;
 };
-

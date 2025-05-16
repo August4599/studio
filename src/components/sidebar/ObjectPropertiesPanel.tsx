@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useScene } from "@/context/scene-context";
-import type { SceneObject } from "@/types"; 
-import { SquarePen, Trash2, PlusCircle, Layers as LayersIcon, Lock, Unlock, Group, Ungroup, Sigma, Bevel, Shell, BoxSelect, Link, Copy, ExternalLink, Info, Rotate3d, ScaleIcon, MoveIcon as TransformMoveIcon } from "lucide-react";
+import type { SceneObject, ModifierType } from "@/types"; 
+import { SquarePen, Trash2, PlusCircle, Layers as LayersIcon, Lock, Unlock, Group, Ungroup, Sigma, Bevel, Shell, BoxSelect, Link, Copy, ExternalLink, Info, Rotate3d, ScaleIcon, MoveIcon as TransformMoveIcon, Grid3X3 } from "lucide-react"; // Added more icons
 import {
   Select,
   SelectContent,
@@ -103,7 +103,7 @@ const DimensionInput: React.FC<{
 
 
 const ObjectPropertiesPanel = () => {
-  const { selectedObjectId, objects, updateObject, removeObject, materials, getMaterialById } = useScene();
+  const { selectedObjectId, objects, updateObject, removeObject, materials, getMaterialById, layers, activeLayerId } = useScene();
   const [selectedObject, setSelectedObject] = useState<SceneObject | null>(null);
   const { toast } = useToast();
 
@@ -175,12 +175,15 @@ const ObjectPropertiesPanel = () => {
     }
   };
 
-  // Mock layers for dropdown - in a real app, this would come from LayersPanel/Context
-  const mockLayers = [
-    { id: 'default-layer-0', name: 'Default Layer' },
-    { id: 'layer-walls', name: 'Walls' },
-    { id: 'layer-furniture', name: 'Furniture' },
-  ];
+  const handleLayerChange = (newLayerId: string) => {
+     if (selectedObject && !selectedObject.locked) {
+      updateObject(selectedObject.id, { layerId: newLayerId });
+      const layerName = layers.find(l => l.id === newLayerId)?.name || "Selected Layer";
+      toast({title: "Layer Changed", description: `${selectedObject.name} moved to ${layerName}.`});
+    }
+  };
+
+  const modifierTypes: ModifierType[] = ['bevel', 'subdivision', 'solidify', 'array', 'mirror', 'lattice', 'boolean', 'displacement', 'skin', 'shell', 'path_deform', 'ffd', 'cloth', 'hair_fur'];
 
 
   if (!selectedObject) {
@@ -229,27 +232,35 @@ const ObjectPropertiesPanel = () => {
                         <span>Type: {selectedObject.type.charAt(0).toUpperCase() + selectedObject.type.slice(1)}</span>
                     </div>
                     <div className="space-y-1">
-                        <Label htmlFor="object-layer">Layer (Tag) (WIP)</Label>
-                        <Select value={selectedObject.layerId || 'default-layer-0'} onValueChange={(val) => handleInputChange('layerId', val)} disabled={isLocked}>
+                        <Label htmlFor="object-layer">Layer (Tag)</Label>
+                        <Select value={selectedObject.layerId || activeLayerId} onValueChange={handleLayerChange} disabled={isLocked}>
                             <SelectTrigger id="object-layer" className="h-9 text-sm"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                {mockLayers.map(layer => <SelectItem key={layer.id} value={layer.id} className="text-sm">{layer.name}</SelectItem>)}
+                                {layers.map(layer => <SelectItem key={layer.id} value={layer.id} className="text-sm">{layer.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
-                     <div className="space-y-1"> {/* Component/Group Info Placeholder */}
+                     <div className="space-y-1"> 
                         <Label className="text-xs">Component/Group Info (WIP)</Label>
-                        <div className="p-2 bg-muted/30 rounded-md text-xs text-muted-foreground">
-                            {selectedObject.isGroup ? "This is a Group." : (selectedObject.parentId ? `Instance of: Component XYZ (WIP)` : "Not a component/group.")}
-                            { (selectedObject.isGroup || selectedObject.parentId) && <Button variant="outline" size="xs" className="mt-1 h-6 text-[10px]" disabled>Edit Group/Component</Button>}
+                        <div className="p-2 bg-muted/30 rounded-md text-xs text-muted-foreground space-y-1">
+                            <p>{selectedObject.isGroup ? "This is a Group." : (selectedObject.parentId ? `Instance of: Component XYZ (WIP)` : "Not a component/group.")}</p>
+                            <div className="flex gap-1">
+                                <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Make Component</Button>
+                                {(selectedObject.isGroup || selectedObject.parentId) && <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Edit Group/Component</Button>}
+                            </div>
                         </div>
                     </div>
-                     <div className="space-y-1"> {/* Calculated Info Placeholder */}
+                     <div className="space-y-1"> 
                         <Label className="text-xs">Calculated Info (WIP)</Label>
                         <div className="p-2 bg-muted/30 rounded-md text-xs text-muted-foreground">
                             <p>Volume: N/A m³</p>
                             <p>Surface Area: N/A m²</p>
                         </div>
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs">Custom Attributes (WIP)</Label>
+                         <Textarea placeholder="Key: Value pairs (e.g., Price: 100)" className="h-16 text-xs" disabled/>
+                         <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Add Attribute</Button>
                     </div>
                 </AccordionContent>
             </AccordionItem>
@@ -289,7 +300,6 @@ const ObjectPropertiesPanel = () => {
                         <DimensionInput label="Depth (Z)" value={selectedObject.dimensions.depth} onChange={val => handleDimensionChange('depth', val)} disabled={isLocked}/>
                       </>
                     )}
-                    {/* ... (other primitive dimension inputs remain similar, add disabled={isLocked}) ... */}
                      {selectedObject.type === 'cylinder' && (
                       <>
                         <DimensionInput label="Radius Top" value={selectedObject.dimensions.radiusTop} onChange={val => handleDimensionChange('radiusTop', val)} disabled={isLocked}/>
@@ -366,49 +376,40 @@ const ObjectPropertiesPanel = () => {
         </Accordion>
         
 
-        {/* Material Assignment Section - Simplified to a display and button to go to material editor */}
-        <div className="pt-2 border-t mt-2 space-y-1">
-            <Label className="text-xs font-medium">Material</Label>
-            <div className="p-2 bg-muted/30 rounded-md flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    {currentMaterial && <div style={{backgroundColor: currentMaterial.color}} className="w-4 h-4 rounded-sm border shrink-0"/>}
-                    <span className="text-xs truncate">{currentMaterial ? (currentMaterial.name || currentMaterial.id) : "No Material"}</span>
-                </div>
-                <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Edit Material (Go to Materials Tab)</Button>
-            </div>
-        </div>
-        
         {/* Modifier Stack Placeholder */}
-        <div className="pt-2 border-t mt-2">
-            <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-modifiers">
-                    <AccordionTrigger className="text-xs hover:no-underline py-2">
-                        <div className="flex items-center gap-1.5"><Sigma size={14}/> Modifier Stack (WIP)</div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-2 p-1">
-                        <ScrollArea className="h-[120px] border rounded-sm p-1 bg-muted/20">
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="item-modifiers">
+                <AccordionTrigger className="text-xs hover:no-underline px-2 py-2.5">
+                    <div className="flex items-center gap-1.5"><Sigma size={14}/> Modifier Stack (WIP)</div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-1">
+                    <ScrollArea className="h-[120px] border rounded-sm p-1 bg-muted/20">
+                        {selectedObject.modifiers && selectedObject.modifiers.length > 0 ? (
+                            selectedObject.modifiers.map(mod => (
+                                <div key={mod.id} className="text-[10px] p-1 border-b flex justify-between items-center">
+                                    <span>{mod.type.charAt(0).toUpperCase() + mod.type.slice(1)}</span>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive opacity-50 hover:opacity-100" disabled><Trash2 size={10}/></Button>
+                                </div>
+                            ))
+                        ) : (
                             <p className="text-center text-muted-foreground text-[10px] py-2">No modifiers applied.</p>
-                            {/* Placeholder for modifier list items: 
-                                <div className="text-[10px] p-1 border-b">Bevel Modifier (Strength: 0.1, Segments: 2)</div>
-                            */}
-                        </ScrollArea>
-                        <Select disabled>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Add Modifier"/></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="bevel" className="text-xs"><Bevel size={12} className="inline mr-1"/> Bevel</SelectItem>
-                                <SelectItem value="subdivision" className="text-xs"><Shell size={12} className="inline mr-1"/> Subdivision Surface</SelectItem>
-                                <SelectItem value="solidify" className="text-xs"><LayersIcon size={12} className="inline mr-1"/> Solidify</SelectItem>
-                                <SelectItem value="array" className="text-xs"><Copy size={12} className="inline mr-1"/> Array</SelectItem>
-                                <SelectItem value="mirror" className="text-xs"><Link size={12} className="inline mr-1"/> Mirror</SelectItem>
-                                <SelectItem value="boolean" className="text-xs"><Sigma size={12} className="inline mr-1"/> Boolean</SelectItem>
-                                <SelectItem value="displacement" className="text-xs"><ExternalLink size={12} className="inline mr-1"/> Displacement</SelectItem>
-                                <SelectItem value="lattice" className="text-xs"><Grid3X3 size={12} className="inline mr-1"/> Lattice (WIP)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
-        </div>
+                        )}
+                    </ScrollArea>
+                    <Select disabled>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Add Modifier"/></SelectTrigger>
+                        <SelectContent>
+                            {modifierTypes.map(modType => (
+                                <SelectItem key={modType} value={modType} className="text-xs">
+                                     {/* Conceptual: Add icons per modifier type later */}
+                                    {modType.charAt(0).toUpperCase() + modType.slice(1)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     <p className="text-[10px] text-muted-foreground italic">Modifier stack and parameters are WIP.</p>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
         
         <div className="grid grid-cols-2 gap-2 pt-2 border-t mt-2">
             <Button variant="outline" size="sm" className="text-xs h-8" onClick={handleLockToggle} title={selectedObject.locked ? "Unlock Object" : "Lock Object"}>

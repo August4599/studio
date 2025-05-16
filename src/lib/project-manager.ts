@@ -1,15 +1,14 @@
 
-
-import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings, MeasurementUnit } from '@/types';
+import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings, MeasurementUnit, SceneLayer } from '@/types'; // Added SceneLayer
 import { v4 as uuidv4 } from 'uuid';
-import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from '@/types';
+import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; // Added Layer Defaults
 
 const PROJECTS_STORAGE_KEY = 'archiVisionProjects';
 
 const initialDefaultMaterial: MaterialProperties = {
   id: DEFAULT_MATERIAL_ID,
   name: DEFAULT_MATERIAL_NAME,
-  color: '#D0D0D0', // Default modelling color
+  color: '#D0D0D0', 
   roughness: 0.6,
   metalness: 0.3,
   opacity: 1.0,
@@ -55,13 +54,22 @@ const initialRenderSettings: RenderSettings = {
   samples: 128,
 };
 
+const initialDefaultLayer: SceneLayer = {
+  id: DEFAULT_LAYER_ID,
+  name: DEFAULT_LAYER_NAME,
+  visible: true,
+  locked: false,
+  color: '#888888', // A neutral default color
+  objectCount: 0,
+};
+
 
 export const getDefaultSceneData = (): SceneData => ({
   objects: [],
   materials: [initialDefaultMaterial],
   ambientLight: { 
     color: '#ffffff',
-    intensity: 0.7, // Default for rendering mode
+    intensity: 1.0, // Adjusted for modelling mode based on previous changes
   },
   directionalLight: initialDirectionalLight,
   otherLights: [], 
@@ -74,8 +82,10 @@ export const getDefaultSceneData = (): SceneData => ({
   requestedViewPreset: null,
   zoomExtentsTrigger: { timestamp: 0 },
   cameraFov: 60, 
-  worldBackgroundColor: '#333333', // Default world bg for rendering
+  worldBackgroundColor: '#000000', // Black for modelling mode
   renderSettings: initialRenderSettings,
+  layers: [initialDefaultLayer], // Initialize with default layer
+  activeLayerId: DEFAULT_LAYER_ID, // Set default layer as active
 });
 
 

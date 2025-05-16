@@ -1,7 +1,7 @@
 
-
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
 
+// Modifier Types - Conceptual Placeholders
 export type ModifierType = 
   | 'bevel' | 'subdivision' | 'solidify' | 'array' | 'mirror' | 'lattice' | 'boolean' | 'displacement'
   | 'skin' | 'shell' | 'path_deform' | 'ffd' | 'cloth' | 'hair_fur'; // More conceptual modifiers
@@ -112,6 +112,13 @@ export interface SceneObjectDimensions {
   fontSize?: number; 
 }
 
+export interface AppliedModifier { // WIP
+  id: string;
+  type: ModifierType;
+  enabled: boolean;
+  properties: Record<string, any>; // Modifier-specific properties
+}
+
 export interface SceneObject {
   id:string;
   type: PrimitiveType;
@@ -125,11 +132,11 @@ export interface SceneObject {
   planData?: CadPlanData; 
   locked?: boolean; 
   layerId?: string; 
-  modifiers?: any[]; 
-  parentId?: string; 
-  isGroup?: boolean; 
-  isComponentDefinition?: boolean; 
-  componentInstanceId?: string; 
+  modifiers?: AppliedModifier[]; // WIP
+  parentId?: string; // WIP
+  isGroup?: boolean; // WIP
+  isComponentDefinition?: boolean; // WIP
+  componentInstanceId?: string; // WIP for instances of components
   customAttributes?: Record<string, any>; // WIP for user properties
 }
 
@@ -262,13 +269,7 @@ export type ToolType =
   | 'zoomWindow' 
   | 'zoomExtents'
   | 'lookAround'
-  | 'walk'
-  | 'addCube'
-  | 'addCylinder'
-  | 'addPlane'
-  | 'addSphere'
-  | 'addCone'
-  | 'addTorus';
+  | 'walk';
 
 
 export interface PushPullFaceInfo {
@@ -367,8 +368,12 @@ export interface SceneLayer {
   visible: boolean;
   locked: boolean;
   color?: string; 
-  objectCount?: number; 
+  objectCount?: number; // WIP: for displaying in UI
 }
+
+export const DEFAULT_LAYER_ID = 'default-layer-0';
+export const DEFAULT_LAYER_NAME = 'Default Layer';
+
 
 export interface SavedSceneView { 
   id: string;
@@ -480,6 +485,3 @@ export interface SceneData {
 
 export const DEFAULT_MATERIAL_ID = 'default-material-archvision'; 
 export const DEFAULT_MATERIAL_NAME = 'ArchiVision Default';
-
-export const DEFAULT_LAYER_ID = 'default-layer-0';
-export const DEFAULT_LAYER_NAME = 'Default Layer';

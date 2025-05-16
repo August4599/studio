@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useScene } from '@/context/scene-context';
-import { Eye, EyeOff, Trash2, LayoutList, ChevronDown, Lock, Unlock, Group, Ungroup, Search, Box, Component, Link2Off } from 'lucide-react';
+import { Eye, EyeOff, Trash2, LayoutList, ChevronDown, Lock, Unlock, Group, Ungroup, Search, Box, Component, Link2Off, SquareFunction, Cylinder, Plane as PlaneIcon, Globe, Cone, Torus, FileText, CaseSensitive } from 'lucide-react'; // Added more icons
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,10 +59,23 @@ const ObjectHierarchyPanel = () => {
     setVisibleItemsCount(prevCount => Math.min(prevCount + ITEMS_PER_PAGE, filteredObjects.length));
   };
   
-  const getObjectIcon = (type: string, isGroup?: boolean, parentId?: string) => {
-    if (isGroup) return <Group size={12} className="mr-1 text-blue-400"/>;
-    if (parentId) return <Component size={12} className="mr-1 text-green-400"/>; // Conceptual: component instance
-    return <Box size={12} className="mr-1 text-muted-foreground/80"/>; // Default icon
+  const getObjectIcon = (type: PrimitiveType, isGroup?: boolean, parentId?: string) => {
+    if (isGroup) return <Group size={12} className="mr-1 text-blue-400 shrink-0"/>;
+    if (parentId) return <Component size={12} className="mr-1 text-green-400 shrink-0"/>; 
+    
+    switch(type) {
+        case 'cube': return <Box size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'cylinder': return <Cylinder size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'plane': return <PlaneIcon size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'sphere': return <Globe size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'cone': return <Cone size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'torus': return <Torus size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'text': return <CaseSensitive size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+        case 'polygon': return <SquareFunction size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>; // Placeholder for Polygon
+        case 'circle': return <SquareFunction size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>; // Placeholder for Circle (could use Circle icon)
+        case 'cadPlan': return <FileText size={12} className="mr-1 text-purple-400 shrink-0"/>;
+        default: return <Box size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
+    }
   }
 
   return (
@@ -102,13 +115,12 @@ const ObjectHierarchyPanel = () => {
                   selectedObjectId === obj.id && "bg-primary/20 ring-1 ring-primary"
                 )}
                 onClick={() => selectObject(obj.id)}
-                title={`Name: ${obj.name}\nType: ${obj.type}\nLayer: ${obj.layerId || 'Default'}\nID: ${obj.id.substring(0,8)}...`}
+                title={`Name: ${obj.name}\nType: ${obj.type}\nLayer: ${obj.layerId || 'Default Layer'}\nID: ${obj.id.substring(0,8)}...`}
               >
                 <div className="flex items-center gap-1 overflow-hidden flex-grow">
                   {getObjectIcon(obj.type, obj.isGroup, obj.parentId)}
                   <span className={cn("truncate", !(obj.visible ?? true) && "line-through text-muted-foreground/70", obj.locked && "opacity-70")}>
                     {obj.name} 
-                    {/* <span className="text-muted-foreground/60 text-[10px] ml-1">({obj.type})</span> */}
                   </span>
                 </div>
                 <div className="flex items-center shrink-0">
@@ -174,7 +186,7 @@ const ObjectHierarchyPanel = () => {
             Load More ({filteredObjects.length - visibleItemsCount} remaining)
           </Button>
         )}
-         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">WIP: Drag & drop for parenting, context menus for group/component actions.</p>
+         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">WIP: Drag & drop parenting, context menus, advanced grouping.</p>
       </AccordionContent>
     </AccordionItem>
   );
