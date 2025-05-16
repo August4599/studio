@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from '@/components/ui/checkbox';
-import { Palette, Settings2, Text, Ruler, MousePointer2, Move, RotateCcw, Maximize2, ChevronsUpDown, Eraser, Square, Minus, Circle as LucideCircle, Hexagon, Edit3, Spline, Target, Copy, Slice, Sigma, Layers, Orbit, Hand, ZoomIn, Expand, Triangle, Disc, Filter, Link, Unlink, Construction, CornerRightDown, CornerLeftUp, Eye, Sparkles } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Palette, Settings2, Text, Ruler, MousePointer2, Move, RotateCcw, Maximize2, ChevronsUpDown, Eraser, Square, Minus, Circle as LucideCircle, Hexagon, Edit3, Spline, Target, Copy, Slice, Sigma, Layers, Orbit, Hand, ZoomIn, Expand, Triangle, Disc, Filter, Link, Unlink, Construction, CornerRightDown, CornerLeftUp, Eye, Sparkles, Framer, Move3d, DraftingCompass, SigmaSquare, BoxSelect, GitBranchPlus, MinusSquare, Users, Share2, Scissors, Waves, PenTool, ListFilter, EyeOff, Grid, Dot, Maximize, Minimize } from 'lucide-react';
 
 const ToolPropertiesPanel: React.FC = () => {
   const { activeTool, drawingState, setDrawingState, measurementUnit, setMeasurementUnit, activePaintMaterialId, getMaterialById } = useScene();
@@ -34,12 +35,20 @@ const ToolPropertiesPanel: React.FC = () => {
                 <SelectItem value="intersect" className="text-xs">Intersect with Selection (Shift+Ctrl)</SelectItem>
               </SelectContent>
             </Select>
+            <div className="flex items-center space-x-2 pt-1">
+              <Checkbox id="select-window-crossing" disabled/>
+              <Label htmlFor="select-window-crossing" className="text-xs font-normal text-muted-foreground">Window/Crossing (WIP)</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="select-paint" disabled/>
+              <Label htmlFor="select-paint" className="text-xs font-normal text-muted-foreground">Paint Selection (WIP)</Label>
+            </div>
             <Label className="text-xs font-medium pt-2">Filters (WIP)</Label>
             <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Filter size={12} className="mr-1"/> By Type</Button>
+                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><ListFilter size={12} className="mr-1"/> By Type</Button>
                 <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Layers size={12} className="mr-1"/> By Layer/Tag</Button>
                 <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Palette size={12} className="mr-1"/> By Material</Button>
-                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Eye size={12} className="mr-1"/> By Visibility</Button>
+                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><EyeOff size={12} className="mr-1"/> By Visibility</Button>
             </div>
              <Label className="text-xs font-medium pt-2">Selection Sets (WIP)</Label>
              <Input placeholder="New selection set name..." className="h-7 text-xs" disabled/>
@@ -161,7 +170,7 @@ const ToolPropertiesPanel: React.FC = () => {
                 <Input id="arc-radius" type="number" className="h-8 text-xs" disabled/>
                 <Label htmlFor="arc-segments" className="text-xs">Segments</Label>
                 <Input id="arc-segments" type="number" defaultValue="12" className="h-8 text-xs" disabled/>
-                 <Label htmlFor="arc-type" className="text-xs">Arc Creation Method</Label>
+                 <Label htmlFor="arc-type" className="text-xs">Arc Creation Method (WIP)</Label>
                 <Select value={activeTool} onValueChange={(val) => setDrawingState({ tool: val as ToolType })} disabled>
                     <SelectTrigger id="arc-type" className="h-8 text-xs"><SelectValue/></SelectTrigger>
                     <SelectContent>
@@ -207,11 +216,27 @@ const ToolPropertiesPanel: React.FC = () => {
             </div>
         );
       case 'followme':
-        return <p className="text-xs text-muted-foreground italic">Follow Me: Select path, then profile to extrude. (WIP)</p>;
+        return (
+          <div className='space-y-1'>
+            <p className="text-xs text-muted-foreground italic">Follow Me (WIP)</p>
+            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Pick Path</Button>
+            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Pick Profile</Button>
+          </div>
+        );
       case 'intersectFaces':
       case 'intersectWithModel':
       case 'intersectWithSelection':
       case 'intersectWithContext':
+        return (
+          <div className='space-y-2'>
+            <Label className="text-xs font-medium">Intersect Faces (WIP)</Label>
+            <RadioGroup defaultValue="model" disabled>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="model" id="int-model"/><Label htmlFor="int-model" className="text-xs font-normal">With Model</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="selection" id="int-selection"/><Label htmlFor="int-selection" className="text-xs font-normal">With Selection</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="context" id="int-context"/><Label htmlFor="int-context" className="text-xs font-normal">With Context</Label></div>
+            </RadioGroup>
+          </div>
+        );
       case 'outerShell': 
       case 'solidUnion':
       case 'solidSubtract':
@@ -219,16 +244,15 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'solidTrim':
         return (
             <div className="space-y-2">
-                 <Label className="text-xs font-medium">Solid Tools / Intersect (WIP)</Label>
+                 <Label className="text-xs font-medium">Solid Tools (WIP)</Label>
                 <Select disabled>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Operation" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="union" className="text-xs flex items-center gap-1"><Sigma size={12}/> Union</SelectItem>
-                    <SelectItem value="subtract" className="text-xs flex items-center gap-1"><Sigma size={12}/> Subtract</SelectItem>
-                    <SelectItem value="intersect" className="text-xs flex items-center gap-1"><Sigma size={12}/> Intersect</SelectItem>
-                    <SelectItem value="trim" className="text-xs flex items-center gap-1"><Sigma size={12}/> Trim</SelectItem>
-                    <SelectItem value="split" className="text-xs flex items-center gap-1"><Sigma size={12}/> Split</SelectItem>
-                    <SelectItem value="outerShell" className="text-xs flex items-center gap-1"><Sigma size={12}/> Outer Shell</SelectItem>
+                    <SelectItem value="outerShell" className="text-xs flex items-center gap-1"><BoxSelect size={12}/> Outer Shell</SelectItem>
+                    <SelectItem value="union" className="text-xs flex items-center gap-1"><GitBranchPlus size={12}/> Union</SelectItem>
+                    <SelectItem value="subtract" className="text-xs flex items-center gap-1"><MinusSquare size={12}/> Subtract</SelectItem>
+                    <SelectItem value="intersect" className="text-xs flex items-center gap-1"><Combine size={12}/> Intersect</SelectItem>
+                    <SelectItem value="trim" className="text-xs flex items-center gap-1"><Scissors size={12}/> Trim</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground italic">Select multiple objects to perform solid operations.</p>
@@ -268,14 +292,15 @@ const ToolPropertiesPanel: React.FC = () => {
             </Select>
             <Label className="text-xs font-medium pt-1">Snapping (WIP)</Label>
             <div className="grid grid-cols-2 gap-1">
-                <div className="flex items-center space-x-1"><Checkbox id="snap-vertex" disabled/><Label htmlFor="snap-vertex" className="text-xs font-normal text-muted-foreground">Vertex</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-edge" disabled/><Label htmlFor="snap-edge" className="text-xs font-normal text-muted-foreground">Edge</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-face" disabled/><Label htmlFor="snap-face" className="text-xs font-normal text-muted-foreground">Face</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-midpoint" disabled/><Label htmlFor="snap-midpoint" className="text-xs font-normal text-muted-foreground">Midpoint</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-perpendicular" disabled/><Label htmlFor="snap-perpendicular" className="text-xs font-normal text-muted-foreground">Perpendicular</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-parallel" disabled/><Label htmlFor="snap-parallel" className="text-xs font-normal text-muted-foreground">Parallel</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-grid" disabled/><Label htmlFor="snap-grid" className="text-xs font-normal text-muted-foreground">Grid</Label></div>
-                <div className="flex items-center space-x-1"><Checkbox id="snap-increment" disabled/><Label htmlFor="snap-increment" className="text-xs font-normal text-muted-foreground">Increment</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-vertex" disabled/><Label htmlFor="snap-vertex" className="text-xs font-normal text-muted-foreground"><Dot size={10} className="inline"/> Vertex</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-edge" disabled/><Label htmlFor="snap-edge" className="text-xs font-normal text-muted-foreground"><Minus size={10} className="inline"/> Edge</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-face" disabled/><Label htmlFor="snap-face" className="text-xs font-normal text-muted-foreground"><Square size={10} className="inline"/> Face</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-midpoint" disabled/><Label htmlFor="snap-midpoint" className="text-xs font-normal text-muted-foreground"><SplitSquareVertical size={10} className="inline"/> Midpoint</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-perpendicular" disabled/><Label htmlFor="snap-perpendicular" className="text-xs font-normal text-muted-foreground"><CornerRightDown size={10} className="inline"/> Perp.</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-parallel" disabled/><Label htmlFor="snap-parallel" className="text-xs font-normal text-muted-foreground"><AlignHorizontalSpaceBetween size={10} className="inline"/> Parallel</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-grid" disabled/><Label htmlFor="snap-grid" className="text-xs font-normal text-muted-foreground"><Grid size={10} className="inline"/> Grid</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-increment" disabled/><Label htmlFor="snap-increment" className="text-xs font-normal text-muted-foreground"><Maximize size={10} className="inline"/> Increment</Label></div>
+                 <div className="flex items-center space-x-1"><Checkbox id="snap-extension" disabled/><Label htmlFor="snap-extension" className="text-xs font-normal text-muted-foreground"><Spline size={10} className="inline"/> Extension</Label></div>
             </div>
              <div className="flex items-center space-x-2 pt-1">
                 <Checkbox id="tape-create-guides" disabled/>
@@ -408,10 +433,12 @@ const ToolPropertiesPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3 p-1"> {/* Ensure overall padding for the panel */}
+    <div className="space-y-3 p-1"> 
       {renderToolOptions()}
     </div>
   );
 };
 
 export default ToolPropertiesPanel;
+
+    

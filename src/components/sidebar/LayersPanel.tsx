@@ -6,20 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Layers, Eye, EyeOff, Lock, Unlock, PlusCircle, Trash2, Edit3, Check, X, Palette as ColorPaletteIcon, Tag } from 'lucide-react';
+import { Layers, Eye, EyeOff, Lock, Unlock, PlusCircle, Trash2, Edit3, Check, X, Palette as ColorPaletteIcon, Tag, Pickaxe, FolderSearch } from 'lucide-react';
 import { useScene } from '@/context/scene-context';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { SceneLayer } from '@/types';
-import { DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; // Import defaults
+import { DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; 
 
 const LayersPanel = () => {
-  const { layers, addLayer, updateLayer, removeLayer, activeLayerId, setActiveLayerId } = useScene();
+  const { layers, addLayer, updateLayer, removeLayer, activeLayerId, setActiveLayerId, objects } = useScene(); // Added objects
   const { toast } = useToast();
   
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingLayerName, setEditingLayerName] = useState<string>('');
   const [editingLayerColor, setEditingLayerColor] = useState<string>('#888888');
+
+  const getObjectCountForLayer = (layerId: string) => {
+    return objects.filter(obj => (obj.layerId || DEFAULT_LAYER_ID) === layerId).length;
+  }
 
   const handleAddLayerUI = () => {
     const newLayerName = `Layer ${layers.length}`; 
@@ -53,7 +57,6 @@ const LayersPanel = () => {
     if (layer) {
       if (id === DEFAULT_LAYER_ID && !layer.locked) { 
         // Default layer can be unlocked, but perhaps not locked by user in this simple UI
-        // For now, allow toggling. More complex logic could prevent locking Default Layer.
       }
       updateLayer(id, { locked: !layer.locked });
     }
@@ -61,8 +64,7 @@ const LayersPanel = () => {
   
   const handleStartEdit = (layer: SceneLayer) => {
     if (layer.id === DEFAULT_LAYER_ID) {
-      toast({ title: "Action Denied", description: "Cannot edit the Default Layer's name directly.", variant: "default"});
-      // Allow color editing for default layer
+      // Allow color editing for default layer, but not name
       setEditingLayerId(layer.id);
       setEditingLayerName(layer.name); // Keep name as is
       setEditingLayerColor(layer.color || '#888888');
@@ -76,7 +78,7 @@ const LayersPanel = () => {
   const handleSaveEdit = () => {
     if (editingLayerId && (editingLayerName.trim() !== "" || editingLayerId === DEFAULT_LAYER_ID)) {
       const updates: Partial<SceneLayer> = { color: editingLayerColor };
-      if (editingLayerId !== DEFAULT_LAYER_ID) {
+      if (editingLayerId !== DEFAULT_LAYER_ID) { // Only update name if not default layer
         updates.name = editingLayerName.trim();
       }
       updateLayer(editingLayerId, updates);
@@ -114,6 +116,7 @@ const LayersPanel = () => {
                 >
                     <input type="radio" name="active-layer" value={layer.id} checked={activeLayerId === layer.id} onChange={() => setActiveLayerId(layer.id)} className="form-radio h-3 w-3 text-primary focus:ring-primary border-muted-foreground shrink-0 cursor-pointer"/>
                     {editingLayerId === layer.id ? (
+                        <>
                          <Input 
                             type="text" 
                             value={editingLayerName} 
@@ -122,15 +125,16 @@ const LayersPanel = () => {
                             autoFocus
                             onBlur={handleSaveEdit}
                             onKeyDown={(e) => {if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingLayerId(null);}}
-                            disabled={layer.id === DEFAULT_LAYER_ID}
+                            disabled={layer.id === DEFAULT_LAYER_ID} // Name editing disabled for default layer
                         />
+                        </>
                     ) : (
                       <>
                         <div style={{backgroundColor: layer.color || '#888888'}} className="w-3 h-3 rounded-sm border shrink-0" title={`Layer color: ${layer.color}`}/>
                         <span className={cn("truncate", !layer.visible && "line-through text-muted-foreground/70")} title={layer.name}>
                             {layer.name}
                         </span>
-                        <span className="text-muted-foreground/60 text-[10px] ml-auto mr-1">({layer.objectCount || 0})</span>
+                        <span className="text-muted-foreground/60 text-[10px] ml-auto mr-1">({getObjectCountForLayer(layer.id)})</span>
                       </>
                     )}
                 </div>
@@ -160,10 +164,16 @@ const LayersPanel = () => {
             ))}
           </div>
         </ScrollArea>
-        <p className="text-xs text-muted-foreground text-center pt-1 italic">Layer management (WIP for object counts and advanced filtering).</p>
+        <div className="flex gap-1 pt-1 border-t">
+            <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><Pickaxe size={10} className="mr-0.5"/>Select Objects</Button>
+            <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><FolderSearch size={10} className="mr-0.5"/>Move Selection</Button>
+        </div>
+        <p className="text-xs text-muted-foreground text-center pt-1 italic">Layer management (WIP for advanced filtering & isolation).</p>
       </AccordionContent>
     </AccordionItem>
   );
 };
 
 export default LayersPanel;
+
+    

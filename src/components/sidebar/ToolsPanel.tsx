@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2 // Added more icons
+  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, Grid2X2, AreaChart, AlignHorizontalSpaceBetween, AlignVerticalSpaceBetween, StretchHorizontal, StretchVertical, AppWindow, Columns, Asterisk, Waves, Wind as WindIcon, CloudCog, Sparkles, ListFilter, Network, Puzzle, Rows, SigmaSquare, SlidersHorizontal, Variable, Zap, Anchor, Atom, BarChart, Bold, Bot, CircleDot, Code2, Coins, Component, ConciergeBell, Copyleft, Crop, Crosshair, Dices, Diff, Disc2, Disc3, Donut, ExpandIcon, ExternalLinkIcon, Fingerprint, Frame, Gem, GitCommit, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, HardDrive, Hash, Heading1, Heading2, HelpCircle, Highlighter, History, Hourglass, Indent, InfoIcon, Italic, IterationCcw, IterationCw, KanbanSquare, KeySquare, Languages, LayoutDashboard, Link2, ListChecks, ListMinus, ListOrdered, ListPlus, ListTree, LogIn, LogOutIcon, Mail, MapPinIcon, MenuSquare, Mic2, Minimize, MinusSquare, MoonStar, MousePointerClick, Music2, Navigation2, Option, PackageCheck, Percent, PilcrowSquare, PlayCircle, Podcast, Pointer, QuoteIcon, Rat, RectangleHorizontal, Repeat, Route, Rss, RulerIcon, Scaling, ScatterChart, SearchCode, ServerCog, ShapesIcon, ShieldAlert, ShoppingBasket, Snowflake, SortAsc, SortDesc, SpellCheck, SquareCode, StarHalf, Strikethrough, Subscript, Superscript, SwissFranc, Table2, TagIcon, TerminalSquare, TextCursorInput, TextSelect, ThermometerIcon, ThumbsDown, ThumbsUp, ToggleLeftIcon, ToggleRightIcon, Tool, TreesIcon, UnderlineIcon, UnfoldHorizontal, UnfoldVertical, Unlink2, UploadCloudIcon, Volume1, Volume2, VolumeX, Wallet, Webcam, Wifi, Wrench, YoutubeIcon
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -85,13 +85,14 @@ const ToolsPanel = () => {
       tools: [
         { id: 'line', label: 'Line', icon: Minus, action: () => activateGenericTool('line', 'Line Tool', 'Click to define line segments.') }, 
         { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => activateGenericTool('rectangle', 'Rectangle Tool') }, 
-        { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Square, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'WIP: Define base, then angle and width.')}, // Icon Square with slight rotation?
+        { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Framer, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'WIP: Define base, then angle and width.')},
         { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') },
         { 
           id: 'arc', label: 'Arc Tools', icon: Spline, action: () => toggleFlyout('arc'), 
           flyoutTools: [
-            {id: 'arc2Point', label: '2-Point Arc', icon: Spline, isWip: true, action: () => activateGenericTool('arc2Point', '2-Point Arc', 'WIP')},
-            {id: 'arc3Point', label: '3-Point Arc', icon: Spline, isWip: true, action: () => activateGenericTool('arc3Point', '3-Point Arc', 'WIP')},
+            {id: 'arc', label: 'Arc (Center)', icon: Spline, isWip: true, action: () => activateGenericTool('arc', 'Arc Tool (Center)', 'WIP')},
+            {id: 'arc2Point', label: '2-Point Arc', icon: GitMerge, isWip: true, action: () => activateGenericTool('arc2Point', '2-Point Arc', 'WIP')},
+            {id: 'arc3Point', label: '3-Point Arc', icon: Route, isWip: true, action: () => activateGenericTool('arc3Point', '3-Point Arc', 'WIP')},
             {id: 'pie', label: 'Pie', icon: GitBranchPlus, isWip: true, action: () => activateGenericTool('pie', 'Pie Tool', 'WIP')},
           ]
         }, 
@@ -110,28 +111,29 @@ const ToolsPanel = () => {
           flyoutTools: [
             {id: 'intersectWithModel', label: 'With Model', icon: Combine, isWip: true, action: () => activateGenericTool('intersectWithModel', 'Intersect With Model', 'WIP')},
             {id: 'intersectWithSelection', label: 'With Selection', icon: Users, isWip: true, action: () => activateGenericTool('intersectWithSelection', 'Intersect With Selection', 'WIP')},
-             {id: 'intersectWithContext', label: 'With Context', icon: Share2, isWip: true, action: () => activateGenericTool('intersectWithContext', 'Intersect With Context', 'WIP')},
+            {id: 'intersectWithContext', label: 'With Context', icon: Share2, isWip: true, action: () => activateGenericTool('intersectWithContext', 'Intersect With Context', 'WIP')},
           ]
         },
         { 
-          id: 'outerShell', label: 'Solid Tools', icon: Layers, action: () => toggleFlyout('outerShell'), isWip: true, // Conceptual placeholder
+          id: 'outerShell', label: 'Solid Tools', icon: Layers, action: () => toggleFlyout('outerShell'), isWip: true, 
           flyoutTools: [
-            {id: 'solidUnion', label: 'Union', icon: Layers, isWip: true, action: () => activateGenericTool('solidUnion', 'Solid Union', 'WIP')},
-            {id: 'solidSubtract', label: 'Subtract', icon: Scissors, isWip: true, action: () => activateGenericTool('solidSubtract', 'Solid Subtract', 'WIP')},
+            {id: 'outerShell', label: 'Outer Shell', icon: BoxSelect, isWip: true, action: () => activateGenericTool('outerShell', 'Outer Shell', 'WIP')},
+            {id: 'solidUnion', label: 'Union', icon: GitBranchPlus, isWip: true, action: () => activateGenericTool('solidUnion', 'Solid Union', 'WIP')},
+            {id: 'solidSubtract', label: 'Subtract', icon: MinusSquare, isWip: true, action: () => activateGenericTool('solidSubtract', 'Solid Subtract', 'WIP')},
             {id: 'solidIntersect', label: 'Intersect', icon: Combine, isWip: true, action: () => activateGenericTool('solidIntersect', 'Solid Intersect', 'WIP')},
-            {id: 'solidTrim', label: 'Trim', icon: PenTool, isWip: true, action: () => activateGenericTool('solidTrim', 'Solid Trim', 'WIP')},
+            {id: 'solidTrim', label: 'Trim', icon: Scissors, isWip: true, action: () => activateGenericTool('solidTrim', 'Solid Trim', 'WIP')},
           ]
         },
-        { id: 'softenEdges', label: 'Soften Edges', icon: Eraser, isWip: true, action: () => activateGenericTool('softenEdges', 'Soften Edges', 'WIP: Select edges, adjust angle in options.')},
+        { id: 'softenEdges', label: 'Soften Edges', icon: Waves, isWip: true, action: () => activateGenericTool('softenEdges', 'Soften Edges', 'WIP: Select edges, adjust angle in options.')},
       ]
     },
     {
       title: "Construction & Utilities",
       tools: [
         { id: 'tape', label: 'Measure', icon: Ruler, action: () => activateGenericTool('tape', 'Tape Measure', 'Click two points to measure.') }, 
-        { id: 'protractor', label: 'Protractor', icon: Orbit, isWip: true, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.')}, 
-        { id: 'dimension', label: 'Dimension', icon: Spline, isWip: true, action: () => activateGenericTool('dimension', 'Dimension Tool', 'WIP: Add linear, angular, radial dimensions.') },
-        { id: 'axes', label: 'Axes', icon: Move, isWip: true, action: () => activateGenericTool('axes', 'Axes Tool', 'WIP: Relocate model axes.') }, // Reused Move icon
+        { id: 'protractor', label: 'Protractor', icon: DraftingCompass, isWip: true, action: () => activateGenericTool('protractor', 'Protractor Tool', 'Define origin, first axis, then measure angle.')}, 
+        { id: 'dimension', label: 'Dimension', icon: SigmaSquare, isWip: true, action: () => activateGenericTool('dimension', 'Dimension Tool', 'WIP: Add linear, angular, radial dimensions.') },
+        { id: 'axes', label: 'Axes', icon: Move3d, isWip: true, action: () => activateGenericTool('axes', 'Axes Tool', 'WIP: Relocate model axes.') }, 
         { id: 'sectionPlane', label: 'Section Plane', icon: Slice, isWip: true, action: () => activateGenericTool('sectionPlane', 'Section Plane Tool', 'WIP: Create section cuts.') },
         { id: 'addText', label: '3D Text', icon: TextIcon, action: handleAddTextPlaceholder },
         { id: 'paint', label: 'Paint', icon: PaintBucket, action: () => activateGenericTool('paint', 'Paint Bucket', 'Select material, then click object/face.') },
@@ -173,12 +175,10 @@ const ToolsPanel = () => {
             onClick={() => {
               if (tool.isWip) {
                   toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
-                  // Keep the current tool active if WIP tool is clicked, or switch to select
-                  // setActiveTool(activeTool || 'select'); 
                   return;
               }
               if (tool.action) tool.action();
-              else if (tool.id) setActiveTool(tool.id); // Fallback, should be covered by activateGenericTool
+              else if (tool.id) setActiveTool(tool.id); 
             }}
             aria-label={tool.label}
             data-state={activeTool === tool.id ? 'active' : 'inactive'}
@@ -202,12 +202,11 @@ const ToolsPanel = () => {
   );
 
   return (
-    <AccordionItem value="item-tools" className="border-none"> {/* Removed border for cleaner integration */}
-      {/* AccordionTrigger removed as this panel is always visible in its section */}
-      <AccordionContent className="p-0 space-y-1"> {/* p-0 to use full space */}
+    <AccordionItem value="item-tools" className="border-none"> 
+      <AccordionContent className="p-0 space-y-1"> 
         <TooltipProvider delayDuration={100}>
           {toolCategories.map(category => (
-            <div key={category.title} className="space-y-1 py-1 px-1"> {/* Added px-1 */}
+            <div key={category.title} className="space-y-1 py-1 px-1"> 
               <Label className="text-xs font-medium text-muted-foreground px-1 pb-1 block">{category.title}</Label>
               <div className={`grid grid-cols-3 gap-1`}>
                 {category.tools.map(tool => renderToolButton(tool))}
@@ -221,3 +220,5 @@ const ToolsPanel = () => {
 };
 
 export default ToolsPanel;
+
+    

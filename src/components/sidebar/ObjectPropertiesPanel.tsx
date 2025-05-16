@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useScene } from "@/context/scene-context";
-import type { SceneObject, ModifierType } from "@/types"; 
-import { SquarePen, Trash2, PlusCircle, Layers as LayersIcon, Lock, Unlock, Group, Ungroup, Sigma, Bevel, Shell, BoxSelect, Link, Copy, ExternalLink, Info, Rotate3d, ScaleIcon, MoveIcon as TransformMoveIcon, Grid3X3 } from "lucide-react"; // Added more icons
+import type { SceneObject, ModifierType, AppliedModifier } from "@/types"; 
+import { SquarePen, Trash2, PlusCircle, Layers as LayersIcon, Lock, Unlock, Group, Ungroup, Sigma, Bevel, Shell, BoxSelect, Link, Copy, ExternalLink, Info, Rotate3d, ScaleIcon, MoveIcon as TransformMoveIcon, Grid3X3, ChevronsUpDown, ChevronDown, ChevronUp, Eye, EyeOff, CopyIcon, Replace } from "lucide-react"; 
 import {
   Select,
   SelectContent,
@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { v4 as uuidv4 } from 'uuid';
 
 const VectorInput: React.FC<{
   label: string;
@@ -116,12 +117,17 @@ const ObjectPropertiesPanel = () => {
     }
   }, [selectedObjectId, objects]);
 
-  const handleInputChange = useCallback((field: keyof SceneObject | `dimensions.text`, value: any) => {
+  const handleInputChange = useCallback((field: keyof SceneObject | `dimensions.text` | `customAttributes.${string}`, value: any) => {
     if (selectedObject) {
       if (field === 'dimensions.text') {
         const newDimensions = { ...selectedObject.dimensions, text: value as string };
         updateObject(selectedObject.id, { dimensions: newDimensions });
-      } else {
+      } else if (field.startsWith('customAttributes.')) {
+        const attrKey = field.split('.')[1];
+        const newAttributes = { ...(selectedObject.customAttributes || {}), [attrKey]: value };
+        updateObject(selectedObject.id, { customAttributes: newAttributes });
+      }
+      else {
         updateObject(selectedObject.id, { [field as keyof SceneObject]: value });
       }
     }
@@ -183,7 +189,7 @@ const ObjectPropertiesPanel = () => {
     }
   };
 
-  const modifierTypes: ModifierType[] = ['bevel', 'subdivision', 'solidify', 'array', 'mirror', 'lattice', 'boolean', 'displacement', 'skin', 'shell', 'path_deform', 'ffd', 'cloth', 'hair_fur'];
+  const modifierTypes: ModifierType[] = ['bevel', 'subdivision', 'solidify', 'array', 'mirror', 'lattice', 'boolean', 'displacement', 'skin', 'shell', 'path_deform', 'ffd', 'cloth', 'hair_fur', 'noise_modifier', 'smooth_modifier', 'uvw_map_modifier', 'edit_poly_modifier', 'curve_modifier', 'shrinkwrap_modifier'];
 
 
   if (!selectedObject) {
@@ -243,16 +249,18 @@ const ObjectPropertiesPanel = () => {
                      <div className="space-y-1"> 
                         <Label className="text-xs">Component/Group Info (WIP)</Label>
                         <div className="p-2 bg-muted/30 rounded-md text-xs text-muted-foreground space-y-1">
-                            <p>{selectedObject.isGroup ? "This is a Group." : (selectedObject.parentId ? `Instance of: Component XYZ (WIP)` : "Not a component/group.")}</p>
+                            <p>{selectedObject.isGroup ? "This is a Group." : (selectedObject.componentInstanceId ? `Instance of: ${selectedObject.name} (Main)` : (selectedObject.isComponentDefinition ? "This is a Component Definition." : "Not a component/group."))}</p>
                             <div className="flex gap-1">
-                                <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Make Component</Button>
-                                {(selectedObject.isGroup || selectedObject.parentId) && <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Edit Group/Component</Button>}
+                                <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><Group size={10} className="mr-1"/>Make Group</Button>
+                                <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><LayersIcon size={10} className="mr-1"/>Make Component</Button>
+                                {(selectedObject.isGroup || selectedObject.componentInstanceId) && <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><ExternalLink size={10} className="mr-1"/>Edit Group/Component</Button>}
                             </div>
                         </div>
                     </div>
                      <div className="space-y-1"> 
                         <Label className="text-xs">Calculated Info (WIP)</Label>
                         <div className="p-2 bg-muted/30 rounded-md text-xs text-muted-foreground">
+                            <p>Vertices: N/A, Edges: N/A, Faces: N/A</p>
                             <p>Volume: N/A m³</p>
                             <p>Surface Area: N/A m²</p>
                         </div>
@@ -358,7 +366,7 @@ const ObjectPropertiesPanel = () => {
                             onChange={(e) => handleInputChange('dimensions.text', e.target.value)}
                             className="h-16 text-sm"
                             placeholder="Enter 3D text (WIP)"
-                            disabled // Text rendering itself is WIP
+                            disabled 
                           />
                         </div>
                         <DimensionInput label="Font Size (WIP)" value={selectedObject.dimensions.fontSize} onChange={val => handleDimensionChange('fontSize', val)} min={0.01} max={100} disabled/>
@@ -385,10 +393,19 @@ const ObjectPropertiesPanel = () => {
                 <AccordionContent className="space-y-2 p-2 pt-1">
                     <ScrollArea className="h-[120px] border rounded-sm p-1 bg-muted/20">
                         {selectedObject.modifiers && selectedObject.modifiers.length > 0 ? (
-                            selectedObject.modifiers.map(mod => (
-                                <div key={mod.id} className="text-[10px] p-1 border-b flex justify-between items-center">
-                                    <span>{mod.type.charAt(0).toUpperCase() + mod.type.slice(1)}</span>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive opacity-50 hover:opacity-100" disabled><Trash2 size={10}/></Button>
+                            selectedObject.modifiers.map((mod, index) => (
+                                <div key={mod.id} className="text-[10px] p-1.5 border-b flex justify-between items-center group hover:bg-muted/40">
+                                    <div className="flex items-center gap-1">
+                                      <Checkbox checked={mod.enabled} disabled className="h-3.5 w-3.5"/>
+                                      <Checkbox checked={mod.showInViewport} disabled className="h-3.5 w-3.5"/>
+                                      <span className="truncate">{mod.name || mod.type.charAt(0).toUpperCase() + mod.type.slice(1)}</span>
+                                    </div>
+                                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled><ChevronUp size={10}/></Button>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled><ChevronDown size={10}/></Button>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled><CopyIcon size={10}/></Button>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" disabled><Trash2 size={10}/></Button>
+                                    </div>
                                 </div>
                             ))
                         ) : (
@@ -400,8 +417,7 @@ const ObjectPropertiesPanel = () => {
                         <SelectContent>
                             {modifierTypes.map(modType => (
                                 <SelectItem key={modType} value={modType} className="text-xs">
-                                     {/* Conceptual: Add icons per modifier type later */}
-                                    {modType.charAt(0).toUpperCase() + modType.slice(1)}
+                                    {modType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -444,3 +460,5 @@ const ObjectPropertiesPanel = () => {
 };
 
 export default ObjectPropertiesPanel;
+
+    

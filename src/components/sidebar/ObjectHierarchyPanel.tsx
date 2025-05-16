@@ -10,7 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useScene } from '@/context/scene-context';
-import { Eye, EyeOff, Trash2, LayoutList, ChevronDown, Lock, Unlock, Group, Ungroup, Search, Box, Component, Link2Off, SquareFunction, Cylinder, Plane as PlaneIcon, Globe, Cone, Torus, FileText, CaseSensitive } from 'lucide-react'; // Added more icons
+import type { SceneObject } from '@/types';
+import { Eye, EyeOff, Trash2, LayoutList, ChevronDown, ChevronRight, Lock, Unlock, Group as GroupIcon, Ungroup, Search, Box, Component, Link2Off, SquareFunction, Cylinder, Plane as PlaneIcon, Globe, Cone, Torus, FileText, CaseSensitive, Lightbulb as LightbulbIcon, Camera as CameraIcon, Maximize, Minimize } from 'lucide-react'; 
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ const ObjectHierarchyPanel = () => {
   const { toast } = useToast();
   const [visibleItemsCount, setVisibleItemsCount] = useState(ITEMS_PER_PAGE);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({}); // WIP for group expansion
 
   const handleToggleVisibility = (id: string, currentVisibility?: boolean) => {
     updateObject(id, { visible: !(currentVisibility ?? true) });
@@ -40,7 +42,7 @@ const ObjectHierarchyPanel = () => {
   const handleToggleLock = (id: string, currentLockState?: boolean) => {
     updateObject(id, { locked: !(currentLockState ?? false) });
     const obj = objects.find(o => o.id === id);
-    toast({ title: `Object ${currentLockState ? "Unlocked" : "Locked"}`, description: `${obj?.name || 'Object'} is now ${currentLockState ? "editable" : "protected from changes via properties panel."}.` });
+    toast({ title: `Object ${currentLockState ? "Unlocked" : "Locked"}`, description: `${obj?.name || 'Object'} is now ${currentLockState ? "editable" : "protected from changes."}.` });
   };
 
 
@@ -59,11 +61,12 @@ const ObjectHierarchyPanel = () => {
     setVisibleItemsCount(prevCount => Math.min(prevCount + ITEMS_PER_PAGE, filteredObjects.length));
   };
   
-  const getObjectIcon = (type: PrimitiveType, isGroup?: boolean, parentId?: string) => {
-    if (isGroup) return <Group size={12} className="mr-1 text-blue-400 shrink-0"/>;
-    if (parentId) return <Component size={12} className="mr-1 text-green-400 shrink-0"/>; 
-    
-    switch(type) {
+  const getObjectIcon = (object: SceneObject) => {
+    if (object.isGroup) return <GroupIcon size={12} className="mr-1 text-blue-400 shrink-0"/>;
+    if (object.isComponentDefinition) return <Component size={12} className="mr-1 text-purple-400 shrink-0"/>;
+    if (object.componentInstanceId) return <Component size={12} className="mr-1 text-green-400 shrink-0"/>;
+    // Basic type icons for non-group/component objects
+    switch(object.type) {
         case 'cube': return <Box size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
         case 'cylinder': return <Cylinder size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
         case 'plane': return <PlaneIcon size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
@@ -71,9 +74,12 @@ const ObjectHierarchyPanel = () => {
         case 'cone': return <Cone size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
         case 'torus': return <Torus size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
         case 'text': return <CaseSensitive size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
-        case 'polygon': return <SquareFunction size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>; // Placeholder for Polygon
-        case 'circle': return <SquareFunction size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>; // Placeholder for Circle (could use Circle icon)
-        case 'cadPlan': return <FileText size={12} className="mr-1 text-purple-400 shrink-0"/>;
+        case 'polygon': return <SquareFunction size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>; 
+        case 'circle': return <SquareFunction size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>; 
+        case 'cadPlan': return <FileText size={12} className="mr-1 text-indigo-400 shrink-0"/>;
+        // Assuming lights and cameras might appear in a full scene graph
+        // case 'point': case 'spot': case 'area': return <LightbulbIcon size={12} className="mr-1 text-yellow-400 shrink-0"/>;
+        // case 'camera': return <CameraIcon size={12} className="mr-1 text-teal-400 shrink-0"/>;
         default: return <Box size={12} className="mr-1 text-muted-foreground/80 shrink-0"/>;
     }
   }
@@ -96,9 +102,13 @@ const ObjectHierarchyPanel = () => {
                     className="h-8 text-xs pl-7"
                 />
             </div>
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Create Group (WIP)"><Group size={14}/></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Create Group (WIP)"><GroupIcon size={14}/></Button>
             <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Make Component (WIP)"><Component size={14}/></Button>
             <Button variant="outline" size="icon" className="h-8 w-8" disabled title="Ungroup/Explode (WIP)"><Link2Off size={14}/></Button>
+        </div>
+        <div className="flex gap-1 p-1 border-b pb-1.5">
+             <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><Maximize size={10} className="mr-0.5"/>Expand All</Button>
+             <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled><Minimize size={10} className="mr-0.5"/>Collapse All</Button>
         </div>
         <ScrollArea className="h-[250px] w-full rounded-md border">
           {displayedObjects.length === 0 && (
@@ -118,7 +128,8 @@ const ObjectHierarchyPanel = () => {
                 title={`Name: ${obj.name}\nType: ${obj.type}\nLayer: ${obj.layerId || 'Default Layer'}\nID: ${obj.id.substring(0,8)}...`}
               >
                 <div className="flex items-center gap-1 overflow-hidden flex-grow">
-                  {getObjectIcon(obj.type, obj.isGroup, obj.parentId)}
+                  {obj.isGroup && <ChevronRight size={12} className="mr-0.5 shrink-0" />} {/* WIP for expansion */}
+                  {getObjectIcon(obj)}
                   <span className={cn("truncate", !(obj.visible ?? true) && "line-through text-muted-foreground/70", obj.locked && "opacity-70")}>
                     {obj.name} 
                   </span>
@@ -186,10 +197,12 @@ const ObjectHierarchyPanel = () => {
             Load More ({filteredObjects.length - visibleItemsCount} remaining)
           </Button>
         )}
-         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">WIP: Drag & drop parenting, context menus, advanced grouping.</p>
+         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">WIP: Drag & drop parenting, context menus, advanced grouping/component workflows.</p>
       </AccordionContent>
     </AccordionItem>
   );
 };
 
 export default ObjectHierarchyPanel;
+
+    
