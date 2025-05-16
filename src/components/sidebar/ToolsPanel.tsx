@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare, MinusSquare
+  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, GroupIcon as LucideGroupIcon, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare, MinusSquare
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -33,14 +33,13 @@ const ToolsPanel = () => {
   const [activeFlyout, setActiveFlyout] = React.useState<ToolType | null>(null);
 
   const handleAddPrimitive = (type: PrimitiveType) => {
-    const newObj = addObject(type as Exclude<PrimitiveType, 'cadPlan'>); // Ensure 'cadPlan' is excluded if not handled by addObject
+    const newObj = addObject(type as Exclude<PrimitiveType, 'cadPlan'>); 
     toast({
       title: "Object Added",
       description: `${newObj.name} added and selected.`,
     });
-    // Drawing tools will remain active, selection/transform tools will take over for primitives
     if (type !== 'cube' && type !== 'cylinder' && type !== 'plane' && type !== 'sphere' && type !== 'cone' && type !== 'torus' && type !== 'text') {
-        setActiveTool(type as ToolType); // e.g. if 'rectangle' was a primitive type
+        setActiveTool(type as ToolType); 
     } else {
         setActiveTool('select'); 
     }
@@ -93,7 +92,7 @@ const ToolsPanel = () => {
         { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Framer, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'WIP: Define base, then angle and width.')},
         { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') }, 
         { 
-          id: 'arc', label: 'Arc Tools', icon: Spline, action: () => toggleFlyout('arc'), 
+          id: 'arc', label: 'Arc Tools', icon: Spline, action: () => toggleFlyout('arc'), isWip: true,
           flyoutTools: [
             {id: 'arc', label: 'Arc (Center)', icon: Spline, isWip: true, action: () => activateGenericTool('arc', 'Arc Tool (Center)', 'WIP')},
             {id: 'arc2Point', label: '2-Point Arc', icon: GitMerge, isWip: true, action: () => activateGenericTool('arc2Point', '2-Point Arc', 'WIP')},
@@ -178,9 +177,8 @@ const ToolsPanel = () => {
             size="icon"
             className={`w-full flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative ${isFlyoutItem ? 'h-12 text-[9px]' : 'h-14'}`}
             onClick={() => {
-              if (tool.isWip && tool.id !== 'orbit' && tool.id !== 'pan' && tool.id !== 'zoomWindow' && tool.id !== 'lookAround' && tool.id !== 'walk') { // Allow WIP nav tools to be selected
+              if (tool.isWip && tool.id !== 'orbit' && tool.id !== 'pan' && tool.id !== 'zoomWindow' && tool.id !== 'lookAround' && tool.id !== 'walk') {
                   toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
-                  // if (tool.id) setActiveTool(tool.id); // Don't activate if it's just a placeholder action
                   return;
               }
               if (tool.action) tool.action();
