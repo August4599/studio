@@ -16,7 +16,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
 import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { Sidebar, SidebarProvider, SidebarTrigger, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton, SidebarGroup, SidebarGroupLabel, SidebarSeparator, SidebarInset, SidebarRail } from "@/components/ui/sidebar";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
 const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
@@ -29,9 +29,10 @@ const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
   ),
 });
 
+const COLLAPSED_NODE_EDITOR_PERCENTAGE = 7;
 
 const ArchiVisionLayout: React.FC = () => {
-  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState } = useScene();
+  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState, appMode } = useScene();
   const { toast } = useToast();
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
 
@@ -93,7 +94,7 @@ const ArchiVisionLayout: React.FC = () => {
              toolToSet = 'circle';
              toolLabel = 'Circle Tool';
              break;
-          case 'R':
+          case 'R': // Shift + R for Rectangle tool
             event.preventDefault();
             toolToSet = 'rectangle';
             toolLabel = 'Rectangle Tool';
@@ -124,8 +125,8 @@ const ArchiVisionLayout: React.FC = () => {
       <MainToolbar />
       <div className="flex flex-row flex-grow overflow-hidden">
         <ToolsSidebar />
-          <ResizablePanelGroup direction="vertical" className="flex-grow">
-            <ResizablePanel defaultSize={isNodeEditorOpen ? 65 : 99} minSize={30}>
+        <ResizablePanelGroup direction="vertical" className="flex-grow">
+            <ResizablePanel defaultSize={isNodeEditorOpen ? 65 : (100 - COLLAPSED_NODE_EDITOR_PERCENTAGE)} minSize={30}>
               <div className="flex-grow relative h-full w-full">
                 <SceneViewer />
                 <ViewportOverlayControls />
@@ -133,14 +134,13 @@ const ArchiVisionLayout: React.FC = () => {
             </ResizablePanel>
             <ResizableHandle withHandle={isNodeEditorOpen} className={!isNodeEditorOpen ? "hidden" : ""} />
             <ResizablePanel 
-              defaultSize={isNodeEditorOpen ? 35 : 1} 
-              minSize={isNodeEditorOpen ? 20 : 1} 
-              maxSize={isNodeEditorOpen ? 60 : 1}
+              defaultSize={isNodeEditorOpen ? 35 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
+              minSize={isNodeEditorOpen ? 20 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
+              maxSize={isNodeEditorOpen ? 60 : COLLAPSED_NODE_EDITOR_PERCENTAGE}
               collapsible={true} 
-              collapsedSize={1}
+              collapsedSize={COLLAPSED_NODE_EDITOR_PERCENTAGE}
               onCollapse={() => setIsNodeEditorOpen(false)}
               onExpand={() => setIsNodeEditorOpen(true)}
-              className={!isNodeEditorOpen ? "min-h-[2.8rem]" : ""}
             >
               <NodeEditorPanel isOpen={isNodeEditorOpen} onToggle={toggleNodeEditor} />
             </ResizablePanel>
@@ -178,10 +178,11 @@ const AppCore: React.FC = () => {
 export default function ArchiVisionAppPage() {
   return (
     <ProjectProvider>
-      <SidebarProvider defaultOpen side="left"> {/* Wrap AppCore with SidebarProvider */}
+      <SidebarProvider defaultOpen side="left"> 
         <AppCore />
       </SidebarProvider>
       <Toaster />
     </ProjectProvider>
   );
 }
+
