@@ -5,7 +5,6 @@ import React, { useState, useEffect }from 'react';
 import dynamic from 'next/dynamic';
 import { SceneProvider, useScene } from "@/context/scene-context";
 import { ProjectProvider, useProject } from "@/context/project-context";
-// import SceneViewer from "@/components/scene/viewer"; // Original import
 import MainToolbar from '@/components/layout/main-toolbar';
 import ToolsSidebar from '@/components/sidebar/ToolsSidebar';
 import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel';
@@ -17,11 +16,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
 import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { SidebarProvider } from "@/components/ui/sidebar"; // Assuming this is the correct path for SidebarProvider
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
-
-// Dynamically import SceneViewer
 const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
   ssr: false,
   loading: () => (
@@ -36,11 +33,13 @@ const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
 const ArchiVisionLayout: React.FC = () => {
   const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState } = useScene();
   const { toast } = useToast();
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
+
+  const toggleNodeEditor = () => setIsNodeEditorOpen(!isNodeEditorOpen);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      // Ignore shortcuts if an input, textarea, or contentEditable element is focused
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
@@ -50,7 +49,6 @@ const ArchiVisionLayout: React.FC = () => {
       let newObjectToAdd: PrimitiveType | undefined = undefined;
       let toolLabel: string | undefined = undefined;
 
-      // Standard tool shortcuts (no modifiers)
       if (!event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         switch (key) {
           case 'Q': toolToSet = 'select'; toolLabel = 'Select'; break;
@@ -84,7 +82,6 @@ const ArchiVisionLayout: React.FC = () => {
         }
       }
 
-      // Add primitive shortcuts (Shift + Key)
       if (event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         switch (key) {
           case 'A': 
@@ -96,7 +93,7 @@ const ArchiVisionLayout: React.FC = () => {
              toolToSet = 'circle';
              toolLabel = 'Circle Tool';
              break;
-          case 'R': // Shift + R for Rectangle tool
+          case 'R':
             event.preventDefault();
             toolToSet = 'rectangle';
             toolLabel = 'Rectangle Tool';
@@ -126,24 +123,29 @@ const ArchiVisionLayout: React.FC = () => {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground">
       <MainToolbar />
       <div className="flex flex-row flex-grow overflow-hidden">
-        <SidebarProvider defaultOpen side="left">
-          <ToolsSidebar />
-          <div className="flex flex-col flex-grow relative overflow-hidden">
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={75} minSize={50}>
-                <div className="flex-grow relative h-full"> {/* Ensure this container takes full height */}
-                  <SceneViewer />
-                  <ViewportOverlayControls />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={25} minSize={10} collapsible>
-                <NodeEditorPanel />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
-          <RightInspectorPanel />
-        </SidebarProvider>
+        <ToolsSidebar />
+          <ResizablePanelGroup direction="vertical" className="flex-grow">
+            <ResizablePanel defaultSize={isNodeEditorOpen ? 65 : 99} minSize={30}>
+              <div className="flex-grow relative h-full w-full">
+                <SceneViewer />
+                <ViewportOverlayControls />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle={isNodeEditorOpen} className={!isNodeEditorOpen ? "hidden" : ""} />
+            <ResizablePanel 
+              defaultSize={isNodeEditorOpen ? 35 : 1} 
+              minSize={isNodeEditorOpen ? 20 : 1} 
+              maxSize={isNodeEditorOpen ? 60 : 1}
+              collapsible={true} 
+              collapsedSize={1}
+              onCollapse={() => setIsNodeEditorOpen(false)}
+              onExpand={() => setIsNodeEditorOpen(true)}
+              className={!isNodeEditorOpen ? "min-h-[2.8rem]" : ""}
+            >
+              <NodeEditorPanel isOpen={isNodeEditorOpen} onToggle={toggleNodeEditor} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        <RightInspectorPanel />
       </div>
       <StatusBar />
     </div>
@@ -176,7 +178,9 @@ const AppCore: React.FC = () => {
 export default function ArchiVisionAppPage() {
   return (
     <ProjectProvider>
-      <AppCore />
+      <SidebarProvider defaultOpen side="left"> {/* Wrap AppCore with SidebarProvider */}
+        <AppCore />
+      </SidebarProvider>
       <Toaster />
     </ProjectProvider>
   );

@@ -13,24 +13,26 @@ const ToolsSidebar: React.FC = () => {
   const { appMode } = useScene(); 
 
   if (appMode !== 'modelling') {
+    // In rendering mode, the tools sidebar might be hidden or show different tools.
+    // For now, we'll hide it.
     return null; 
   }
 
   return (
     <div className="w-64 flex flex-col h-full bg-card text-card-foreground border-r shadow-lg flex-none">
       <ResizablePanelGroup direction="vertical">
-        <ResizablePanel defaultSize={65} minSize={40}>
+        <ResizablePanel defaultSize={100} minSize={40}> {/* Tools panel takes full height initially */}
           <div className="p-3 flex items-center gap-2 border-b h-12 flex-none">
             <Construction className="w-5 h-5 text-primary" />
             <h2 className="text-base font-semibold">Modeling Tools</h2>
           </div>
           <ScrollArea className="flex-grow p-1">
-            <Accordion type="multiple" defaultValue={['item-tools']} className="w-full">
-              <ToolsPanel />
-            </Accordion>
+            {/* Accordion might not be needed if ToolsPanel is the only content */}
+            <ToolsPanel />
           </ScrollArea>
         </ResizablePanel>
-        <ResizableHandle withHandle />
+        {/* ToolPropertiesPanel is now in RightInspectorPanel */}
+        {/* <ResizableHandle withHandle />
         <ResizablePanel defaultSize={35} minSize={20}>
           <div className="p-3 flex items-center gap-2 border-b h-12 flex-none">
              <Settings2 className="w-5 h-5 text-primary" />
@@ -39,7 +41,7 @@ const ToolsSidebar: React.FC = () => {
           <ScrollArea className="flex-grow p-2">
             <ToolPropertiesPanel />
           </ScrollArea>
-        </ResizablePanel>
+        </ResizablePanel> */}
       </ResizablePanelGroup>
     </div>
   );

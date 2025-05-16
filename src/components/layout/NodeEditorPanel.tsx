@@ -1,12 +1,10 @@
 
-
 "use client";
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Share2, SquareFunction, Palette as PaletteIcon, Image as ImageIcon, Combine, Wand2Icon, Settings, Sigma, Type, Sun, BrainCircuit, Box, Cylinder, Plane, Globe, Torus, MessageSquare, FileInput, FileOutput, Shuffle, Filter, GitCompareArrows, Waves, TextQuote, Sparkles as EffectIcon, CameraIcon, LightbulbIcon, GroupIcon, Layers, GitBranchPlus, AlignHorizontalSpaceAround, Blend, Cog, Cpu, Database, DownloadCloud, FunctionSquare, GitFork, ListFilter, Network, Puzzle, Rows, SigmaSquare, SlidersHorizontal, Variable, Zap, Anchor, Atom, BarChart, Bold, Bot, CircleDot, CloudCog, Code2, Coins, Component, ConciergeBell, Copyleft, Crop, Crosshair, Dices, Diff, Disc2, Disc3, Donut, DraftingCompass, Eraser, ExpandIcon, ExternalLinkIcon, Fingerprint, Frame, Gem, GitCommit, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, HardDrive, Hash, Heading1, Heading2, HelpCircle, Highlighter, History, Hourglass, Indent, InfoIcon, Italic, IterationCcw, IterationCw, KanbanSquare, KeySquare, Languages, LayoutDashboard, Link2, ListChecks, ListMinus, ListOrdered, ListPlus, ListTree, LogIn, LogOutIcon, Mail, MapPinIcon, Maximize, MenuSquare, Mic2, Minimize, MinusSquare, MoonStar, MousePointerClick, Music2, Navigation2, Option, PackageCheck, Percent, PilcrowSquare, PlayCircle, Podcast, Pointer, QuoteIcon, Rat, RectangleHorizontal, Repeat, Route, Rss, RulerIcon, Scaling, ScatterChart, SearchCode, ServerCog, ShapesIcon, ShieldAlert, ShoppingBasket, Snowflake, SortAsc, SortDesc, SpellCheck, SquareCode, StarHalf, Strikethrough, Subscript, Superscript, SwissFranc, Table2, TagIcon, TerminalSquare, TextCursorInput, TextSelect, ThermometerIcon, ThumbsDown, ThumbsUp, ToggleLeftIcon, ToggleRightIcon, Tool, TreesIcon, UnderlineIcon, UnfoldHorizontal, UnfoldVertical, Unlink2, UploadCloudIcon, Volume1, Volume2, VolumeX, Wallet, Webcam, Wifi, WindIcon, Wrench, YoutubeIcon } from 'lucide-react'; // Added more icons
+import React from 'react';
+import { ChevronDown, ChevronUp, Share2, SquareFunction, Palette as PaletteIcon, Image as ImageIcon, Combine, Wand2Icon, Settings, Sigma, Type, Sun, BrainCircuit, Box, Cylinder, Plane, Globe, Torus, MessageSquare, FileInput, FileOutput, Shuffle, Filter, GitCompareArrows, Layers, GitBranchPlus, AlignHorizontalSpaceAround, Blend, Cog, Cpu, Database, DownloadCloud, FunctionSquare, GitFork, ListFilter, Network, Puzzle, Rows, SigmaSquare, SlidersHorizontal, Variable, Zap, Anchor, Atom, BarChart, Bold, Bot, CircleDot, CloudCog, Code2, Coins, Component, ConciergeBell, Copyleft, Crop, Crosshair, Dices, Diff, Disc2, Disc3, Donut, DraftingCompass, Eraser, ExpandIcon, ExternalLinkIcon, Fingerprint, Frame, Gem, GitCommit, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, HardDrive, Hash, Heading1, Heading2, HelpCircle, Highlighter, History, Hourglass, Indent, InfoIcon, Italic, IterationCcw, IterationCw, KanbanSquare, KeySquare, Languages, LayoutDashboard, Link2, ListChecks, ListMinus, ListOrdered, ListPlus, ListTree, LogIn, LogOutIcon, Mail, MapPinIcon, Maximize, MenuSquare, Mic2, Minimize, MinusSquare, MoonStar, MousePointerClick, Music2, Navigation2, Option, PackageCheck, Percent, PilcrowSquare, PlayCircle, Podcast, Pointer, QuoteIcon, Rat, RectangleHorizontal, Repeat, Route, Rss, RulerIcon, Scaling, ScatterChart, SearchCode, ServerCog, ShapesIcon, ShieldAlert, ShoppingBasket, Snowflake, SortAsc, SortDesc, SpellCheck, SquareCode, StarHalf, Strikethrough, Subscript, Superscript, SwissFranc, Table2, TagIcon, TerminalSquare, TextCursorInput, TextSelect, ThermometerIcon, ThumbsDown, ThumbsUp, ToggleLeftIcon, ToggleRightIcon, Tool, TreesIcon, UnderlineIcon, UnfoldHorizontal, UnfoldVertical, Unlink2, UploadCloudIcon, Volume1, Volume2, VolumeX, Wallet, Webcam, Wifi, WindIcon, Wrench, YoutubeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-// Inline SVG for Node Editor Icon
 const NodeEditorIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 opacity-80">
     <rect x="3" y="3" width="7" height="7" rx="1" ry="1"></rect>
@@ -86,9 +84,12 @@ const NodePlaceholder: React.FC<NodePlaceholderProps> =
   );
 };
 
-const NodeEditorPanel: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false); 
+interface NodeEditorPanelProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
 
+const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ isOpen, onToggle }) => {
   const getNodeEditorTitle = () => "Procedural Editor (Geometry, Materials, Compositing - WIP)";
   
   const typeColors = {
@@ -104,7 +105,7 @@ const NodeEditorPanel: React.FC = () => {
     image: 'indigo',
     camera: 'cyan',
     light: 'lime',
-    object: 'orange', // Changed from amber to orange to differentiate from shader
+    object: 'orange',
     collection: 'rose',
     any: 'gray', 
     converter: 'cyan',
@@ -115,12 +116,11 @@ const NodeEditorPanel: React.FC = () => {
 
   return (
     <div className={cn(
-      "flex-none flex flex-col bg-background border-t overflow-hidden transition-all duration-300 ease-in-out shadow-inner",
-      isOpen ? "h-[40%] min-h-[300px]" : "h-12" 
+      "flex-none flex flex-col bg-background border-t overflow-hidden transition-all duration-300 ease-in-out shadow-inner h-full"
     )}>
       <div 
         className="p-3 border-b bg-card/80 flex justify-between items-center h-12 cursor-pointer hover:bg-muted/30" 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={onToggle}
       >
         <h2 className="text-base font-semibold text-foreground flex items-center">
           <NodeEditorIcon />
@@ -130,7 +130,7 @@ const NodeEditorPanel: React.FC = () => {
           variant="ghost" 
           size="icon" 
           className="h-7 w-7" 
-          aria-label={isOpen ? "Collapse Node Editor" : "Expand Node Editor"}
+          aria-label={isOpen ? "Close Procedural Editor" : "Open Procedural Editor"}
         >
           {isOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
         </Button>
@@ -144,7 +144,6 @@ const NodeEditorPanel: React.FC = () => {
           <NodePlaceholder title="Value" color={typeColors.input} icon={<SlidersHorizontal size={14}/>} inputs={[]} outputs={[{name:'Value', type:'Float', color:typeColors.float}]} position={{top: '10rem', left: '2rem'}} nodeType="input" width="w-36"/>
           <NodePlaceholder title="RGB Color" color={typeColors.input} icon={<PaletteIcon size={14}/>} inputs={[]} outputs={[{name:'Color', type:'Color', color:typeColors.color}]} position={{top: '10rem', left: '13rem'}} nodeType="input" width="w-40"/>
           <NodePlaceholder title="Scene Time" color={typeColors.input} icon={<Hourglass size={14}/>} inputs={[]} outputs={[{name:'Seconds', type:'Float', color:typeColors.float}, {name:'Frame', type:'Int', color:typeColors.int}]} position={{top: '10rem', left: '24rem'}} nodeType="input" width="w-40"/>
-
 
           {/* Group: Geometry Primitives */}
           <NodePlaceholder isGroup={true} groupLabel="Geometry Primitives" title="" color="slate" position={{top: '17rem', left: '1rem'}} width="w-[28rem]" />
@@ -162,7 +161,6 @@ const NodeEditorPanel: React.FC = () => {
           <NodePlaceholder title="Merge by Distance" color={typeColors.geometry} icon={<Unlink2 size={14}/>} inputs={[{name:'Geometry', type:'Geometry', color:typeColors.geometry}, {name:'Distance',type:'Float', color:typeColors.float}]} outputs={[{name:'Geometry', type:'Geometry', color:typeColors.geometry}]} position={{top: '21rem', left: '50rem'}} nodeType="geometry" width="w-60"/>
           <NodePlaceholder title="Scatter Points" color={typeColors.geometry} icon={<ScatterChart size={14}/>} inputs={[{name:'Geometry', type:'Geometry', color:typeColors.geometry}, {name:'Density', type:'Float', color:typeColors.float}]} outputs={[{name:'Points', type:'Geometry', color:typeColors.geometry}]} position={{top: '30rem', left: '33rem'}} nodeType="geometry" width="w-56"/>
 
-
           {/* Group: Texture Nodes */}
           <NodePlaceholder isGroup={true} groupLabel="Texture Nodes" title="" color="slate" position={{top: '1rem', left: '67rem'}} width="w-[30rem]" />
           <NodePlaceholder title="Image Texture" color={typeColors.texture} icon={<ImageIcon size={14}/>} inputs={[{name:'Vector', type:'Vector', color:typeColors.vector}]} outputs={[{name:'Color', type:'Color', color:typeColors.color}, {name:'Alpha', type:'Float', color:typeColors.float}]} position={{top: '3rem', left: '68rem'}} nodeType="texture" width="w-52"/>
@@ -170,7 +168,6 @@ const NodeEditorPanel: React.FC = () => {
           <NodePlaceholder title="Voronoi Texture" color={typeColors.texture} icon={<Donut size={14}/>} inputs={[{name:'Vector', type:'Vector', color:typeColors.vector}, {name:'Scale', type:'Float', color:typeColors.float}]} outputs={[{name:'Distance', type:'Float', color:typeColors.float}, {name:'Color', type:'Color', color:typeColors.color}]} position={{top: '18rem', left: '68rem'}} nodeType="texture" width="w-60"/>
           <NodePlaceholder title="Gradient Texture" color={typeColors.texture} icon={<Blend size={14}/>} inputs={[{name:'Vector',type:'Vector', color:typeColors.vector}]} outputs={[{name:'Color', type:'Color', color:typeColors.color}, {name:'Fac', type:'Float', color:typeColors.float}]} position={{top: '26rem', left: '68rem'}} nodeType="texture" width="w-56"/>
           <NodePlaceholder title="Musgrave Texture" color={typeColors.texture} icon={<Disc3 size={14}/>} inputs={[{name:'Vector',type:'Vector', color:typeColors.vector}, {name:'Scale',type:'Float', color:typeColors.float}]} outputs={[{name:'Fac', type:'Float', color:typeColors.float}]} position={{top: '34rem', left: '68rem'}} nodeType="texture" width="w-60"/>
-
 
           {/* Group: Shader Nodes */}
           <NodePlaceholder isGroup={true} groupLabel="Shaders" title="" color="slate" position={{top: '1rem', left: '100rem'}} width="w-[34rem]" />
@@ -185,19 +182,16 @@ const NodeEditorPanel: React.FC = () => {
           <NodePlaceholder title="Mix Shader" color={typeColors.shader} icon={<Shuffle size={14}/>} inputs={[{name:'Fac', type:'Float', color:typeColors.float}, {name:'Shader 1', type:'Shader', color:typeColors.shader}, {name:'Shader 2', type:'Shader', color:typeColors.shader}]} outputs={[{name:'Shader', type:'Shader', color:typeColors.shader}]} position={{top: '31rem', left: '101rem'}} nodeType="shader" width="w-56"/>
           <NodePlaceholder title="Add Shader" color={typeColors.shader} icon={<GitBranchPlus size={14}/>} inputs={[{name:'Shader 1', type:'Shader', color:typeColors.shader}, {name:'Shader 2', type:'Shader', color:typeColors.shader}]} outputs={[{name:'Shader', type:'Shader', color:typeColors.shader}]} position={{top: '31rem', left: '118rem'}} nodeType="shader" width="w-56"/>
           
-
-           {/* Group: Color / Vector / Converter Nodes */}
+          {/* Group: Color / Vector / Converter Nodes */}
           <NodePlaceholder isGroup={true} groupLabel="Color & Vector & Converters" title="" color="slate" position={{top: '28rem', left: '1rem'}} width="w-[28rem]" />
           <NodePlaceholder title="ColorRamp" color={typeColors.converter} icon={<GitBranchPlus size={14}/>} inputs={[{name:'Fac', type:'Float', color:typeColors.float}]} outputs={[{name:'Color', type:'Color', color:typeColors.color}, {name:'Alpha', type:'Float', color:typeColors.float}]} position={{top: '30rem', left: '2rem'}} nodeType="converter" width="w-48"/>
           <NodePlaceholder title="Vector Math" color={typeColors.converter} icon={<SigmaSquare size={14}/>} inputs={[{name:'Vector A', type:'Vector', color:typeColors.vector},{name:'Vector B', type:'Vector', color:typeColors.vector}]} outputs={[{name:'Vector', type:'Vector', color:typeColors.vector}]} position={{top: '30rem', left: '15rem'}} nodeType="converter" width="w-52"/>
           <NodePlaceholder title="Mapping" color={typeColors.vector} icon={<Network size={14}/>} inputs={[{name:'Vector', type:'Vector', color:typeColors.vector}, {name:'Location', type:'Vector', color:typeColors.vector}, {name:'Rotation', type:'Vector', color:typeColors.vector}, {name:'Scale', type:'Vector', color:typeColors.vector}]} outputs={[{name:'Vector', type:'Vector', color:typeColors.vector}]} position={{top: '38rem', left: '2rem'}} nodeType="vector" width="w-60"/>
 
-
           {/* Group: Outputs */}
            <NodePlaceholder isGroup={true} groupLabel="Outputs" title="" color="slate" position={{top: '1rem', left: '137rem'}} width="w-48" />
           <NodePlaceholder title="Material Output" color={typeColors.output} icon={<FileOutput size={14}/>} inputs={[{name:'Surface', type:'Shader', color:typeColors.shader}, {name:'Displacement', type:'Vector', color:typeColors.vector}]} outputs={[]} position={{top: '3rem', left: '138rem'}} nodeType="output" width="w-44"/>
           <NodePlaceholder title="Geometry Output" color={typeColors.output} icon={<FileOutput size={14}/>} inputs={[{name:'Geometry', type:'Geometry', color:typeColors.geometry}]} outputs={[]} position={{top: '10rem', left: '138rem'}} nodeType="output" width="w-44"/>
-
 
           {/* Placeholder Connections (simple SVG lines) */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
@@ -223,4 +217,3 @@ const NodeEditorPanel: React.FC = () => {
 };
 
 export default NodeEditorPanel;
-
