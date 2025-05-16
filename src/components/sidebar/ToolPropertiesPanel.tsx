@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from '@/components/ui/checkbox';
-import { Palette, Settings2, Text, Ruler, MousePointer2, Move, RotateCcw, Maximize2, ChevronsUpDown, Eraser, Square, Minus, Circle as LucideCircle, Hexagon, Edit3, Spline, Target, Copy, Slice, Sigma, Layers, Orbit, Hand, ZoomIn, Expand, Triangle, Disc } from 'lucide-react';
+import { Palette, Settings2, Text, Ruler, MousePointer2, Move, RotateCcw, Maximize2, ChevronsUpDown, Eraser, Square, Minus, Circle as LucideCircle, Hexagon, Edit3, Spline, Target, Copy, Slice, Sigma, Layers, Orbit, Hand, ZoomIn, Expand, Triangle, Disc, Filter, Link, Unlink, Construction, CornerRightDown, CornerLeftUp, Eye, Sparkles } from 'lucide-react';
 
 const ToolPropertiesPanel: React.FC = () => {
   const { activeTool, drawingState, setDrawingState, measurementUnit, setMeasurementUnit, activePaintMaterialId, getMaterialById } = useScene();
@@ -35,15 +35,15 @@ const ToolPropertiesPanel: React.FC = () => {
               </SelectContent>
             </Select>
             <Label className="text-xs font-medium pt-2">Filters (WIP)</Label>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="filter-type" disabled/><Label htmlFor="filter-type" className="text-xs font-normal text-muted-foreground">By Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Filter size={12} className="mr-1"/> By Type</Button>
+                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Layers size={12} className="mr-1"/> By Layer/Tag</Button>
+                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Palette size={12} className="mr-1"/> By Material</Button>
+                <Button variant="outline" size="xs" className="h-7 text-[10px]" disabled><Eye size={12} className="mr-1"/> By Visibility</Button>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="filter-layer" disabled/><Label htmlFor="filter-layer" className="text-xs font-normal text-muted-foreground">By Layer/Tag</Label>
-            </div>
-             <div className="flex items-center space-x-2">
-              <Checkbox id="filter-material" disabled/><Label htmlFor="filter-material" className="text-xs font-normal text-muted-foreground">By Material</Label>
-            </div>
+             <Label className="text-xs font-medium pt-2">Selection Sets (WIP)</Label>
+             <Input placeholder="New selection set name..." className="h-7 text-xs" disabled/>
+             <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Create Selection Set</Button>
           </div>
         );
       case 'move':
@@ -64,10 +64,11 @@ const ToolPropertiesPanel: React.FC = () => {
             </div>
             <div className="flex items-center space-x-2">
                 <Checkbox id="transform-origin" disabled/>
-                <Label htmlFor="transform-origin" className="text-xs font-normal text-muted-foreground">Use Pivot Point (WIP)</Label>
+                <Label htmlFor="transform-origin" className="text-xs font-normal text-muted-foreground">Use Custom Pivot (WIP)</Label>
             </div>
              {activeTool === 'rotate' && <div className="flex items-center space-x-2"><Checkbox id="copy-rotate" disabled/><Label htmlFor="copy-rotate" className="text-xs font-normal text-muted-foreground">Create Copies (WIP)</Label></div>}
-             {activeTool === 'scale' && <div className="flex items-center space-x-2"><Checkbox id="scale-about-center" disabled/><Label htmlFor="scale-about-center" className="text-xs font-normal text-muted-foreground">Scale About Center (WIP)</Label></div>}
+             {activeTool === 'scale' && <div className="flex items-center space-x-2"><Checkbox id="scale-about-center" disabled/><Label htmlFor="scale-about-center" className="text-xs font-normal text-muted-foreground">Scale Uniformly (WIP)</Label></div>}
+             <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Set Transform Origin (WIP)</Button>
           </div>
         );
       case 'line':
@@ -155,18 +156,27 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'arc3Point':
         return (
             <div className="space-y-2">
-                <p className="text-xs text-muted-foreground italic">Arc properties (WIP)</p>
-                <Label htmlFor="arc-radius" className="text-xs font-medium">Radius (WIP)</Label>
+                <Label className="text-xs font-medium">Arc Properties (WIP)</Label>
+                <Label htmlFor="arc-radius" className="text-xs">Radius</Label>
                 <Input id="arc-radius" type="number" className="h-8 text-xs" disabled/>
-                <Label htmlFor="arc-segments" className="text-xs font-medium">Segments (WIP)</Label>
+                <Label htmlFor="arc-segments" className="text-xs">Segments</Label>
                 <Input id="arc-segments" type="number" defaultValue="12" className="h-8 text-xs" disabled/>
+                 <Label htmlFor="arc-type" className="text-xs">Arc Creation Method</Label>
+                <Select value={activeTool} onValueChange={(val) => setDrawingState({ tool: val as ToolType })} disabled>
+                    <SelectTrigger id="arc-type" className="h-8 text-xs"><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="arc" className="text-xs">Center, Start, End</SelectItem>
+                        <SelectItem value="arc2Point" className="text-xs">2-Point Arc</SelectItem>
+                        <SelectItem value="arc3Point" className="text-xs">3-Point Arc</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
         );
       case 'freehand':
         return (
             <div className="space-y-2">
-                <p className="text-xs text-muted-foreground italic">Freehand tool options (WIP)</p>
-                <Label htmlFor="freehand-smoothing" className="text-xs font-medium">Smoothing (WIP)</Label>
+                <Label className="text-xs font-medium">Freehand Options (WIP)</Label>
+                <Label htmlFor="freehand-smoothing" className="text-xs">Smoothing: 0.5</Label>
                 <Input id="freehand-smoothing" type="range" min="0" max="1" step="0.1" defaultValue="0.5" className="h-8" disabled/>
             </div>
         );
@@ -190,28 +200,52 @@ const ToolPropertiesPanel: React.FC = () => {
                     <Checkbox id="offset-both-sides" disabled/>
                     <Label htmlFor="offset-both-sides" className="text-xs font-normal text-muted-foreground">Offset Both Sides (WIP)</Label>
                 </div>
+                 <div className="flex items-center space-x-2">
+                    <Checkbox id="offset-allow-overlap" disabled/>
+                    <Label htmlFor="offset-allow-overlap" className="text-xs font-normal text-muted-foreground">Allow Overlap (WIP)</Label>
+                </div>
             </div>
         );
       case 'followme':
         return <p className="text-xs text-muted-foreground italic">Follow Me: Select path, then profile to extrude. (WIP)</p>;
       case 'intersectFaces':
-      case 'outerShell': // Assuming this is for Solid Tools
+      case 'intersectWithModel':
+      case 'intersectWithSelection':
+      case 'intersectWithContext':
+      case 'outerShell': 
+      case 'solidUnion':
+      case 'solidSubtract':
+      case 'solidIntersect':
+      case 'solidTrim':
         return (
             <div className="space-y-2">
                  <Label className="text-xs font-medium">Solid Tools / Intersect (WIP)</Label>
                 <Select disabled>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Operation" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="union" className="text-xs">Union</SelectItem>
-                    <SelectItem value="subtract" className="text-xs">Subtract</SelectItem>
-                    <SelectItem value="intersect" className="text-xs">Intersect</SelectItem>
-                    <SelectItem value="trim" className="text-xs">Trim</SelectItem>
-                    {activeTool === 'intersectFaces' && <SelectItem value="model" className="text-xs">Intersect with Model</SelectItem>}
-                    {activeTool === 'intersectFaces' && <SelectItem value="selection" className="text-xs">Intersect with Selection</SelectItem>}
+                    <SelectItem value="union" className="text-xs flex items-center gap-1"><Sigma size={12}/> Union</SelectItem>
+                    <SelectItem value="subtract" className="text-xs flex items-center gap-1"><Sigma size={12}/> Subtract</SelectItem>
+                    <SelectItem value="intersect" className="text-xs flex items-center gap-1"><Sigma size={12}/> Intersect</SelectItem>
+                    <SelectItem value="trim" className="text-xs flex items-center gap-1"><Sigma size={12}/> Trim</SelectItem>
+                    <SelectItem value="split" className="text-xs flex items-center gap-1"><Sigma size={12}/> Split</SelectItem>
+                    <SelectItem value="outerShell" className="text-xs flex items-center gap-1"><Sigma size={12}/> Outer Shell</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground italic">Select multiple objects to perform solid operations.</p>
             </div>
         );
+      case 'softenEdges':
+          return (
+            <div className="space-y-2">
+                <Label className="text-xs font-medium">Soften/Smooth Edges (WIP)</Label>
+                <Label htmlFor="soften-angle" className="text-xs">Angle: 20°</Label>
+                <Input id="soften-angle" type="range" min="0" max="180" step="1" defaultValue="20" className="h-8" disabled/>
+                <div className="flex items-center space-x-2">
+                    <Checkbox id="soften-coplanar" disabled/>
+                    <Label htmlFor="soften-coplanar" className="text-xs font-normal text-muted-foreground">Soften Coplanar</Label>
+                </div>
+            </div>
+          );
       case 'tape':
         return (
           <div className="space-y-2">
@@ -232,11 +266,18 @@ const ToolPropertiesPanel: React.FC = () => {
                 <SelectItem value="in" className="text-xs">Inches (in)</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex items-center space-x-2 pt-1">
-                <Checkbox id="tape-snap-endpoints" disabled/>
-                <Label htmlFor="tape-snap-endpoints" className="text-xs font-normal text-muted-foreground">Snap to Endpoints/Vertices (WIP)</Label>
+            <Label className="text-xs font-medium pt-1">Snapping (WIP)</Label>
+            <div className="grid grid-cols-2 gap-1">
+                <div className="flex items-center space-x-1"><Checkbox id="snap-vertex" disabled/><Label htmlFor="snap-vertex" className="text-xs font-normal text-muted-foreground">Vertex</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-edge" disabled/><Label htmlFor="snap-edge" className="text-xs font-normal text-muted-foreground">Edge</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-face" disabled/><Label htmlFor="snap-face" className="text-xs font-normal text-muted-foreground">Face</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-midpoint" disabled/><Label htmlFor="snap-midpoint" className="text-xs font-normal text-muted-foreground">Midpoint</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-perpendicular" disabled/><Label htmlFor="snap-perpendicular" className="text-xs font-normal text-muted-foreground">Perpendicular</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-parallel" disabled/><Label htmlFor="snap-parallel" className="text-xs font-normal text-muted-foreground">Parallel</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-grid" disabled/><Label htmlFor="snap-grid" className="text-xs font-normal text-muted-foreground">Grid</Label></div>
+                <div className="flex items-center space-x-1"><Checkbox id="snap-increment" disabled/><Label htmlFor="snap-increment" className="text-xs font-normal text-muted-foreground">Increment</Label></div>
             </div>
-             <div className="flex items-center space-x-2">
+             <div className="flex items-center space-x-2 pt-1">
                 <Checkbox id="tape-create-guides" disabled/>
                 <Label htmlFor="tape-create-guides" className="text-xs font-normal text-muted-foreground">Create Guide Lines (WIP)</Label>
             </div>
@@ -245,8 +286,8 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'protractor':
          return (
             <div className="space-y-2">
-                <p className="text-xs text-muted-foreground italic">Protractor options (WIP)</p>
-                <Label htmlFor="protractor-angle" className="text-xs font-medium">Angle (WIP)</Label>
+                <Label className="text-xs font-medium">Protractor Options (WIP)</Label>
+                <Label htmlFor="protractor-angle" className="text-xs">Angle</Label>
                 <Input id="protractor-angle" type="number" placeholder="Enter angle" className="h-8 text-xs" disabled/>
                 <div className="flex items-center space-x-2">
                     <Checkbox id="protractor-guide" disabled/>
@@ -255,19 +296,48 @@ const ToolPropertiesPanel: React.FC = () => {
             </div>
          );
       case 'dimension':
-        return <p className="text-xs text-muted-foreground italic">Dimension Tool options (WIP: Type, Style, Precision).</p>;
+        return (
+            <div className="space-y-2">
+                <Label className="text-xs font-medium">Dimension Tool (WIP)</Label>
+                <Select disabled>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Linear Dimension" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="linear" className="text-xs">Linear</SelectItem>
+                        <SelectItem value="aligned" className="text-xs">Aligned</SelectItem>
+                        <SelectItem value="angular" className="text-xs">Angular</SelectItem>
+                        <SelectItem value="radial" className="text-xs">Radial/Diameter</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Dimension Style Settings...</Button>
+            </div>
+        );
       case 'axes':
-        return <p className="text-xs text-muted-foreground italic">Axes Tool: Click to place origin, then define X, Y axes. (WIP)</p>;
+        return (
+            <div className="space-y-2">
+                <Label className="text-xs font-medium">Axes Tool (WIP)</Label>
+                <p className="text-xs text-muted-foreground italic">Click to place origin, then define X, Y axes to relocate model axes.</p>
+                <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Reset Axes</Button>
+            </div>
+        );
       case 'sectionPlane':
         return (
              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground italic">Section Plane options (WIP)</p>
-                <Label htmlFor="section-name" className="text-xs font-medium">Name (WIP)</Label>
+                <Label className="text-xs font-medium">Section Plane (WIP)</Label>
+                <Label htmlFor="section-name" className="text-xs">Name</Label>
                 <Input id="section-name" placeholder="Section Name" className="h-8 text-xs" disabled/>
                 <div className="flex items-center space-x-2">
                     <Checkbox id="section-active" disabled/>
-                    <Label htmlFor="section-active" className="text-xs font-normal text-muted-foreground">Active Cut (WIP)</Label>
+                    <Label htmlFor="section-active" className="text-xs font-normal text-muted-foreground">Active Cut</Label>
                 </div>
+                 <div className="flex items-center space-x-2">
+                    <Checkbox id="section-fill" disabled/>
+                    <Label htmlFor="section-fill" className="text-xs font-normal text-muted-foreground">Display Section Fill</Label>
+                </div>
+                 <div className="flex items-center space-x-2">
+                    <Checkbox id="section-lines" disabled/>
+                    <Label htmlFor="section-lines" className="text-xs font-normal text-muted-foreground">Display Section Lines</Label>
+                </div>
+                <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Align View to Section</Button>
              </div>
         );
       case 'addText':
@@ -306,10 +376,9 @@ const ToolPropertiesPanel: React.FC = () => {
                     <SelectItem value="all" className="text-xs">All Faces of Object</SelectItem>
                     <SelectItem value="single" className="text-xs">Single Face</SelectItem>
                     <SelectItem value="connected" className="text-xs">Connected Faces (Same Material)</SelectItem>
-                    <SelectItem value="same-material-object" className="text-xs">All Faces with Same Material (Object)</SelectItem>
-                    <SelectItem value="same-material-scene" className="text-xs">All Faces with Same Material (Scene)</SelectItem>
                 </SelectContent>
             </Select>
+             <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><Sparkles size={12} className="mr-1"/> Sample Material (Eyedropper - WIP)</Button>
           </div>
         );
        case 'eraser':
@@ -317,12 +386,11 @@ const ToolPropertiesPanel: React.FC = () => {
           <div className="space-y-2">
             <Label className="text-xs font-medium">Eraser Mode (WIP)</Label>
             <Select disabled>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Delete Objects" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Delete Entities" /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="objects" className="text-xs">Delete Entities</SelectItem>
                     <SelectItem value="soften" className="text-xs">Soften/Smooth Edges</SelectItem>
                     <SelectItem value="hide" className="text-xs">Hide Edges/Faces</SelectItem>
-                    <SelectItem value="unsoften" className="text-xs">Unsoften Edges</SelectItem>
                 </SelectContent>
             </Select>
           </div>
@@ -339,11 +407,8 @@ const ToolPropertiesPanel: React.FC = () => {
     }
   };
 
-  // No overall title for ToolPropertiesPanel if it's a sub-section of ToolsSidebar
-  // The parent ToolsSidebar will have a "Tool Options" title for this section.
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 p-1"> {/* Ensure overall padding for the panel */}
       {renderToolOptions()}
     </div>
   );

@@ -1,23 +1,28 @@
 
+
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
+
+export type ModifierType = 
+  | 'bevel' | 'subdivision' | 'solidify' | 'array' | 'mirror' | 'lattice' | 'boolean' | 'displacement'
+  | 'skin' | 'shell' | 'path_deform' | 'ffd' | 'cloth' | 'hair_fur'; // More conceptual modifiers
 
 // Inspired by PBR properties and V-Ray/D5 material systems
 export interface MaterialProperties {
   id: string;
   name?: string; 
-  materialType?: 'generic' | 'glass' | 'water' | 'foliage' | 'car_paint' | 'cloth' | 'leather' | 'metal' | 'plastic' | 'wood' | 'concrete' | 'emissive_light' | 'velvet' | 'sss'; // Subsurface Scattering
+  materialType?: 'generic' | 'glass' | 'water' | 'foliage' | 'car_paint' | 'cloth' | 'leather' | 'metal' | 'plastic' | 'wood' | 'concrete' | 'emissive_light' | 'velvet' | 'sss' | 'vray_standard' | 'd5_standard'; // Conceptual SOTA types
 
   // Core PBR
-  color: string; // Base diffuse color / Albedo
-  map?: string; // Base color texture (albedo)
+  color: string; 
+  map?: string; 
   roughness: number;
   roughnessMap?: string;
   metalness: number;
   metalnessMap?: string;
   normalMap?: string;
   normalScale?: [number, number]; 
-  aoMap?: string; // Ambient Occlusion map
-  aoIntensity?: number; // WIP
+  aoMap?: string; 
+  aoIntensity?: number;
   
   // Emission
   emissive?: string; 
@@ -28,53 +33,57 @@ export interface MaterialProperties {
   opacity?: number; 
   transparent?: boolean; 
   alphaMap?: string; 
-  alphaMode?: 'opaque' | 'blend' | 'mask'; // WIP for alpha handling
-  alphaCutoff?: number; // WIP for mask mode
-  ior?: number; // Index of Refraction
-  refractionColor?: string; // WIP: Tint for refraction
-  refractionGlossiness?: number; // WIP: Blurry refraction
-  thinWalled?: boolean; // WIP (for thin glass like single-sided planes)
+  alphaMode?: 'opaque' | 'blend' | 'mask'; 
+  alphaCutoff?: number; 
+  ior?: number; 
+  refractionColor?: string; 
+  refractionGlossiness?: number; 
+  thinWalled?: boolean; 
 
   // Displacement / Height
   displacementMap?: string;
   displacementScale?: number;
   displacementBias?: number;
+  tessellationLevel?: number; // WIP for displacement quality
   
   // Advanced Surface
-  clearcoat?: number; // For car paint like effects
+  clearcoat?: number; 
   clearcoatMap?: string;
   clearcoatRoughness?: number; 
   clearcoatRoughnessMap?: string;
   clearcoatNormalMap?: string; 
   
-  sheen?: number; // For cloth/velvet
+  sheen?: number; 
   sheenColor?: string; 
   sheenColorMap?: string;
   sheenRoughness?: number; 
   sheenRoughnessMap?: string;
 
-  // Subsurface Scattering (WIP - for skin, wax, translucent plastics)
-  subsurfaceScattering?: number; // Weight/Factor
-  subsurfaceColor?: string; // SSS Radius Color (overall tint)
-  // subsurfaceRadius?: [number, number, number]; // Actual radius per R,G,B channel - more complex
+  // Subsurface Scattering
+  subsurfaceScattering?: number; 
+  subsurfaceColor?: string; 
+  subsurfaceRadius?: [number, number, number]; // More detailed SSS
 
-  // Anisotropy (WIP - for brushed metal, some fabrics)
+  // Anisotropy
   anisotropy?: number; 
-  anisotropyRotation?: number; // Angle in degrees or radians
+  anisotropyRotation?: number; 
   anisotropyMap?: string; 
 
   // UVW Mapping 
-  uvwMappingType?: 'uv_channel' | 'box' | 'planar' | 'cylindrical' | 'spherical' | 'triplanar' | 'world_space_box'; // Added more options
+  uvwMappingType?: 'uv_channel' | 'box' | 'planar' | 'cylindrical' | 'spherical' | 'triplanar' | 'world_space_box'; 
   uvTiling?: [number, number];
   uvOffset?: [number, number];
-  uvRotation?: number; // Angle in degrees
-  uvChannel?: number; // For multi-UV setups (0, 1, 2...)
-  uvRealWorldScale?: boolean; // WIP (Use real-world units for texture scaling)
-  uvProjectionAxis?: 'x' | 'y' | 'z'; // For planar mapping
-  uvBoxProjectionBlend?: number; // For box/triplanar blend softness
+  uvRotation?: number; 
+  uvChannel?: number; 
+  uvRealWorldScale?: boolean; 
+  uvProjectionAxis?: 'x' | 'y' | 'z'; 
+  uvBoxProjectionBlend?: number; 
+  uvFlip?: { u: boolean, v: boolean }; // WIP
 
   twoSided?: boolean; 
-  brdfType?: 'ggx' | 'phong' | 'blinnphong' | 'ward'; // WIP Bidirectional Reflectance Distribution Function
+  brdfType?: 'ggx' | 'phong' | 'blinnphong' | 'ward' | 'microfacet_ggx' | 'cook_torrance'; // More BRDFs
+  translucency?: number; // WIP for thin materials like paper, leaves
+  translucencyColor?: string; // WIP
 }
 
 export interface CadPlanLine {
@@ -116,11 +125,12 @@ export interface SceneObject {
   planData?: CadPlanData; 
   locked?: boolean; 
   layerId?: string; 
-  modifiers?: any[]; // WIP: Array of modifier configurations
-  parentId?: string; // WIP for grouping
-  isGroup?: boolean; // WIP for grouping
-  isComponentDefinition?: boolean; // WIP for component definitions
-  componentInstanceId?: string; // WIP for instances of components
+  modifiers?: any[]; 
+  parentId?: string; 
+  isGroup?: boolean; 
+  isComponentDefinition?: boolean; 
+  componentInstanceId?: string; 
+  customAttributes?: Record<string, any>; // WIP for user properties
 }
 
 export interface AmbientLightProps {
@@ -128,7 +138,7 @@ export interface AmbientLightProps {
   intensity: number;
 }
 
-export type LightType = 'ambient' | 'directional' | 'point' | 'spot' | 'area' | 'skylight' | 'photometric' | 'sphere' | 'disk' | 'quad'; // Added more specific area light shapes, skylight is often HDRI based
+export type LightType = 'ambient' | 'directional' | 'point' | 'spot' | 'area' | 'skylight' | 'photometric' | 'sphere' | 'disk' | 'quad' | 'cylinder_light' | 'mesh_light'; // More types
 
 export interface BaseLightProps {
   id: string;
@@ -137,78 +147,78 @@ export interface BaseLightProps {
   color: string;
   intensity: number;
   visible?: boolean;
-  castShadow?: boolean; // Common to most shadow-casting lights
-  shadowBias?: number; // Common shadow property
-  shadowRadius?: number; // Softness for shadows (Point, Spot, Area)
-  shadowMapSize?: number; // Resolution (512, 1024, 2048, 4096)
+  castShadow?: boolean; 
+  shadowBias?: number; 
+  shadowRadius?: number; 
+  shadowMapSize?: number; 
+  volumetricContribution?: number; // WIP for per-light volumetrics
+  linkedObjects?: string[]; // WIP for light linking
+  excludedObjects?: string[]; // WIP for light exclusion
 }
 export interface DirectionalLightSceneProps extends BaseLightProps {
   type: 'directional';
-  position: [number, number, number]; // For UI helper gizmo and initial direction calc
-  targetPosition?: [number,number,number]; // Optional target for gizmo, default (0,0,0)
-  // castShadow: boolean; // Moved to BaseLightProps
-  // shadowBias: number; // Moved to BaseLightProps
-  sunAngle?: number; // Angular diameter of the sun for soft shadows
-  sunSize?: number; // Alternative to sunAngle (V-Ray uses size)
-  atmosphereThickness?: number; // For sky color interaction (WIP)
+  position: [number, number, number]; 
+  targetPosition?: [number,number,number]; 
+  sunAngle?: number; 
+  sunSize?: number; 
+  atmosphereThickness?: number; 
 }
 export interface PointLightSceneProps extends BaseLightProps {
   type: 'point';
   position: [number, number, number];
-  distance?: number; // Attenuation distance
-  decay?: number; // 0: none, 1: linear, 2: quadratic (physically correct)
-  // castShadow?: boolean; // Moved
-  // shadowBias?: number; // Moved
-  // radius?: number; // Physical radius for soft shadows (area point light) - now shadowRadius
+  distance?: number; 
+  decay?: number; 
 }
 
 export interface SpotLightSceneProps extends BaseLightProps {
   type: 'spot';
   position: [number, number, number];
   targetPosition?: [number, number, number]; 
-  angle?: number; // Cone angle (radians)
-  penumbra?: number; // Cone edge softness (0-1)
+  angle?: number; 
+  penumbra?: number; 
   distance?: number;
   decay?: number;
-  // castShadow?: boolean; // Moved
-  // shadowBias?: number; // Moved
-  iesProfile?: string; // Path to IES file (WIP)
-  barnDoors?: { top: number, bottom: number, left: number, right: number }; // WIP: 0-1 values
-  aspectRatio?: number; // For rectangular/elliptical spots (WIP)
+  iesProfile?: string; 
+  barnDoors?: { top: number, bottom: number, left: number, right: number }; 
+  aspectRatio?: number; 
 }
 
 export interface AreaLightSceneProps extends BaseLightProps {
-  type: 'area' | 'sphere' | 'disk' | 'quad'; // More specific types for area lights
+  type: 'area' | 'sphere' | 'disk' | 'quad' | 'cylinder_light'; 
   position: [number, number, number];
   rotation?: [number, number, number]; 
-  width?: number;  // For quad/rectangle
-  height?: number; // For quad/rectangle
-  radius?: number; // For disk/sphere
-  shape?: 'rectangle' | 'disk' | 'sphere' | 'cylinder'; // Maintained for consistency if needed, but type often implies shape
-  isPortal?: boolean; // For skylight portals (WIP)
-  texture?: string; // Path to texture for textured area lights (WIP)
+  width?: number;  
+  height?: number; 
+  radius?: number; 
+  shape?: 'rectangle' | 'disk' | 'sphere' | 'cylinder'; 
+  isPortal?: boolean; 
+  texture?: string; 
   twoSided?: boolean; 
-  spread?: number; // For D5/V-Ray like area light spread control (degrees, WIP)
+  spread?: number; 
 }
 
 export interface SkyLightSceneProps extends BaseLightProps { 
-    type: 'skylight'; // Typically HDRI based, but can also be a simple color dome
-    hdriPath?: string; // Path to HDRI texture
-    hdriRotation?: number; // Degrees
-    useSun?: boolean; // Link to directional light as sun (WIP)
-    skyModel?: 'none' | 'hosek_wilkie' | 'preetham'; // WIP Physical sky models
+    type: 'skylight'; 
+    hdriPath?: string; 
+    hdriRotation?: number; 
+    useSun?: boolean; 
+    skyModel?: 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural'; 
 }
 export interface PhotometricLightSceneProps extends BaseLightProps { 
     type: 'photometric';
     position: [number,number,number];
     targetPosition?: [number,number,number];
     iesFilePath?: string;
-    filterColor?: string; // Color filter for the light
-    // shadowSamples?: number; // Moved to BaseLightProps as shadowMapSize or similar
+    filterColor?: string; 
+}
+export interface MeshLightSceneProps extends BaseLightProps {
+  type: 'mesh_light';
+  meshObjectId?: string; // ID of the scene object to use as a light emitter
+  // Mesh light specific properties...
 }
 
 
-export type SceneLight = DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps | AreaLightSceneProps | SkyLightSceneProps | PhotometricLightSceneProps;
+export type SceneLight = DirectionalLightSceneProps | PointLightSceneProps | SpotLightSceneProps | AreaLightSceneProps | SkyLightSceneProps | PhotometricLightSceneProps | MeshLightSceneProps;
 
 
 export type ToolType = 
@@ -217,7 +227,7 @@ export type ToolType =
   | 'rectangle' 
   | 'rotatedRectangle' 
   | 'circle'
-  | 'arc' // Main category
+  | 'arc' 
   | 'arc2Point' 
   | 'arc3Point' 
   | 'pie' 
@@ -233,7 +243,7 @@ export type ToolType =
   | 'intersectWithModel'
   | 'intersectWithSelection'
   | 'intersectWithContext'
-  | 'outerShell' // Solid tools category
+  | 'outerShell' 
   | 'solidUnion'
   | 'solidSubtract'
   | 'solidIntersect'
@@ -253,7 +263,6 @@ export type ToolType =
   | 'zoomExtents'
   | 'lookAround'
   | 'walk'
-  // Primitive adding tools are less "tools" and more "commands", but kept for consistency
   | 'addCube'
   | 'addCylinder'
   | 'addPlane'
@@ -292,59 +301,64 @@ export type AppMode = 'modelling' | 'rendering';
 
 export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective' | 'isoTopRight' | 'isoTopLeft'; 
 
-export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt' | 'vray_mock' | 'corona_mock' | 'unreal_pathtracer_mock'; // Added more conceptual engines
+export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt' | 'vray_mock' | 'corona_mock' | 'unreal_pathtracer_mock' | 'd5_render_mock'; 
+
+export type RenderOutputType = 'png' | 'jpeg' | 'exr' | 'tiff' | 'mp4' | 'mov' | 'avi';
+
+export type RenderPassType = 
+  | 'beauty' | 'z_depth' | 'normal' | 'ao' | 'object_id' | 'material_id' 
+  | 'cryptomatte_object' | 'cryptomatte_material' | 'cryptomatte_asset'
+  | 'reflection' | 'refraction' | 'diffuse_filter' | 'specular' | 'gi' | 'shadows' | 'velocity' | 'world_position';
 
 export interface RenderSettings {
   engine: RenderEngineType;
-  resolution: string; // e.g., "1920x1080"
-  resolutionPreset?: 'HD' | 'FullHD' | '2K_QHD' | '4K_UHD' | 'Custom'; // For UI
-  customWidth?: number; // For custom resolution
-  customHeight?: number; // For custom resolution
+  resolution: string; 
+  resolutionPreset?: 'HD' | 'FullHD' | '2K_QHD' | '4K_UHD' | 'Custom'; 
+  customWidth?: number; 
+  customHeight?: number; 
   aspectRatioLock?: boolean;
-  outputFormat: 'png' | 'jpeg' | 'exr' | 'tiff' | 'mp4' | 'avi'; 
-  pngBitDepth?: 8 | 16; // WIP
-  jpegQuality?: number; // WIP (0-100)
-  exrDataType?: 'half' | 'float'; // WIP
-  exrCompression?: 'none' | 'zip' | 'piz'; // WIP
+  outputFormat: RenderOutputType; 
+  pngBitDepth?: 8 | 16; 
+  jpegQuality?: number; 
+  exrDataType?: 'half' | 'float'; 
+  exrCompression?: 'none' | 'zip' | 'piz'; 
   
-  // Quality
-  samples?: number; // Primary samples (Cycles, Path Tracers)
-  denoiser?: 'none' | 'optix' | 'oidn' | 'intel_openimage' | 'vray_default' | 'corona_highquality'; // More specific denoisers
-  timeLimit?: number; // In seconds, 0 for no limit (WIP)
-  noiseThreshold?: number; // Adaptive sampling (WIP)
+  samples?: number; 
+  denoiser?: 'none' | 'optix' | 'oidn' | 'intel_openimage' | 'vray_default' | 'corona_highquality' | 'd5_default'; 
+  timeLimit?: number; 
+  noiseThreshold?: number; 
+  adaptiveMinSamples?: number; // WIP
+  adaptiveMaxSamples?: number; // WIP
   
-  // Advanced Engine Settings (Conceptual examples)
-  giMode?: 'brute_force' | 'irradiance_cache' | 'light_cache' | 'path_tracing_gi'; // For V-Ray like engines
-  caustics?: boolean; // WIP
-  maxBounces?: { total: number, diffuse: number, glossy: number, transmission: number, volume: number }; // WIP
+  giMode?: 'brute_force' | 'irradiance_cache' | 'light_cache' | 'path_tracing_gi'; 
+  caustics?: boolean; 
+  maxBounces?: { total: number, diffuse: number, glossy: number, transmission: number, volume: number }; 
   
-  // Output
-  outputPath?: string; // WIP
-  fileName?: string; // WIP
-  overwriteExisting?: boolean; // WIP
+  outputPath?: string; 
+  fileName?: string; 
+  overwriteExisting?: boolean; 
   
-  // Render Elements / AOVs (Array of strings for now, could be more structured)
-  renderElements?: string[]; // e.g., ["Z-Depth", "Normals", "AO", "ObjectID", "MaterialID", "CryptomatteObject", "CryptomatteMaterial", "Reflection", "Refraction", "DiffuseFilter", "Specular", "GI", "Shadows"] (WIP)
+  renderElements?: RenderPassType[]; 
   
-  // Color Management (Inspired by Blender/ACES)
   colorManagement?: { 
-    displayDevice: 'sRGB' | 'Rec.709' | 'ACES'; // WIP
-    viewTransform: 'Standard' | 'Filmic' | 'Raw'; // WIP
-    look?: 'None' | 'Medium Contrast' | 'High Contrast'; // WIP
+    displayDevice: 'sRGB' | 'Rec.709' | 'ACEScg'; 
+    viewTransform: 'Standard' | 'Filmic' | 'Raw' | 'ACES'; 
+    look?: 'None' | 'Medium Contrast' | 'High Contrast' | string; // string for custom LUT name
     exposure: number; 
     gamma: number; 
-    lutFile?: string; // Path to Look-Up Table file (WIP)
+    lutFile?: string; 
   }; 
   
-  // Animation Output (WIP)
-  frameRange?: string; // e.g., "1-100, 150, 200-210"
-  frameStep?: number;
-  fps?: number; // Frames Per Second for video output
-  videoCodec?: string; // e.g., "h264", "prores" (WIP)
-  videoBitrate?: number; // WIP
+  animationSettings?: { // WIP
+    frameRange?: string; 
+    frameStep?: number;
+    fps?: number; 
+    videoCodec?: string; 
+    videoBitrate?: number; 
+    audioPath?: string;
+  };
   
-  // Distributed Rendering (WIP)
-  distributedRendering?: { enabled: boolean; renderNodes: string[] }; 
+  distributedRendering?: { enabled: boolean; renderNodes: string[]; mode?: 'auto' | 'manual_select' }; // WIP
 }
 
 export interface SceneLayer {
@@ -363,45 +377,50 @@ export interface SavedSceneView {
   cameraPosition: [number, number, number];
   cameraTarget: [number, number, number];
   cameraFov: number;
-  activeLayerVisibility?: Record<string, boolean>; // WIP
-  activeStyleOverrides?: any; // WIP (e.g., specific edge style for this scene)
-  environmentOverrides?: Partial<EnvironmentSettings>; // WIP
+  activeLayerVisibility?: Record<string, boolean>; 
+  activeStyleOverrides?: any; 
+  environmentOverrides?: Partial<EnvironmentSettings>; 
 }
+
+export type PhysicalSkyModel = 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural';
 
 export interface EnvironmentSettings {
   backgroundMode: 'color' | 'gradient' | 'hdri' | 'physical_sky';
   backgroundColor?: string;
-  gradientTopColor?: string; // WIP
-  gradientBottomColor?: string; // WIP
+  gradientTopColor?: string; 
+  gradientBottomColor?: string; 
   
   hdriPath?: string; 
   hdriIntensity?: number; 
   hdriRotation?: number; 
-  hdriVisibleBackground?: boolean; // WIP
-  hdriAffectsLighting?: boolean; // WIP
-  hdriAffectsReflections?: boolean; // WIP
+  hdriVisibleBackground?: boolean; 
+  hdriAffectsLighting?: boolean; 
+  hdriAffectsReflections?: boolean; 
 
   usePhysicalSky?: boolean; 
   physicalSkySettings?: { 
+      skyModel: PhysicalSkyModel;
       turbidity: number, 
       sunPositionMode: 'manual' | 'datetime_location', 
       azimuth: number, 
       altitude: number, 
       intensity: number,
-      sunDiskSize: number, // Angular size of the sun
-      sunDiskIntensity?: number; // Separate control for disk appearance (WIP)
-      groundAlbedo: number, // Reflectivity of the ground
-      date?: string, // YYYY-MM-DD
-      time?: string, // HH:MM
+      sunDiskSize: number, 
+      sunDiskIntensity?: number; 
+      groundAlbedo: number, 
+      date?: string, 
+      time?: string, 
       latitude?: number,
       longitude?: number,
-      timezone?: string; // WIP
+      timezone?: string; 
+      ozone?: number; // For atmospheric tint
   };
-  groundPlane?: { // WIP (for rendering)
+  groundPlane?: { 
     enabled: boolean;
     height: number;
-    materialId?: string; // Assign a material for reflections etc.
+    materialId?: string; 
     receiveShadows?: boolean;
+    size?: number; // WIP
   };
   fog?: { 
       enabled: boolean, 
@@ -411,25 +430,26 @@ export interface EnvironmentSettings {
       heightFalloff?: number, 
       startDistance?: number, 
       endDistance?: number, 
-      affectSky?: boolean; // WIP: Does fog affect the skybox/HDRI
+      affectSky?: boolean; 
   };
   volumetricLighting?: { 
       enabled: boolean;
-      samples?: number; // Quality
-      scattering?: number; // Density of volumetric effect
-      anisotropy?: number; // Direction of scattering (forward/backward) - WIP
-      maxDistance?: number; // WIP
+      samples?: number; 
+      scattering?: number; 
+      anisotropy?: number; 
+      maxDistance?: number; 
+      attenuationColor?: string; // WIP
   };
-  atmosphere?: { // D5 style atmospheric controls
-      haze?: number; // Overall atmospheric haze
-      ozone?: number; // Color of the sky
-      skyTint?: string; // WIP
-      horizonBlur?: number; // WIP
+  atmosphere?: { 
+      haze?: number; 
+      ozone?: number; 
+      skyTint?: string; 
+      horizonBlur?: number; 
   };
-  weatherEffects?: { // D5 placeholder
-      rain?: { enabled: boolean; intensity: number; puddleAmount: number; rainStreaksOnGlass?: boolean };
-      snow?: { enabled: boolean; accumulation: number; melting: number; snowflakes?: boolean };
-      wind?: { enabled: boolean; speed: number; direction: number; affectFoliage?: boolean }; // WIP
+  weatherEffects?: { 
+      rain?: { enabled: boolean; intensity: number; puddleAmount: number; rainStreaksOnGlass?: boolean; splashEffect?: boolean };
+      snow?: { enabled: boolean; accumulation: number; melting: number; snowflakes?: boolean; windInfluence?: number };
+      wind?: { enabled: boolean; speed: number; direction: number; affectFoliage?: boolean; affectParticles?: boolean }; 
   }
 }
 
@@ -448,14 +468,14 @@ export interface SceneData {
   requestedViewPreset?: ViewPreset | null; 
   zoomExtentsTrigger?: { timestamp: number; targetObjectId?: string }; 
   cameraFov?: number; 
-  worldBackgroundColor?: string; // Used as default for solid color background
+  worldBackgroundColor?: string; 
   renderSettings?: RenderSettings;
   
   layers?: SceneLayer[]; 
   savedViews?: SavedSceneView[]; 
   activeLayerId?: string;
   
-  environmentSettings?: EnvironmentSettings; // Consolidated environment settings
+  environmentSettings?: EnvironmentSettings; 
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material-archvision'; 
