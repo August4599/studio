@@ -1,4 +1,5 @@
 
+
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
 
 // Modifier Types - Conceptual Placeholders
@@ -454,7 +455,6 @@ export interface SceneLayer {
 export const DEFAULT_LAYER_ID = 'default-layer-0';
 export const DEFAULT_LAYER_NAME = 'Default Layer';
 
-
 export interface SavedSceneView { 
   id: string;
   name: string;
@@ -546,6 +546,55 @@ export interface EnvironmentSettings {
   }
 }
 
+export type CameraType = 'standard' | 'orthographic' | 'physical_concept' | 'panoramic_vr_concept';
+
+export interface CameraSettings {
+  type: CameraType;
+  fov: number; 
+  orthoScale?: number; 
+  nearClip: number;
+  farClip: number;
+  sensorSize?: [number, number]; 
+  focalLength?: number; 
+  fStop?: number; 
+  shutterSpeed?: number; 
+  iso?: number; 
+  whiteBalance?: number; 
+  focusDistance?: number; 
+  apertureBlades?: number; 
+  apertureRotation?: number; 
+  motionBlur?: { 
+    enabled: boolean;
+    shutterAngle?: number; 
+    samples?: number;
+  };
+  renderRegion?: { 
+    enabled: boolean;
+    minX: number; minY: number; 
+    maxX: number; maxY: number; 
+  };
+}
+
+export interface Keyframe {
+  time: number; // Frame number or seconds
+  value: any; 
+  interpolation?: 'linear' | 'bezier' | 'step'; 
+  handles?: { in: [number, number], out: [number, number] }; 
+}
+export interface AnimationTrack {
+  id: string;
+  targetId: string; 
+  propertyName: string; 
+  keyframes: Keyframe[];
+  trackType: 'object_transform' | 'object_property' | 'material_property' | 'light_property' | 'camera_property';
+}
+export interface AnimationData {
+  duration: number; // Total frames or seconds
+  fps: number;
+  tracks: AnimationTrack[];
+}
+
+
 export interface SceneData {
   objects: SceneObject[];
   materials: MaterialProperties[];
@@ -560,7 +609,7 @@ export interface SceneData {
   measurementUnit?: MeasurementUnit; 
   requestedViewPreset?: ViewPreset | null; 
   zoomExtentsTrigger?: { timestamp: number; targetObjectId?: string }; 
-  cameraFov?: number; 
+  cameraFov?: number; // Main camera FOV (used by SceneViewer)
   worldBackgroundColor?: string; 
   renderSettings?: RenderSettings;
   
@@ -569,6 +618,9 @@ export interface SceneData {
   activeLayerId?: string;
   
   environmentSettings?: EnvironmentSettings; 
+  cameraSettings?: CameraSettings; // For the main 'scene' camera
+  savedCameras?: Record<string, CameraSettings>; // Library of saved cameras
+  animationData?: AnimationData;
 }
 
 export const DEFAULT_MATERIAL_ID = 'default-material-archvision'; 
@@ -636,59 +688,40 @@ export interface StyleSettings {
   modellingAidsSettings: ModellingAidsSettings;
 }
 
-// Camera Specific Types
-export type CameraType = 'standard' | 'orthographic' | 'physical_concept' | 'panoramic_vr_concept';
-export interface CameraSettings {
-  type: CameraType;
-  fov: number; // For perspective/standard
-  orthoScale?: number; // For orthographic
-  nearClip: number;
-  farClip: number;
-  sensorSize?: [number, number]; // width, height in mm (for Physical Camera)
-  focalLength?: number; // mm (for Physical Camera, or derived from FOV)
-  fStop?: number; // (for Physical Camera - DoF)
-  shutterSpeed?: number; // 1/seconds (for Physical Camera - Motion Blur)
-  iso?: number; // (for Physical Camera - Sensitivity)
-  whiteBalance?: number; // Kelvin (for Physical Camera)
-  focusDistance?: number; // For DoF
-  apertureBlades?: number; // For bokeh shape (Physical Cam WIP)
-  apertureRotation?: number; // For bokeh shape (Physical Cam WIP)
-  motionBlur?: { // WIP
+// Placeholder Post Processing Effect Types
+export interface BloomEffectSettings {
     enabled: boolean;
-    shutterAngle?: number; // Degrees, alternative to shutter speed
-    samples?: number;
-  };
-  renderRegion?: { // WIP
+    intensity: number;
+    threshold: number;
+    radius: number;
+    blendMode?: 'add' | 'screen'; // WIP
+}
+export interface ColorGradingSettings {
     enabled: boolean;
-    minX: number; minY: number; // 0-1 range
-    maxX: number; maxY: number; // 0-1 range
-  };
+    lutPath?: string;
+    exposure: number;
+    contrast: number;
+    saturation: number;
+    temperature: number; // Kelvin
+    tint: number; // Green-Magenta shift
+    // WIP: Shadows/Midtones/Highlights color wheels
+}
+// Add more effect setting types as needed...
+
+export interface PostProcessingSettings {
+    bloom?: BloomEffectSettings;
+    vignette?: { enabled: boolean, offset: number, darkness: number, color?: string };
+    chromaticAberration?: { enabled: boolean, intensity: number };
+    colorGrading?: ColorGradingSettings;
+    lensDirt?: { enabled: boolean, texturePath?: string, intensity: number };
+    motionBlur?: { enabled: boolean, samples: number, intensity: number }; // Separate from camera motion blur for screen-space effect
+    sharpen?: { enabled: boolean, intensity: number, radius?: number };
+    toneMapping?: { enabled: boolean, operator: 'none' | 'reinhard' | 'aces_film' | 'filmic_hejl' | 'uncharted2' };
+    // Other effects like Film Grain, Depth of Field (Post), Lens Flares etc.
 }
 
-// Animation Types
-export interface Keyframe {
-  time: number; // Frame number or seconds
-  value: any; // Can be number, vector, color, boolean etc.
-  interpolation?: 'linear' | 'bezier' | 'step'; // WIP
-  handles?: { in: [number, number], out: [number, number] }; // Bezier handles WIP
-}
-export interface AnimationTrack {
-  id: string;
-  targetId: string; // e.g., objectId, lightId, materialId, cameraProperty
-  propertyName: string; // e.g., 'position.x', 'material.roughness', 'camera.fov'
-  keyframes: Keyframe[];
-  trackType: 'object_transform' | 'object_property' | 'material_property' | 'light_property' | 'camera_property';
-}
-export interface AnimationData {
-  duration: number; // Total frames or seconds
-  fps: number;
-  tracks: AnimationTrack[];
-}
-
-// Scene Data Update
+// Update SceneData
 export interface SceneData {
   // ... (keep existing properties)
-  cameraSettings?: CameraSettings; // Store current main camera settings
-  savedCameras?: Record<string, CameraSettings>; // For multiple cameras
-  animationData?: AnimationData; // Scene level animation
+  postProcessingSettings?: PostProcessingSettings;
 }

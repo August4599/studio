@@ -3,17 +3,17 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit, SceneLayer } from '@/types'; // Added SceneLayer
-import { DEFAULT_MATERIAL_ID, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; // Added Layer Defaults
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit, SceneLayer, CameraSettings, AnimationData, SavedSceneView, EnvironmentSettings, PostProcessingSettings } from '@/types';
+import { DEFAULT_MATERIAL_ID, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit' | 'layers' | 'activeLayerId'> {
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit' | 'layers' | 'activeLayerId' | 'cameraSettings' | 'savedCameras' | 'animationData' | 'environmentSettings' | 'postProcessingSettings' | 'savedViews'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
-  layers: SceneLayer[]; // Added layers
-  activeLayerId: string; // Added activeLayerId
+  layers: SceneLayer[]; 
+  activeLayerId: string; 
 
   appMode: AppMode;
   activePaintMaterialId: string | null | undefined;
@@ -21,9 +21,16 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   measurementUnit: MeasurementUnit;
   requestedViewPreset: ViewPreset | null | undefined;
   zoomExtentsTrigger: { timestamp: number; targetObjectId?: string };
-  cameraFov: number;
+  cameraFov: number; // This is for the main viewport camera during modelling
   worldBackgroundColor: string;
   renderSettings: RenderSettings;
+  cameraSettings: CameraSettings; // Main "scene" camera for rendering output
+  savedCameras?: Record<string, CameraSettings>; // Library of cameras
+  animationData?: AnimationData;
+  environmentSettings: EnvironmentSettings;
+  postProcessingSettings?: PostProcessingSettings;
+  savedViews: SavedSceneView[];
+
 
   setAppMode: (mode: AppMode) => void;
   addObject: (type: Exclude<PrimitiveType, 'cadPlan'>, initialProps?: Partial<Omit<SceneObject, 'id' | 'type' | 'planData'>>) => SceneObject;
@@ -42,11 +49,17 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   removeLight: (id: string) => void;
   getLightById: (id: string) => SceneLight | undefined;
   
-  addLayer: (props?: Partial<Omit<SceneLayer, 'id'>>) => SceneLayer; // Added
-  updateLayer: (id: string, updates: Partial<SceneLayer>) => void; // Added
-  removeLayer: (id: string) => void; // Added
-  setActiveLayerId: (id: string) => void; // Added
-  getLayerById: (id: string) => SceneLayer | undefined; // Added
+  addLayer: (props?: Partial<Omit<SceneLayer, 'id'>>) => SceneLayer; 
+  updateLayer: (id: string, updates: Partial<SceneLayer>) => void; 
+  removeLayer: (id: string) => void; 
+  setActiveLayerId: (id: string) => void; 
+  getLayerById: (id: string) => SceneLayer | undefined; 
+
+  addSavedScene: (props: Partial<Omit<SavedSceneView, 'id'>>) => SavedSceneView;
+  updateSavedScene: (id: string, updates: Partial<SavedSceneView>) => void;
+  removeSavedScene: (id: string) => void;
+  applySavedScene: (id: string) => void;
+
 
   loadScene: (data: SceneData) => void; 
   clearCurrentProjectScene: () => void; 
@@ -60,9 +73,12 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   setCameraViewPreset: (preset: ViewPreset | null) => void;
   triggerZoomExtents: (targetObjectId?: string) => void; 
   setZoomExtentsTriggered: () => void;
-  setCameraFov: (fov: number) => void;
+  setCameraFov: (fov: number) => void; // For modelling viewport
   setWorldBackgroundColor: (color: string) => void;
   updateRenderSettings: (settings: Partial<RenderSettings>) => void;
+  updateCameraSettings: (settings: Partial<CameraSettings>) => void; // For scene/render camera
+  updateEnvironmentSettings: (settings: Partial<EnvironmentSettings>) => void;
+  updatePostProcessingSettings: (settings: Partial<PostProcessingSettings>) => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -72,40 +88,51 @@ const initialSceneDataBlueprint: SceneData = getDefaultSceneData();
 export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOverride?: SceneData }> = ({ children, initialSceneOverride }) => {
   const [sceneData, setSceneData] = useState<SceneData>(() => {
     const data = initialSceneOverride || initialSceneDataBlueprint;
+    const defaultData = getDefaultSceneData(); // Important to get fresh defaults
     return { 
-      ...getDefaultSceneData(), 
+      ...defaultData, 
       ...data, 
-      cameraFov: data.cameraFov ?? getDefaultSceneData().cameraFov,
-      worldBackgroundColor: data.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
-      renderSettings: data.renderSettings ? { ...getDefaultSceneData().renderSettings, ...data.renderSettings } : getDefaultSceneData().renderSettings,
-      measurementUnit: data.measurementUnit ?? getDefaultSceneData().measurementUnit,
+      cameraFov: data.cameraFov ?? defaultData.cameraFov,
+      worldBackgroundColor: data.worldBackgroundColor ?? defaultData.worldBackgroundColor,
+      renderSettings: data.renderSettings ? { ...defaultData.renderSettings, ...data.renderSettings } : defaultData.renderSettings,
+      cameraSettings: data.cameraSettings ? { ...defaultData.cameraSettings!, ...data.cameraSettings } : defaultData.cameraSettings!,
+      environmentSettings: data.environmentSettings ? { ...defaultData.environmentSettings!, ...data.environmentSettings } : defaultData.environmentSettings!,
+      postProcessingSettings: data.postProcessingSettings ? { ...defaultData.postProcessingSettings!, ...data.postProcessingSettings } : defaultData.postProcessingSettings!,
+      measurementUnit: data.measurementUnit ?? defaultData.measurementUnit,
       zoomExtentsTrigger: data.zoomExtentsTrigger || { timestamp: 0 },
-      layers: data.layers && data.layers.length > 0 ? data.layers : getDefaultSceneData().layers, // Added
-      activeLayerId: data.activeLayerId || getDefaultSceneData().activeLayerId, // Added
+      layers: data.layers && data.layers.length > 0 ? data.layers : defaultData.layers,
+      activeLayerId: data.activeLayerId || defaultData.activeLayerId,
+      savedViews: data.savedViews || defaultData.savedViews,
      };
   });
 
   const sceneObjectsRef = useRef(sceneData.objects);
   const sceneMaterialsRef = useRef(sceneData.materials);
   const sceneOtherLightsRef = useRef(sceneData.otherLights);
-  const sceneLayersRef = useRef(sceneData.layers); // Added
+  const sceneLayersRef = useRef(sceneData.layers); 
+  const sceneSavedViewsRef = useRef(sceneData.savedViews);
 
 
   useEffect(() => {
     if (initialSceneOverride) {
+        const defaultData = getDefaultSceneData();
         setSceneData(prev => ({
-            ...getDefaultSceneData(), 
+            ...defaultData, 
             ...initialSceneOverride, 
-            objects: initialSceneOverride.objects || prev.objects || getDefaultSceneData().objects,
-            materials: initialSceneOverride.materials || prev.materials || getDefaultSceneData().materials,
-            otherLights: initialSceneOverride.otherLights || prev.otherLights || getDefaultSceneData().otherLights,
-            cameraFov: initialSceneOverride.cameraFov ?? prev.cameraFov ?? getDefaultSceneData().cameraFov,
-            worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
-            renderSettings: initialSceneOverride.renderSettings ? { ...getDefaultSceneData().renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? getDefaultSceneData().renderSettings),
-            measurementUnit: initialSceneOverride.measurementUnit ?? prev.measurementUnit ?? getDefaultSceneData().measurementUnit,
+            objects: initialSceneOverride.objects || prev.objects || defaultData.objects,
+            materials: initialSceneOverride.materials || prev.materials || defaultData.materials,
+            otherLights: initialSceneOverride.otherLights || prev.otherLights || defaultData.otherLights,
+            cameraFov: initialSceneOverride.cameraFov ?? prev.cameraFov ?? defaultData.cameraFov,
+            worldBackgroundColor: initialSceneOverride.worldBackgroundColor ?? prev.worldBackgroundColor ?? defaultData.worldBackgroundColor,
+            renderSettings: initialSceneOverride.renderSettings ? { ...defaultData.renderSettings, ...initialSceneOverride.renderSettings} : (prev.renderSettings ?? defaultData.renderSettings),
+            cameraSettings: initialSceneOverride.cameraSettings ? { ...defaultData.cameraSettings!, ...initialSceneOverride.cameraSettings} : (prev.cameraSettings ?? defaultData.cameraSettings!),
+            environmentSettings: initialSceneOverride.environmentSettings ? { ...defaultData.environmentSettings!, ...initialSceneOverride.environmentSettings} : (prev.environmentSettings ?? defaultData.environmentSettings!),
+            postProcessingSettings: initialSceneOverride.postProcessingSettings ? { ...defaultData.postProcessingSettings!, ...initialSceneOverride.postProcessingSettings} : (prev.postProcessingSettings ?? defaultData.postProcessingSettings!),
+            measurementUnit: initialSceneOverride.measurementUnit ?? prev.measurementUnit ?? defaultData.measurementUnit,
             zoomExtentsTrigger: initialSceneOverride.zoomExtentsTrigger || prev.zoomExtentsTrigger || { timestamp: 0 },
-            layers: initialSceneOverride.layers && initialSceneOverride.layers.length > 0 ? initialSceneOverride.layers : (prev.layers ?? getDefaultSceneData().layers), // Added
-            activeLayerId: initialSceneOverride.activeLayerId || prev.activeLayerId || getDefaultSceneData().activeLayerId, // Added
+            layers: initialSceneOverride.layers && initialSceneOverride.layers.length > 0 ? initialSceneOverride.layers : (prev.layers ?? defaultData.layers),
+            activeLayerId: initialSceneOverride.activeLayerId || prev.activeLayerId || defaultData.activeLayerId,
+            savedViews: initialSceneOverride.savedViews || prev.savedViews || defaultData.savedViews,
         }));
     }
   }, [initialSceneOverride]);
@@ -114,8 +141,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     sceneObjectsRef.current = sceneData.objects;
     sceneMaterialsRef.current = sceneData.materials;
     sceneOtherLightsRef.current = sceneData.otherLights;
-    sceneLayersRef.current = sceneData.layers; // Added
-  }, [sceneData.objects, sceneData.materials, sceneData.otherLights, sceneData.layers]); // Added sceneData.layers
+    sceneLayersRef.current = sceneData.layers; 
+    sceneSavedViewsRef.current = sceneData.savedViews;
+  }, [sceneData.objects, sceneData.materials, sceneData.otherLights, sceneData.layers, sceneData.savedViews]); 
 
 
   const setAppMode = useCallback((mode: AppMode) => {
@@ -196,8 +224,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       dimensions: { ...defaultDimensions, ...initialProps?.dimensions },
       materialId: initialProps?.materialId || DEFAULT_MATERIAL_ID,
       visible: initialProps?.visible ?? true,
-      layerId: initialProps?.layerId || sceneData.activeLayerId || DEFAULT_LAYER_ID, // Assign to active layer or default
-      modifiers: [], // Initialize empty modifiers array
+      layerId: initialProps?.layerId || sceneData.activeLayerId || DEFAULT_LAYER_ID,
+      modifiers: [], 
     };
     
     setSceneData(prev => ({
@@ -385,8 +413,23 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         newLight = { ...baseLightProps, type, position: [0,3,0], targetPosition: [0,0,0], angle: Math.PI / 4, penumbra: 0.1, distance: 10, decay: 2, castShadow: true, shadowBias: -0.005 };
         break;
       case 'area': 
-        newLight = { ...baseLightProps, type, position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5 };
+        newLight = { ...baseLightProps, type, position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5, shape: 'rectangle' };
         break;
+      // Add cases for new light types here if needed
+      case 'skylight':
+        newLight = { ...baseLightProps, type, intensity: 0.5 }; break;
+      case 'photometric':
+        newLight = { ...baseLightProps, type, position: [0,2,0], intensity: 1000, iesFilePath: '' }; break; // lumens
+      case 'sphere':
+        newLight = { ...baseLightProps, type: 'area', shape: 'sphere', position: [0,2,0], radius: 0.5, intensity: 5 }; break;
+      case 'disk':
+        newLight = { ...baseLightProps, type: 'area', shape: 'disk', position: [0,2,0], radius: 1, rotation: [0,0,0], intensity: 5 }; break;
+      case 'quad': // Essentially same as rectangle area light
+         newLight = { ...baseLightProps, type: 'area', shape: 'rectangle', position: [0,2,0], rotation: [0,0,0], width: 2, height: 1, intensity: 5 }; break;
+      case 'cylinder_light':
+          newLight = { ...baseLightProps, type: 'area', shape: 'cylinder', position: [0,1,0], radius: 0.2, height: 2, rotation: [0,0,0], intensity: 5 }; break;
+      case 'mesh_light':
+          newLight = { ...baseLightProps, type, meshObjectId: '', intensity: 5 }; break;
       default:
         throw new Error(`Unsupported light type: ${type}`);
     }
@@ -425,7 +468,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       name: `Layer ${currentLayers.length}`,
       visible: true,
       locked: false,
-      color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`, // Random color
+      color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`,
       ...props,
     };
     setSceneData(prev => ({
@@ -443,11 +486,10 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const removeLayer = useCallback((id: string) => {
-    if (id === DEFAULT_LAYER_ID) return; // Prevent deleting default layer
+    if (id === DEFAULT_LAYER_ID) return; 
     setSceneData(prev => ({
       ...prev,
       layers: (prev.layers || []).filter(layer => layer.id !== id),
-      // Optionally, reassign objects on this layer to the default layer
       objects: (prev.objects || []).map(obj => obj.layerId === id ? { ...obj, layerId: DEFAULT_LAYER_ID } : obj),
       activeLayerId: prev.activeLayerId === id ? DEFAULT_LAYER_ID : prev.activeLayerId,
     }));
@@ -459,6 +501,57 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   
   const getLayerById = useCallback((id: string): SceneLayer | undefined => {
     return sceneLayersRef.current?.find(layer => layer.id === id);
+  }, []);
+
+
+  // Saved Scenes (Views) Management
+  const addSavedScene = useCallback((props: Partial<Omit<SavedSceneView, 'id'>>): SavedSceneView => {
+      const defaultView: Omit<SavedSceneView, 'id' | 'name'> = {
+          thumbnail: 'https://placehold.co/80x50.png',
+          cameraPosition: [15,15,15], // Default or capture current
+          cameraTarget: [0,0,0],   // Default or capture current
+          cameraFov: sceneData.cameraFov || 60, // Capture current viewport FOV
+          // WIP: Capture layer visibility, styles, environment
+      };
+      const newView: SavedSceneView = {
+          id: uuidv4(),
+          name: `View ${ (sceneSavedViewsRef.current?.length || 0) + 1}`,
+          ...defaultView,
+          ...props,
+      };
+      setSceneData(prev => ({
+          ...prev,
+          savedViews: [...(prev.savedViews || []), newView],
+      }));
+      return newView;
+  }, [sceneData.cameraFov]);
+
+  const updateSavedScene = useCallback((id: string, updates: Partial<SavedSceneView>) => {
+      setSceneData(prev => ({
+          ...prev,
+          savedViews: (prev.savedViews || []).map(view => view.id === id ? { ...view, ...updates } : view),
+      }));
+  }, []);
+
+  const removeSavedScene = useCallback((id: string) => {
+      setSceneData(prev => ({
+          ...prev,
+          savedViews: (prev.savedViews || []).filter(view => view.id !== id),
+      }));
+  }, []);
+  
+  const applySavedScene = useCallback((id: string) => {
+      const viewToApply = sceneSavedViewsRef.current?.find(v => v.id === id);
+      if (viewToApply) {
+          // This function will trigger a re-render of SceneViewer via requestedViewPreset.
+          // SceneViewer should ideally then update camera based on viewToApply.position/target.
+          // For now, we'll just use the setCameraViewPreset with 'perspective' as a placeholder
+          // to demonstrate a view change, but it won't use the saved coords yet.
+          // TODO: SceneViewer needs to use these coords.
+          setCameraViewPreset('perspective'); 
+          if (viewToApply.cameraFov) setCameraFov(viewToApply.cameraFov);
+          // WIP: Apply layer visibility, styles, environment from viewToApply
+      }
   }, []);
 
 
@@ -477,8 +570,13 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         cameraFov: data.cameraFov ?? defaultData.cameraFov,
         worldBackgroundColor: data.worldBackgroundColor ?? defaultData.worldBackgroundColor,
         renderSettings: data.renderSettings ? { ...defaultData.renderSettings, ...data.renderSettings } : defaultData.renderSettings,
+        cameraSettings: data.cameraSettings ? { ...defaultData.cameraSettings!, ...data.cameraSettings } : defaultData.cameraSettings!,
+        environmentSettings: data.environmentSettings ? { ...defaultData.environmentSettings!, ...data.environmentSettings } : defaultData.environmentSettings!,
+        postProcessingSettings: data.postProcessingSettings ? { ...defaultData.postProcessingSettings!, ...data.postProcessingSettings } : defaultData.postProcessingSettings!,
         layers: data.layers && data.layers.length > 0 ? data.layers : defaultData.layers,
         activeLayerId: data.activeLayerId || defaultData.activeLayerId,
+        savedViews: data.savedViews || defaultData.savedViews,
+        animationData: data.animationData || defaultData.animationData,
       });
     } else {
       console.error("Invalid scene data provided to loadScene, loading default scene.");
@@ -495,13 +593,19 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       objects, materials, ambientLight, directionalLight, otherLights,
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit,
       requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings,
-      layers, activeLayerId // Added layers and activeLayerId
+      layers, activeLayerId, cameraSettings, savedCameras, animationData, environmentSettings, postProcessingSettings, savedViews
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit, 
       requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings,
-      layers: layers || [], activeLayerId: activeLayerId || DEFAULT_LAYER_ID // Added layers and activeLayerId
+      layers: layers || [], activeLayerId: activeLayerId || DEFAULT_LAYER_ID,
+      cameraSettings: cameraSettings || getDefaultSceneData().cameraSettings!,
+      savedCameras: savedCameras || {},
+      animationData: animationData || getDefaultSceneData().animationData!,
+      environmentSettings: environmentSettings || getDefaultSceneData().environmentSettings!,
+      postProcessingSettings: postProcessingSettings || getDefaultSceneData().postProcessingSettings!,
+      savedViews: savedViews || [],
     };
   }, [sceneData]);
 
@@ -573,7 +677,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setSceneData(prev => ({ ...prev, zoomExtentsTrigger: { timestamp: 0, targetObjectId: undefined } }));
   }, []);
 
-  const setCameraFov = useCallback((fov: number) => {
+  const setCameraFov = useCallback((fov: number) => { // For modelling viewport
     setSceneData(prev => ({ ...prev, cameraFov: fov }));
   }, []);
 
@@ -582,13 +686,30 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
   }, []);
 
   const updateRenderSettings = useCallback((settings: Partial<RenderSettings>) => {
-    setSceneData(prev => ({ ...prev, renderSettings: { ...prev.renderSettings, ...settings } as RenderSettings}));
+    setSceneData(prev => ({ ...prev, renderSettings: { ...(prev.renderSettings || getDefaultSceneData().renderSettings!), ...settings } as RenderSettings}));
   }, []);
+
+  const updateCameraSettings = useCallback((settings: Partial<CameraSettings>) => { // For scene/render camera
+    setSceneData(prev => ({ ...prev, cameraSettings: { ...(prev.cameraSettings || getDefaultSceneData().cameraSettings!), ...settings } as CameraSettings}));
+  }, []);
+  
+  const updateEnvironmentSettings = useCallback((settings: Partial<EnvironmentSettings>) => {
+    setSceneData(prev => ({ ...prev, environmentSettings: { ...(prev.environmentSettings || getDefaultSceneData().environmentSettings!), ...settings } as EnvironmentSettings}));
+  }, []);
+  
+  const updatePostProcessingSettings = useCallback((settings: Partial<PostProcessingSettings>) => {
+    setSceneData(prev => ({ ...prev, postProcessingSettings: { ...(prev.postProcessingSettings || getDefaultSceneData().postProcessingSettings!), ...settings } as PostProcessingSettings}));
+  }, []);
+
   
   const contextValue = useMemo(() => ({
     ...sceneData,
-    layers: sceneData.layers || [], // Ensure layers is always an array
-    activeLayerId: sceneData.activeLayerId || DEFAULT_LAYER_ID, // Ensure activeLayerId has a default
+    layers: sceneData.layers || [], 
+    activeLayerId: sceneData.activeLayerId || DEFAULT_LAYER_ID,
+    savedViews: sceneData.savedViews || [],
+    environmentSettings: sceneData.environmentSettings || getDefaultSceneData().environmentSettings!,
+    cameraSettings: sceneData.cameraSettings || getDefaultSceneData().cameraSettings!,
+    postProcessingSettings: sceneData.postProcessingSettings || getDefaultSceneData().postProcessingSettings!,
     setAppMode,
     addObject,
     importCadPlan,
@@ -605,11 +726,15 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     updateLight,
     removeLight,
     getLightById,
-    addLayer, // Added
-    updateLayer, // Added
-    removeLayer, // Added
-    setActiveLayerId, // Added
-    getLayerById, // Added
+    addLayer, 
+    updateLayer, 
+    removeLayer, 
+    setActiveLayerId, 
+    getLayerById, 
+    addSavedScene,
+    updateSavedScene,
+    removeSavedScene,
+    applySavedScene,
     loadScene,
     clearCurrentProjectScene,
     activeTool: sceneData.activeTool,
@@ -627,11 +752,13 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setZoomExtentsTriggered,
     cameraFov: sceneData.cameraFov ?? getDefaultSceneData().cameraFov,
     setCameraFov,
-    worldBackgroundColor: sceneData.worldBackgroundColor ?? getDefaultSceneData().worldBackgroundColor,
     setWorldBackgroundColor,
     renderSettings: sceneData.renderSettings ?? getDefaultSceneData().renderSettings,
     updateRenderSettings,
-  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, addLayer, updateLayer, removeLayer, setActiveLayerId, getLayerById, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings]);
+    updateCameraSettings,
+    updateEnvironmentSettings,
+    updatePostProcessingSettings,
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, addLayer, updateLayer, removeLayer, setActiveLayerId, getLayerById, addSavedScene, updateSavedScene, removeSavedScene, applySavedScene, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings, updateCameraSettings, updateEnvironmentSettings, updatePostProcessingSettings]);
 
   return (
     <SceneContext.Provider value={contextValue}>

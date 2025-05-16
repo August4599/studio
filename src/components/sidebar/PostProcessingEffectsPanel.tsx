@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
-import { Wand2, Sun, Droplet, Film, Palette, Sparkles, Aperture, Contrast } from 'lucide-react';
+import { Wand2, Sun, Droplet, Film, Palette, Sparkles, Aperture, Contrast, UploadCloud, Shuffle, PlusCircle, Trash2, SlidersHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -15,29 +15,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from '../ui/scroll-area';
+import { useScene } from '@/context/scene-context';
+import type { PostProcessingSettings } from '@/types';
+
 
 const PostProcessingEffectsPanel = () => {
-  // Mock state for effects - replace with actual context/state later
-  const [effects, setEffects] = useState({
-    bloom: { enabled: true, intensity: 0.5, threshold: 0.8, radius: 0.5 },
-    vignette: { enabled: false, offset: 0.5, darkness: 0.5 },
-    chromaticAberration: { enabled: false, intensity: 0.01 },
-    colorGrading: { enabled: true, lutPath: '', exposure: 0, contrast: 1, saturation: 1, temperature: 6500, tint:0 },
-    lensDirt: { enabled: false, texturePath: '', intensity: 0.5},
-    motionBlur: { enabled: false, samples: 16, intensity: 0.5},
-    sharpen: { enabled: false, intensity: 0.3 },
-  });
+  const { postProcessingSettings = {}, updatePostProcessingSettings } = useScene();
 
-  const handleToggle = (effect: keyof typeof effects, subKey: 'enabled') => {
-    setEffects(prev => ({ ...prev, [effect]: { ...prev[effect], [subKey]: !prev[effect][subKey] } }));
+  const handleToggle = (effect: keyof PostProcessingSettings, subKey: 'enabled') => {
+    const currentEffectSettings = postProcessingSettings[effect] || { enabled: false };
+    updatePostProcessingSettings({ 
+        ...postProcessingSettings,
+        [effect]: { ...currentEffectSettings, [subKey]: !currentEffectSettings.enabled }
+    });
   };
 
-  const handleSlider = (effect: keyof typeof effects, subKey: string, value: number) => {
-    setEffects(prev => ({ ...prev, [effect]: { ...prev[effect], [subKey]: value } }));
+  const handleSlider = (effect: keyof PostProcessingSettings, subKey: string, value: number) => {
+     const currentEffectSettings = postProcessingSettings[effect] || { enabled: false };
+     updatePostProcessingSettings({ 
+        ...postProcessingSettings,
+        [effect]: { ...currentEffectSettings, enabled: currentEffectSettings.enabled ?? false, [subKey]: value }
+    });
   };
   
-  const handleColorChange = (effect: keyof typeof effects, subKey: string, value: string) => {
-    setEffects(prev => ({ ...prev, [effect]: { ...prev[effect], [subKey]: value } }));
+  const handleSelectChange = (effect: keyof PostProcessingSettings, subKey: string, value: string) => {
+    const currentEffectSettings = postProcessingSettings[effect] || { enabled: false };
+    updatePostProcessingSettings({ 
+        ...postProcessingSettings,
+        [effect]: { ...currentEffectSettings, enabled: currentEffectSettings.enabled ?? false, [subKey]: value }
+    });
   };
 
 
@@ -49,74 +56,182 @@ const PostProcessingEffectsPanel = () => {
         </div>
       </AccordionTrigger>
       <AccordionContent className="space-y-3 p-1 text-xs">
-
+      <ScrollArea className="h-[calc(100vh-200px)] p-1"> {/* Adjust height as needed */}
+        <div className="space-y-3">
+            <div className="flex items-center justify-between p-1 border-b">
+                <Label className="font-medium">Effect Stack (WIP)</Label>
+                <div className="flex gap-1">
+                    <Button variant="outline" size="xs" className="h-6" disabled><PlusCircle size={12} className="mr-1"/> Add</Button>
+                    <Button variant="outline" size="xs" className="h-6" disabled><Shuffle size={12} className="mr-1"/>Reorder</Button>
+                </div>
+            </div>
         {/* Bloom */}
-        <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Sparkles size={14}/> Bloom (WIP)</Label><Switch checked={effects.bloom.enabled} onCheckedChange={()=>handleToggle('bloom', 'enabled')}/></div>
-          {effects.bloom.enabled && <>
-            <Label>Intensity: {effects.bloom.intensity.toFixed(2)}</Label><Slider value={[effects.bloom.intensity]} onValueChange={([v])=>handleSlider('bloom','intensity',v)} min={0} max={2} step={0.01}/>
-            <Label>Threshold: {effects.bloom.threshold.toFixed(2)}</Label><Slider value={[effects.bloom.threshold]} onValueChange={([v])=>handleSlider('bloom','threshold',v)} min={0} max={1} step={0.01}/>
-            <Label>Radius: {effects.bloom.radius.toFixed(2)}</Label><Slider value={[effects.bloom.radius]} onValueChange={([v])=>handleSlider('bloom','radius',v)} min={0} max={1} step={0.01}/>
-          </>}
-        </div>
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-bloom" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-1.5"><Sparkles size={14}/> Bloom</span>
+                        <Switch checked={postProcessingSettings.bloom?.enabled} onCheckedChange={()=>handleToggle('bloom', 'enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.bloom?.enabled && <>
+                        <Label>Intensity: {(postProcessingSettings.bloom?.intensity || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.bloom?.intensity || 0.5]} onValueChange={([v])=>handleSlider('bloom','intensity',v)} min={0} max={2} step={0.01}/>
+                        <Label>Threshold: {(postProcessingSettings.bloom?.threshold || 0.8).toFixed(2)}</Label><Slider value={[postProcessingSettings.bloom?.threshold || 0.8]} onValueChange={([v])=>handleSlider('bloom','threshold',v)} min={0} max={1} step={0.01}/>
+                        <Label>Radius: {(postProcessingSettings.bloom?.radius || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.bloom?.radius || 0.5]} onValueChange={([v])=>handleSlider('bloom','radius',v)} min={0} max={1} step={0.01}/>
+                        <Label htmlFor="bloom-blend">Blend Mode (WIP)</Label>
+                        <Select value={postProcessingSettings.bloom?.blendMode || 'add'} onValueChange={v => handleSelectChange('bloom', 'blendMode', v)} disabled>
+                            <SelectTrigger id="bloom-blend" className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="add">Add</SelectItem><SelectItem value="screen">Screen</SelectItem></SelectContent>
+                        </Select>
+                    </>}
+                 </AccordionContent>
+            </AccordionItem>
+        </Accordion>
         
         {/* Color Grading / LUT */}
-         <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Palette size={14}/> Color Grading (WIP)</Label><Switch checked={effects.colorGrading.enabled} onCheckedChange={()=>handleToggle('colorGrading','enabled')}/></div>
-          {effects.colorGrading.enabled && <>
-            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Load LUT (.cube, .png)</Button>
-            <Label>Exposure: {effects.colorGrading.exposure.toFixed(2)}</Label><Slider value={[effects.colorGrading.exposure]} onValueChange={([v])=>handleSlider('colorGrading','exposure',v)} min={-3} max={3} step={0.01}/>
-            <Label>Contrast: {effects.colorGrading.contrast.toFixed(2)}</Label><Slider value={[effects.colorGrading.contrast]} onValueChange={([v])=>handleSlider('colorGrading','contrast',v)} min={0} max={2} step={0.01}/>
-            <Label>Saturation: {effects.colorGrading.saturation.toFixed(2)}</Label><Slider value={[effects.colorGrading.saturation]} onValueChange={([v])=>handleSlider('colorGrading','saturation',v)} min={0} max={2} step={0.01}/>
-            <Label>Temperature: {effects.colorGrading.temperature}K</Label><Slider value={[effects.colorGrading.temperature]} onValueChange={([v])=>handleSlider('colorGrading','temperature',v)} min={1000} max={12000} step={50}/>
-            <Label>Tint: {effects.colorGrading.tint.toFixed(2)}</Label><Slider value={[effects.colorGrading.tint]} onValueChange={([v])=>handleSlider('colorGrading','tint',v)} min={-1} max={1} step={0.01}/>
-          </>}
-        </div>
+         <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-colorgrading" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                         <span className="flex items-center gap-1.5"><Palette size={14}/> Color Grading / LUT</span>
+                         <Switch checked={postProcessingSettings.colorGrading?.enabled} onCheckedChange={()=>handleToggle('colorGrading','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                  {postProcessingSettings.colorGrading?.enabled && <>
+                    <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><UploadCloud size={12} className="mr-1"/> Load LUT (.cube, .png)</Button>
+                    <Label>Exposure: {(postProcessingSettings.colorGrading?.exposure || 0).toFixed(2)}</Label><Slider value={[postProcessingSettings.colorGrading?.exposure || 0]} onValueChange={([v])=>handleSlider('colorGrading','exposure',v)} min={-3} max={3} step={0.01}/>
+                    <Label>Contrast: {(postProcessingSettings.colorGrading?.contrast || 1).toFixed(2)}</Label><Slider value={[postProcessingSettings.colorGrading?.contrast || 1]} onValueChange={([v])=>handleSlider('colorGrading','contrast',v)} min={0} max={2} step={0.01}/>
+                    <Label>Saturation: {(postProcessingSettings.colorGrading?.saturation || 1).toFixed(2)}</Label><Slider value={[postProcessingSettings.colorGrading?.saturation || 1]} onValueChange={([v])=>handleSlider('colorGrading','saturation',v)} min={0} max={2} step={0.01}/>
+                    <Label>Temperature: {(postProcessingSettings.colorGrading?.temperature || 6500)}K</Label><Slider value={[postProcessingSettings.colorGrading?.temperature || 6500]} onValueChange={([v])=>handleSlider('colorGrading','temperature',v)} min={1000} max={12000} step={50}/>
+                    <Label>Tint: {(postProcessingSettings.colorGrading?.tint || 0).toFixed(2)}</Label><Slider value={[postProcessingSettings.colorGrading?.tint || 0]} onValueChange={([v])=>handleSlider('colorGrading','tint',v)} min={-1} max={1} step={0.01}/>
+                     <div className="pt-1 border-t"><Label className="font-medium">Color Wheels (WIP)</Label><p className="text-[10px] text-muted-foreground italic">Placeholders for Shadows, Midtones, Highlights color wheels.</p></div>
+                  </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
 
         {/* Vignette */}
-        <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Aperture size={14}/> Vignette (WIP)</Label><Switch checked={effects.vignette.enabled} onCheckedChange={()=>handleToggle('vignette','enabled')}/></div>
-          {effects.vignette.enabled && <>
-            <Label>Offset: {effects.vignette.offset.toFixed(2)}</Label><Slider value={[effects.vignette.offset]} onValueChange={([v])=>handleSlider('vignette','offset',v)} min={0} max={1} step={0.01}/>
-            <Label>Darkness: {effects.vignette.darkness.toFixed(2)}</Label><Slider value={[effects.vignette.darkness]} onValueChange={([v])=>handleSlider('vignette','darkness',v)} min={0} max={1} step={0.01}/>
-          </>}
-        </div>
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-vignette" className="border-b-0">
+                <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-1.5"><Aperture size={14}/> Vignette</span>
+                        <Switch checked={postProcessingSettings.vignette?.enabled} onCheckedChange={()=>handleToggle('vignette','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                  {postProcessingSettings.vignette?.enabled && <>
+                    <Label>Offset: {(postProcessingSettings.vignette?.offset || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.vignette?.offset || 0.5]} onValueChange={([v])=>handleSlider('vignette','offset',v)} min={0} max={1} step={0.01}/>
+                    <Label>Darkness: {(postProcessingSettings.vignette?.darkness || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.vignette?.darkness || 0.5]} onValueChange={([v])=>handleSlider('vignette','darkness',v)} min={0} max={1} step={0.01}/>
+                    <Label htmlFor="vignette-color">Color (WIP)</Label><Input id="vignette-color" type="color" value={postProcessingSettings.vignette?.color || '#000000'} className="h-7 w-full" disabled/>
+                  </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
 
         {/* Chromatic Aberration */}
-        <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Film size={14}/> Chromatic Aberration (WIP)</Label><Switch checked={effects.chromaticAberration.enabled} onCheckedChange={()=>handleToggle('chromaticAberration','enabled')}/></div>
-          {effects.chromaticAberration.enabled && <>
-            <Label>Intensity: {effects.chromaticAberration.intensity.toFixed(3)}</Label><Slider value={[effects.chromaticAberration.intensity]} onValueChange={([v])=>handleSlider('chromaticAberration','intensity',v)} min={0} max={0.1} step={0.001}/>
-          </>}
-        </div>
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+             <AccordionItem value="effect-chroma" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-1.5"><Film size={14}/> Chromatic Aberration</span>
+                         <Switch checked={postProcessingSettings.chromaticAberration?.enabled} onCheckedChange={()=>handleToggle('chromaticAberration','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.chromaticAberration?.enabled && <>
+                        <Label>Intensity: {(postProcessingSettings.chromaticAberration?.intensity || 0.01).toFixed(3)}</Label><Slider value={[postProcessingSettings.chromaticAberration?.intensity || 0.01]} onValueChange={([v])=>handleSlider('chromaticAberration','intensity',v)} min={0} max={0.1} step={0.001}/>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
         
         {/* Lens Dirt */}
-        <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Droplet size={14}/> Lens Dirt (WIP)</Label><Switch checked={effects.lensDirt.enabled} onCheckedChange={()=>handleToggle('lensDirt','enabled')}/></div>
-          {effects.lensDirt.enabled && <>
-            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Upload Dirt Texture</Button>
-            <Label>Intensity: {effects.lensDirt.intensity.toFixed(2)}</Label><Slider value={[effects.lensDirt.intensity]} onValueChange={([v])=>handleSlider('lensDirt','intensity',v)} min={0} max={1} step={0.01}/>
-          </>}
-        </div>
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+             <AccordionItem value="effect-lensdirt" className="border-b-0">
+                <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-1.5"><Droplet size={14}/> Lens Dirt</span>
+                        <Switch checked={postProcessingSettings.lensDirt?.enabled} onCheckedChange={()=>handleToggle('lensDirt','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.lensDirt?.enabled && <>
+                        <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><UploadCloud size={12} className="mr-1"/>Upload Dirt Texture</Button>
+                        <Label>Intensity: {(postProcessingSettings.lensDirt?.intensity || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.lensDirt?.intensity || 0.5]} onValueChange={([v])=>handleSlider('lensDirt','intensity',v)} min={0} max={1} step={0.01}/>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
         
-         {/* Motion Blur */}
-        <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Film size={14} style={{transform: 'skewX(-15deg)'}}/> Motion Blur (WIP)</Label><Switch checked={effects.motionBlur.enabled} onCheckedChange={()=>handleToggle('motionBlur','enabled')}/></div>
-          {effects.motionBlur.enabled && <>
-            <Label>Samples: {effects.motionBlur.samples}</Label><Slider value={[effects.motionBlur.samples]} onValueChange={([v])=>handleSlider('motionBlur','samples',v)} min={4} max={64} step={4}/>
-            <Label>Intensity: {effects.motionBlur.intensity.toFixed(2)}</Label><Slider value={[effects.motionBlur.intensity]} onValueChange={([v])=>handleSlider('motionBlur','intensity',v)} min={0} max={1} step={0.01}/>
-          </>}
-        </div>
+         {/* Motion Blur (Screen Space) */}
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-motionblur" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-1.5"><Film size={14} style={{transform: 'skewX(-15deg)'}}/> Motion Blur (Screen)</span>
+                         <Switch checked={postProcessingSettings.motionBlur?.enabled} onCheckedChange={()=>handleToggle('motionBlur','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                  {postProcessingSettings.motionBlur?.enabled && <>
+                    <Label>Samples: {postProcessingSettings.motionBlur?.samples || 16}</Label><Slider value={[postProcessingSettings.motionBlur?.samples || 16]} onValueChange={([v])=>handleSlider('motionBlur','samples',v)} min={4} max={64} step={4}/>
+                    <Label>Intensity: {(postProcessingSettings.motionBlur?.intensity || 0.5).toFixed(2)}</Label><Slider value={[postProcessingSettings.motionBlur?.intensity || 0.5]} onValueChange={([v])=>handleSlider('motionBlur','intensity',v)} min={0} max={1} step={0.01}/>
+                  </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
         
         {/* Sharpen */}
-        <div className="space-y-1 p-1 border rounded-md">
-          <div className="flex items-center justify-between"><Label className="font-medium flex items-center gap-1.5"><Contrast size={14}/> Sharpen (WIP)</Label><Switch checked={effects.sharpen.enabled} onCheckedChange={()=>handleToggle('sharpen','enabled')}/></div>
-          {effects.sharpen.enabled && <>
-            <Label>Intensity: {effects.sharpen.intensity.toFixed(2)}</Label><Slider value={[effects.sharpen.intensity]} onValueChange={([v])=>handleSlider('sharpen','intensity',v)} min={0} max={1} step={0.01}/>
-          </>}
-        </div>
+        <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-sharpen" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                         <span className="flex items-center gap-1.5"><Contrast size={14}/> Sharpen</span>
+                         <Switch checked={postProcessingSettings.sharpen?.enabled} onCheckedChange={()=>handleToggle('sharpen','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.sharpen?.enabled && <>
+                        <Label>Intensity: {(postProcessingSettings.sharpen?.intensity || 0.3).toFixed(2)}</Label><Slider value={[postProcessingSettings.sharpen?.intensity || 0.3]} onValueChange={([v])=>handleSlider('sharpen','intensity',v)} min={0} max={1} step={0.01}/>
+                        <Label>Radius (WIP): {(postProcessingSettings.sharpen?.radius || 1.0).toFixed(1)}</Label><Slider value={[postProcessingSettings.sharpen?.radius || 1.0]} min={0.1} max={3.0} step={0.1} disabled/>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+        
+        {/* Tone Mapping */}
+         <Accordion type="single" collapsible className="w-full border rounded-md">
+            <AccordionItem value="effect-tonemapping" className="border-b-0">
+                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2">
+                    <div className="flex items-center justify-between w-full">
+                         <span className="flex items-center gap-1.5"><Eye size={14}/> Tone Mapping</span>
+                         <Switch checked={postProcessingSettings.toneMapping?.enabled} onCheckedChange={()=>handleToggle('toneMapping','enabled')} onClick={(e)=>e.stopPropagation()}/>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 p-2 pt-0">
+                    {postProcessingSettings.toneMapping?.enabled && <>
+                        <Label htmlFor="tonemap-operator">Operator</Label>
+                        <Select value={postProcessingSettings.toneMapping?.operator || 'none'} onValueChange={v => handleSelectChange('toneMapping', 'operator', v)} >
+                            <SelectTrigger id="tonemap-operator" className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">None (Linear)</SelectItem>
+                                <SelectItem value="reinhard">Reinhard</SelectItem>
+                                <SelectItem value="aces_film">ACES Filmic</SelectItem>
+                                <SelectItem value="filmic_hejl">Filmic (Hejl)</SelectItem>
+                                <SelectItem value="uncharted2">Uncharted 2</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </>}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
 
-        <p className="text-xs text-muted-foreground text-center pt-1 italic">Post-Processing effects for rendering. All are WIP.</p>
+        <p className="text-xs text-muted-foreground text-center pt-1 italic">Post-Processing effects for rendering. Most are WIP.</p>
+      </div>
+      </ScrollArea>
       </AccordionContent>
     </AccordionItem>
   );

@@ -1,7 +1,8 @@
 
-import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings, MeasurementUnit, SceneLayer } from '@/types'; // Added SceneLayer
+
+import type { Project, ProjectSummary, SceneData, MaterialProperties, DrawingState, DirectionalLightSceneProps, RenderSettings, MeasurementUnit, SceneLayer, CameraSettings, AnimationData, SavedSceneView, EnvironmentSettings, PostProcessingSettings } from '@/types'; 
 import { v4 as uuidv4 } from 'uuid';
-import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; // Added Layer Defaults
+import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types'; 
 
 const PROJECTS_STORAGE_KEY = 'archiVisionProjects';
 
@@ -49,18 +50,55 @@ const initialDirectionalLight: DirectionalLightSceneProps = {
 
 const initialRenderSettings: RenderSettings = {
   engine: 'cycles',
+  resolutionPreset: 'FullHD',
   resolution: '1920x1080',
   outputFormat: 'png',
   samples: 128,
 };
+
+const initialCameraSettings: CameraSettings = {
+  type: 'standard',
+  fov: 60,
+  nearClip: 0.1,
+  farClip: 2000, // Increased far clip
+};
+
+const initialEnvironmentSettings: EnvironmentSettings = {
+    backgroundMode: 'color', // or 'physical_sky'
+    backgroundColor: '#333333', // A neutral dark gray for rendering mode by default
+    usePhysicalSky: true,
+    physicalSkySettings: {
+        skyModel: 'hosek_wilkie',
+        turbidity: 3,
+        sunPositionMode: 'manual',
+        azimuth: 180,
+        altitude: 45,
+        intensity: 1,
+        sunDiskSize: 0.5,
+        groundAlbedo: 0.3,
+        ozone: 0.35,
+    },
+};
+
+const initialPostProcessingSettings: PostProcessingSettings = {
+    bloom: { enabled: true, intensity: 0.5, threshold: 0.8, radius: 0.5 },
+    colorGrading: { enabled: true, exposure: 0, contrast: 1, saturation: 1, temperature: 6500, tint: 0 },
+};
+
 
 const initialDefaultLayer: SceneLayer = {
   id: DEFAULT_LAYER_ID,
   name: DEFAULT_LAYER_NAME,
   visible: true,
   locked: false,
-  color: '#888888', // A neutral default color
+  color: '#888888', 
   objectCount: 0,
+};
+
+const initialAnimationData: AnimationData = {
+  duration: 10, // e.g. 10 seconds
+  fps: 24,
+  tracks: [],
 };
 
 
@@ -69,7 +107,7 @@ export const getDefaultSceneData = (): SceneData => ({
   materials: [initialDefaultMaterial],
   ambientLight: { 
     color: '#ffffff',
-    intensity: 1.0, // Adjusted for modelling mode based on previous changes
+    intensity: 1.0, 
   },
   directionalLight: initialDirectionalLight,
   otherLights: [], 
@@ -82,10 +120,16 @@ export const getDefaultSceneData = (): SceneData => ({
   requestedViewPreset: null,
   zoomExtentsTrigger: { timestamp: 0 },
   cameraFov: 60, 
-  worldBackgroundColor: '#000000', // Black for modelling mode
+  worldBackgroundColor: '#000000', 
   renderSettings: initialRenderSettings,
-  layers: [initialDefaultLayer], // Initialize with default layer
-  activeLayerId: DEFAULT_LAYER_ID, // Set default layer as active
+  cameraSettings: initialCameraSettings,
+  environmentSettings: initialEnvironmentSettings,
+  postProcessingSettings: initialPostProcessingSettings,
+  layers: [initialDefaultLayer], 
+  activeLayerId: DEFAULT_LAYER_ID, 
+  savedViews: [],
+  animationData: initialAnimationData,
+  savedCameras: {},
 });
 
 
