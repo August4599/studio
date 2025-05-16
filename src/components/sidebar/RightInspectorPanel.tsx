@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useScene } from "@/context/scene-context";
-import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Shapes, Lightbulb, Trees, Puzzle, Film, Wand2, Clapperboard, SunMoon, Sigma, Edit, Sun, Droplet, Wind, Cloud, SlidersHorizontal, LayoutList } from "lucide-react";
+import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Shapes, Lightbulb, Trees, Puzzle, Film, Wand2, Clapperboard, SunMoon, SlidersHorizontal, Sigma, Edit, Sun, Droplet, Wind, Cloud, LayoutList } from "lucide-react";
 
 // Import all necessary panel components
 import ToolPropertiesPanel from "./ToolPropertiesPanel";
@@ -18,6 +18,9 @@ import ScenesPanel from "./ScenesPanel";
 import StylesPanel from "./StylesPanel";   
 import ShadowsPanel from "./ShadowsPanel"; 
 import LightingPanel from "./lighting-panel";
+// WorldSettingsPanel was conceptually replaced by EnvironmentPanel for rendering,
+// but some aspects might be in StylesPanel or a simplified World for modelling.
+// Let's assume EnvironmentPanel handles the bulk of "World" settings for rendering.
 import EnvironmentPanel from './EnvironmentPanel'; 
 import CameraSettingsPanel from "./camera-settings-panel";
 import RenderSettingsPanel from "./render-settings-panel";
@@ -34,9 +37,11 @@ const RightInspectorPanel: React.FC = () => {
 
   return (
     <div className="w-80 md:w-96 flex flex-col h-full bg-card text-card-foreground border-l shadow-lg flex-none overflow-hidden">
-      <div className="p-1 border-b flex-none">
-        <ToolPropertiesPanel />
-      </div>
+      {appMode === 'modelling' && (
+        <div className="p-1 border-b flex-none">
+          <ToolPropertiesPanel />
+        </div>
+      )}
       
       <Tabs defaultValue={defaultTab} className="flex flex-col flex-grow overflow-hidden" key={appMode}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 h-auto rounded-none border-b p-0 sticky top-0 z-10 bg-card shadow-sm flex-none min-h-10">

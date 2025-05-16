@@ -16,7 +16,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
 import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { Sidebar, SidebarProvider, SidebarTrigger, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton, SidebarGroup, SidebarGroupLabel, SidebarSeparator, SidebarInset, SidebarRail } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar"; // Removed unused Sidebar components from here
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
 const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
@@ -29,12 +29,12 @@ const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
   ),
 });
 
-const COLLAPSED_NODE_EDITOR_PERCENTAGE = 7;
+const COLLAPSED_NODE_EDITOR_PERCENTAGE = 7; // Approx height of the header bar
 
 const ArchiVisionLayout: React.FC = () => {
-  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState, appMode } = useScene();
+  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState } = useScene();
   const { toast } = useToast();
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); // Default to collapsed
 
   const toggleNodeEditor = () => setIsNodeEditorOpen(!isNodeEditorOpen);
 
@@ -126,25 +126,32 @@ const ArchiVisionLayout: React.FC = () => {
       <div className="flex flex-row flex-grow overflow-hidden">
         <ToolsSidebar />
         <ResizablePanelGroup direction="vertical" className="flex-grow">
-            <ResizablePanel defaultSize={isNodeEditorOpen ? 65 : (100 - COLLAPSED_NODE_EDITOR_PERCENTAGE)} minSize={30}>
-              <div className="flex-grow relative h-full w-full">
-                <SceneViewer />
-                <ViewportOverlayControls />
-              </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle={isNodeEditorOpen} className={!isNodeEditorOpen ? "hidden" : ""} />
-            <ResizablePanel 
-              defaultSize={isNodeEditorOpen ? 35 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
-              minSize={isNodeEditorOpen ? 20 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
-              maxSize={isNodeEditorOpen ? 60 : COLLAPSED_NODE_EDITOR_PERCENTAGE}
-              collapsible={true} 
-              collapsedSize={COLLAPSED_NODE_EDITOR_PERCENTAGE}
-              onCollapse={() => setIsNodeEditorOpen(false)}
-              onExpand={() => setIsNodeEditorOpen(true)}
-            >
-              <NodeEditorPanel isOpen={isNodeEditorOpen} onToggle={toggleNodeEditor} />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+          <ResizablePanel 
+            defaultSize={isNodeEditorOpen ? 65 : (100 - COLLAPSED_NODE_EDITOR_PERCENTAGE)} 
+            minSize={30}
+          >
+            <div className="flex-grow relative h-full w-full">
+              <SceneViewer />
+              <ViewportOverlayControls />
+            </div>
+          </ResizablePanel>
+          <ResizableHandle 
+            withHandle={isNodeEditorOpen} 
+            className={!isNodeEditorOpen ? "hidden" : ""} 
+          />
+          <ResizablePanel 
+            defaultSize={isNodeEditorOpen ? 35 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
+            minSize={isNodeEditorOpen ? 20 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
+            maxSize={isNodeEditorOpen ? 60 : COLLAPSED_NODE_EDITOR_PERCENTAGE}
+            collapsible={true} 
+            collapsedSize={COLLAPSED_NODE_EDITOR_PERCENTAGE}
+            onCollapse={() => setIsNodeEditorOpen(false)}
+            onExpand={() => setIsNodeEditorOpen(true)}
+            className="bg-card" // Add background to node editor panel parent
+          >
+            <NodeEditorPanel isOpen={isNodeEditorOpen} onToggle={toggleNodeEditor} />
+          </ResizablePanel>
+        </ResizablePanelGroup>
         <RightInspectorPanel />
       </div>
       <StatusBar />
@@ -185,4 +192,3 @@ export default function ArchiVisionAppPage() {
     </ProjectProvider>
   );
 }
-
