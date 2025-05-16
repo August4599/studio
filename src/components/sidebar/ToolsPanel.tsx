@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, GroupIcon as LucideGroupIcon, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare, MinusSquare
+  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, GroupIcon as LucideGroupIcon, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare, MinusSquare, Waves // Added Waves
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -179,7 +179,7 @@ const ToolsPanel = () => {
             onClick={() => {
               if (tool.isWip && tool.id !== 'orbit' && tool.id !== 'pan' && tool.id !== 'zoomWindow' && tool.id !== 'lookAround' && tool.id !== 'walk') {
                   toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
-                  return;
+                  // return; // Allow selecting WIP tools to show their properties
               }
               if (tool.action) tool.action();
               else if (tool.id) setActiveTool(tool.id); 
@@ -222,4 +222,3 @@ const ToolsPanel = () => {
 };
 
 export default ToolsPanel;
-
