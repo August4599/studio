@@ -2,20 +2,36 @@
 "use client";
 
 import React, { useState, useEffect }from 'react';
+import dynamic from 'next/dynamic';
 import { SceneProvider, useScene } from "@/context/scene-context";
 import { ProjectProvider, useProject } from "@/context/project-context";
-import SceneViewer from "@/components/scene/viewer";
+// import SceneViewer from "@/components/scene/viewer"; // Original import
 import MainToolbar from '@/components/layout/main-toolbar';
-import ToolsSidebar from '@/components/sidebar/ToolsSidebar'; // Corrected casing
-import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel'; // Corrected casing
-import NodeEditorPanel from '@/components/layout/NodeEditorPanel'; // Corrected casing
-import StatusBar from '@/components/layout/StatusBar'; // Corrected casing
-import ViewportOverlayControls from '@/components/scene/ViewportOverlayControls'; // Corrected casing
+import ToolsSidebar from '@/components/sidebar/ToolsSidebar';
+import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel';
+import NodeEditorPanel from '@/components/layout/NodeEditorPanel';
+import StatusBar from '@/components/layout/StatusBar';
+import ViewportOverlayControls from '@/components/scene/ViewportOverlayControls';
 import ProjectDashboard from '@/components/project/project-dashboard';
 import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
 import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
+import { SidebarProvider } from "@/components/ui/sidebar"; // Assuming this is the correct path for SidebarProvider
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+
+
+// Dynamically import SceneViewer
+const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full w-full bg-muted/50">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <span className="ml-2">Loading 3D Viewer...</span>
+    </div>
+  ),
+});
+
 
 const ArchiVisionLayout: React.FC = () => {
   const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState } = useScene();
@@ -43,7 +59,7 @@ const ArchiVisionLayout: React.FC = () => {
           case 'R': toolToSet = 'scale'; toolLabel = 'Scale'; break;
           case 'L': toolToSet = 'line'; toolLabel = 'Line'; break;
           case 'B': 
-            if (activeTool === 'paint') { // If paint tool is already active, cycle or do nothing, for now just toast
+            if (activeTool === 'paint') {
                 toast({ title: "Paint Tool", description: "Paint tool already active. Select material from panel."});
             } else {
                 toolToSet = 'paint'; toolLabel = 'Paint Bucket';
@@ -110,15 +126,24 @@ const ArchiVisionLayout: React.FC = () => {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground">
       <MainToolbar />
       <div className="flex flex-row flex-grow overflow-hidden">
-        <ToolsSidebar />
-        <div className="flex flex-col flex-grow relative overflow-hidden">
-          <div className="flex-grow relative">
-            <SceneViewer />
-            <ViewportOverlayControls />
+        <SidebarProvider defaultOpen side="left">
+          <ToolsSidebar />
+          <div className="flex flex-col flex-grow relative overflow-hidden">
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel defaultSize={75} minSize={50}>
+                <div className="flex-grow relative h-full"> {/* Ensure this container takes full height */}
+                  <SceneViewer />
+                  <ViewportOverlayControls />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={25} minSize={10} collapsible>
+                <NodeEditorPanel />
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </div>
-          <NodeEditorPanel />
-        </div>
-        <RightInspectorPanel />
+          <RightInspectorPanel />
+        </SidebarProvider>
       </div>
       <StatusBar />
     </div>
