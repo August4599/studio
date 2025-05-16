@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare,
+  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare, MinusSquare
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +33,7 @@ const ToolsPanel = () => {
   const [activeFlyout, setActiveFlyout] = React.useState<ToolType | null>(null);
 
   const handleAddPrimitive = (type: PrimitiveType) => {
-    const newObj = addObject(type);
+    const newObj = addObject(type as Exclude<PrimitiveType, 'cadPlan'>); // Ensure 'cadPlan' is excluded if not handled by addObject
     toast({
       title: "Object Added",
       description: `${newObj.name} added and selected.`,
@@ -91,7 +91,7 @@ const ToolsPanel = () => {
         { id: 'line', label: 'Line', icon: Minus, action: () => activateGenericTool('line', 'Line Tool', 'Click to define line segments.') }, 
         { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => activateGenericTool('rectangle', 'Rectangle Tool') }, 
         { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Framer, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'WIP: Define base, then angle and width.')},
-        { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') },
+        { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') }, 
         { 
           id: 'arc', label: 'Arc Tools', icon: Spline, action: () => toggleFlyout('arc'), 
           flyoutTools: [
@@ -180,7 +180,7 @@ const ToolsPanel = () => {
             onClick={() => {
               if (tool.isWip && tool.id !== 'orbit' && tool.id !== 'pan' && tool.id !== 'zoomWindow' && tool.id !== 'lookAround' && tool.id !== 'walk') { // Allow WIP nav tools to be selected
                   toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
-                  if (tool.id) setActiveTool(tool.id); 
+                  // if (tool.id) setActiveTool(tool.id); // Don't activate if it's just a placeholder action
                   return;
               }
               if (tool.action) tool.action();
@@ -208,11 +208,10 @@ const ToolsPanel = () => {
   );
 
   return (
-    <AccordionItem value="item-tools" className="border-none"> 
-      <AccordionContent className="p-0 space-y-1"> 
-        <TooltipProvider delayDuration={100}>
+    <div className="space-y-1 p-1">
+      <TooltipProvider delayDuration={100}>
           {toolCategories.map(category => (
-            <div key={category.title} className="space-y-1 py-1 px-1"> 
+            <div key={category.title} className="space-y-1 py-1"> 
               <Label className="text-xs font-medium text-muted-foreground px-1 pb-1 block">{category.title}</Label>
               <div className={`grid grid-cols-3 gap-1`}>
                 {category.tools.map(tool => renderToolButton(tool))}
@@ -220,8 +219,7 @@ const ToolsPanel = () => {
             </div>
           ))}
         </TooltipProvider>
-      </AccordionContent>
-    </AccordionItem>
+    </div>
   );
 };
 
