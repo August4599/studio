@@ -1,5 +1,4 @@
 
-
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
 
 // Modifier Types - Conceptual Placeholders
@@ -200,19 +199,19 @@ export interface BaseLightProps {
   visible?: boolean;
   castShadow?: boolean; 
   shadowBias?: number; 
-  shadowRadius?: number; 
-  shadowMapSize?: number; 
-  volumetricContribution?: number; 
-  linkedObjects?: string[]; 
-  excludedObjects?: string[]; 
+  shadowRadius?: number; // Softer shadows
+  shadowMapSize?: number; // Shadow map resolution
+  volumetricContribution?: number; // How much it affects volumetric fog
+  linkedObjects?: string[]; // WIP: Only illuminate these objects
+  excludedObjects?: string[]; // WIP: Don't illuminate these objects
 }
 export interface DirectionalLightSceneProps extends BaseLightProps {
   type: 'directional';
   position: [number, number, number]; 
   targetPosition?: [number,number,number]; 
-  sunAngle?: number; 
-  sunSize?: number; 
-  atmosphereThickness?: number; 
+  sunAngle?: number; // For soft shadows from sun
+  sunSize?: number; // Angular diameter for soft shadows
+  atmosphereThickness?: number; // For sky models
 }
 export interface PointLightSceneProps extends BaseLightProps {
   type: 'point';
@@ -231,44 +230,44 @@ export interface SpotLightSceneProps extends BaseLightProps {
   distance?: number;
   decay?: number;
   radius?: number; // Physical light radius
-  iesProfile?: string; 
-  barnDoors?: { top: number, bottom: number, left: number, right: number }; 
-  aspectRatio?: number; 
+  iesProfile?: string; // Path to IES file
+  barnDoors?: { top: number, bottom: number, left: number, right: number }; // WIP
+  aspectRatio?: number; // For non-circular spots WIP
 }
 
 export interface AreaLightSceneProps extends BaseLightProps {
   type: 'area' | 'sphere' | 'disk' | 'quad' | 'cylinder_light'; 
   position: [number, number, number];
   rotation?: [number, number, number]; 
-  width?: number;  
-  height?: number; 
-  radius?: number; 
+  width?: number;  // For rect/quad/cylinder
+  height?: number; // For rect/quad/cylinder
+  radius?: number; // For sphere/disk/cylinder
   shape?: 'rectangle' | 'disk' | 'sphere' | 'cylinder'; 
-  isPortal?: boolean; 
-  texture?: string; 
-  twoSided?: boolean; 
-  spread?: number; 
+  isPortal?: boolean; // For skylight portals
+  texture?: string; // Texture for the light emission
+  twoSided?: boolean; // Emits light from both sides
+  spread?: number; // For rect/disk, similar to spotlight cone angle (0-1 for 0-180 deg)
 }
 
-export interface SkyLightSceneProps extends BaseLightProps { 
+export interface SkyLightSceneProps extends BaseLightProps { // Conceptually a Dome light
     type: 'skylight'; 
     hdriPath?: string; 
     hdriRotation?: number; 
-    useSun?: boolean; 
-    skyModel?: 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural'; 
+    useSun?: boolean; // If the HDRI includes a sun, should it cast directional shadows
+    skyModel?: PhysicalSkyModel; // If not using HDRI, use a procedural sky
 }
-export interface PhotometricLightSceneProps extends BaseLightProps { 
+export interface PhotometricLightSceneProps extends BaseLightProps { // IES Light
     type: 'photometric';
     position: [number,number,number];
     targetPosition?: [number,number,number];
     iesFilePath?: string;
-    filterColor?: string; 
+    filterColor?: string; // Color filter applied to IES light
 }
 export interface MeshLightSceneProps extends BaseLightProps {
   type: 'mesh_light';
-  meshObjectId?: string; 
-  texture?: string; // WIP
-  multiplyByColor?: boolean; // WIP
+  meshObjectId?: string; // ID of the scene object to use as the light emitter
+  texture?: string; // WIP: Texture to apply to the mesh light surface
+  multiplyByColor?: boolean; // WIP: Whether the texture color multiplies the light color
 }
 
 
@@ -349,70 +348,98 @@ export type AppMode = 'modelling' | 'rendering';
 
 export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective' | 'isoTopRight' | 'isoTopLeft'; 
 
-export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt' | 'vray_mock' | 'corona_mock' | 'unreal_pathtracer_mock' | 'd5_render_mock' | 'arnold_mock'; 
+export type RenderEngineType = 
+  | 'cycles' | 'eevee' // Existing
+  | 'path_traced_rt_concept' // D5-like concept
+  | 'unreal_pathtracer_concept' // UE style
+  | 'vray_concept' // V-Ray style
+  | 'corona_concept' // Corona style
+  | 'arnold_concept'; // Arnold style
 
-export type RenderOutputType = 'png' | 'jpeg' | 'exr' | 'tiff' | 'tga' | 'mp4' | 'mov' | 'avi';
+export type RenderOutputType = 
+  | 'png' | 'jpeg' // Existing
+  | 'exr' | 'tiff' | 'tga' // More image formats
+  | 'mp4' | 'mov' | 'avi'; // Video formats
 
 export type RenderPassType = 
   | 'beauty' | 'z_depth' | 'normal' | 'ao' | 'object_id' | 'material_id' 
   | 'cryptomatte_object' | 'cryptomatte_material' | 'cryptomatte_asset'
-  | 'reflection' | 'refraction' | 'diffuse_filter' | 'specular' | 'gi' | 'shadows' | 'velocity' | 'world_position' | 'mist' | 'emission';
+  | 'reflection' | 'refraction' | 'diffuse_filter' | 'specular' | 'gi' | 'shadows' 
+  | 'velocity' | 'world_position' | 'mist' | 'emission';
 
 export interface RenderSettings {
   engine: RenderEngineType;
-  resolution: string; 
   resolutionPreset?: 'HD' | 'FullHD' | '2K_QHD' | '4K_UHD' | 'Custom'; 
   customWidth?: number; 
   customHeight?: number; 
   aspectRatioLock?: boolean;
+  resolution: string; // Kept for simplicity, can be derived from preset/custom
   outputFormat: RenderOutputType; 
+  
+  // Format Specific Options
   pngBitDepth?: 8 | 16; 
-  jpegQuality?: number; 
+  jpegQuality?: number; // 0-100
   exrDataType?: 'half' | 'float'; 
   exrCompression?: 'none' | 'zip' | 'piz' | 'rle'; 
   
+  // Quality & Sampling
   samples?: number; 
-  denoiser?: 'none' | 'optix' | 'oidn' | 'intel_openimage' | 'vray_default' | 'corona_highquality' | 'd5_default'; 
-  denoiserStrength?: number; // WIP
+  denoiser?: 'none' | 'optix' | 'oidn' | 'intel_openimage' | 'vray_default_concept' | 'corona_highquality_concept' | 'd5_default_concept'; 
+  denoiserStrength?: number;
   timeLimit?: number; // in minutes
   noiseThreshold?: number; 
-  adaptiveSampling?: boolean; // WIP for Cycles-like
-  adaptiveMinSamples?: number; // WIP
-  adaptiveMaxSamples?: number; // WIP
+  adaptiveSampling?: boolean; 
+  adaptiveMinSamples?: number; 
+  adaptiveMaxSamples?: number; 
   
+  // Lighting & Bounces
   giMode?: 'brute_force' | 'irradiance_cache' | 'light_cache' | 'path_tracing_gi'; 
   caustics?: boolean; 
   maxBounces?: { total: number, diffuse: number, glossy: number, transmission: number, volume: number }; 
   
+  // Output Path & Naming
   outputPath?: string; 
   fileName?: string; 
   overwriteExisting?: boolean; 
   
   renderElements?: RenderPassType[]; 
   
+  // Color Management
   colorManagement?: { 
-    displayDevice: 'sRGB' | 'Rec.709' | 'ACEScg'; 
-    viewTransform: 'Standard' | 'Filmic' | 'Raw' | 'ACES'; 
-    look?: 'None' | 'Medium Contrast' | 'High Contrast' | string; 
+    displayDevice: 'sRGB' | 'Rec.709' | 'ACEScg' | 'P3-DCI' | 'P3-Display'; 
+    viewTransform: 'Standard' | 'Filmic' | 'Raw' | 'ACES' | 'Log'; 
+    look?: 'None' | 'Medium Contrast' | 'High Contrast' | 'Custom LUT' | string; 
     exposure: number; 
     gamma: number; 
-    lutFile?: string; 
+    lutFile?: string; // Path to .cube or .3dl LUT file
   }; 
   
+  // Animation Settings
   animationSettings?: { 
     frameRange?: string; // e.g., "1-100, 150, 200-210"
     frameStep?: number;
     fps?: number; 
-    videoCodec?: 'h264' | 'prores' | 'h265_hevc' | 'vp9'; // Placeholder
-    videoContainer?: 'mp4' | 'mov' | 'mkv'; // Placeholder
+    videoCodec?: 'h264' | 'prores' | 'h265_hevc' | 'vp9' | 'dnxhr_concept' | 'av1_concept';
+    videoContainer?: 'mp4' | 'mov' | 'mkv' | 'webm_concept';
     videoBitrate?: number; // kbps
     audioPath?: string;
-    renderSequence?: boolean; // Render individual frames
-    imageSequenceFormat?: 'png' | 'jpeg' | 'exr' | 'tiff'; // For frame sequences
+    renderSequence?: boolean; // Render individual frames instead of video
+    imageSequenceFormat?: 'png' | 'jpeg' | 'exr' | 'tiff' | 'tga';
   };
   
-  distributedRendering?: { enabled: boolean; renderNodes: string[]; mode?: 'auto' | 'manual_select' }; 
-  performance?: { threads?: number; useGpu?: boolean; gpuDevices?: string[] }; // WIP
+  // Performance & Advanced
+  distributedRendering?: { 
+    enabled: boolean; 
+    renderNodes: string[]; // IPs or hostnames
+    mode?: 'auto_discover' | 'manual_list' | 'broker_service_concept'; 
+  }; 
+  performance?: { 
+    threads?: number | 'auto'; 
+    useGpu?: boolean; 
+    gpuDevices?: string[]; // IDs or names of GPUs to use
+    bucketSize?: number; // For tile-based renderers
+    progressiveRefinement?: boolean; // For engines like Cycles
+  };
 }
 
 export interface SceneLayer {
@@ -440,7 +467,7 @@ export interface SavedSceneView {
   environmentOverrides?: Partial<EnvironmentSettings>; 
 }
 
-export type PhysicalSkyModel = 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural' | 'cie_clear' | 'cie_overcast';
+export type PhysicalSkyModel = 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural_concept' | 'cie_clear' | 'cie_overcast';
 
 export interface EnvironmentSettings {
   backgroundMode: 'color' | 'gradient' | 'hdri' | 'physical_sky';
@@ -472,9 +499,9 @@ export interface EnvironmentSettings {
       longitude?: number,
       timezone?: string; 
       ozone?: number; 
-      skyTint?: string; // WIP
-      horizonHeight?: number; // WIP
-      horizonBlur?: number; // WIP
+      skyTint?: string;
+      horizonHeight?: number;
+      horizonBlur?: number;
   };
   groundPlane?: { 
     enabled: boolean;
@@ -482,8 +509,8 @@ export interface EnvironmentSettings {
     materialId?: string; 
     receiveShadows?: boolean;
     size?: number; 
-    color?: string; // WIP
-    reflectivity?: number; // WIP
+    color?: string; 
+    reflectivity?: number; 
   };
   fog?: { 
       enabled: boolean, 
@@ -502,15 +529,15 @@ export interface EnvironmentSettings {
       anisotropy?: number; 
       maxDistance?: number; 
       attenuationColor?: string; 
-      lightContributionScale?: number; // WIP
+      lightContributionScale?: number;
   };
   atmosphere?: { 
       haze?: number; 
       ozone?: number; 
       skyTint?: string; 
       horizonBlur?: number; 
-      density?: number; // WIP for overall atmospheric density
-      scaleHeight?: number; // WIP
+      density?: number; 
+      scaleHeight?: number; 
   };
   weatherEffects?: { 
       rain?: { enabled: boolean; intensity: number; puddleAmount: number; rainStreaksOnGlass?: boolean; splashEffect?: boolean; speed?: number; };
@@ -607,4 +634,61 @@ export interface StyleSettings {
   faceSettings: FaceStyleSettings;
   backgroundSettings: BackgroundStyleSettings;
   modellingAidsSettings: ModellingAidsSettings;
+}
+
+// Camera Specific Types
+export type CameraType = 'standard' | 'orthographic' | 'physical_concept' | 'panoramic_vr_concept';
+export interface CameraSettings {
+  type: CameraType;
+  fov: number; // For perspective/standard
+  orthoScale?: number; // For orthographic
+  nearClip: number;
+  farClip: number;
+  sensorSize?: [number, number]; // width, height in mm (for Physical Camera)
+  focalLength?: number; // mm (for Physical Camera, or derived from FOV)
+  fStop?: number; // (for Physical Camera - DoF)
+  shutterSpeed?: number; // 1/seconds (for Physical Camera - Motion Blur)
+  iso?: number; // (for Physical Camera - Sensitivity)
+  whiteBalance?: number; // Kelvin (for Physical Camera)
+  focusDistance?: number; // For DoF
+  apertureBlades?: number; // For bokeh shape (Physical Cam WIP)
+  apertureRotation?: number; // For bokeh shape (Physical Cam WIP)
+  motionBlur?: { // WIP
+    enabled: boolean;
+    shutterAngle?: number; // Degrees, alternative to shutter speed
+    samples?: number;
+  };
+  renderRegion?: { // WIP
+    enabled: boolean;
+    minX: number; minY: number; // 0-1 range
+    maxX: number; maxY: number; // 0-1 range
+  };
+}
+
+// Animation Types
+export interface Keyframe {
+  time: number; // Frame number or seconds
+  value: any; // Can be number, vector, color, boolean etc.
+  interpolation?: 'linear' | 'bezier' | 'step'; // WIP
+  handles?: { in: [number, number], out: [number, number] }; // Bezier handles WIP
+}
+export interface AnimationTrack {
+  id: string;
+  targetId: string; // e.g., objectId, lightId, materialId, cameraProperty
+  propertyName: string; // e.g., 'position.x', 'material.roughness', 'camera.fov'
+  keyframes: Keyframe[];
+  trackType: 'object_transform' | 'object_property' | 'material_property' | 'light_property' | 'camera_property';
+}
+export interface AnimationData {
+  duration: number; // Total frames or seconds
+  fps: number;
+  tracks: AnimationTrack[];
+}
+
+// Scene Data Update
+export interface SceneData {
+  // ... (keep existing properties)
+  cameraSettings?: CameraSettings; // Store current main camera settings
+  savedCameras?: Record<string, CameraSettings>; // For multiple cameras
+  animationData?: AnimationData; // Scene level animation
 }
