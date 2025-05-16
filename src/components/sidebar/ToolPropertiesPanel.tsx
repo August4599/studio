@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Palette, Settings2, Text, Ruler, MousePointer2, Move, RotateCcw, Maximize2, ChevronsUpDown, Eraser, Square, Minus, Circle as LucideCircle, Hexagon, Edit3, Spline, Target, Copy, Slice, Sigma, Layers, Orbit, Hand, ZoomIn, Expand, Triangle, Disc, Filter, Link, Unlink, Construction, CornerRightDown, CornerLeftUp, Eye, Sparkles, Framer, Move3d, DraftingCompass, SigmaSquare, BoxSelect, GitBranchPlus, MinusSquare, Users, Share2, Scissors, Waves, PenTool, ListFilter, EyeOff, Grid, Dot, Maximize, Minimize } from 'lucide-react';
+import { Palette, Settings2, Text, Ruler, MousePointer2, Move, RotateCcw, Maximize2, ChevronsUpDown, Eraser, Square, Minus, Circle as LucideCircle, Hexagon, Edit3, Spline, Target, Copy, Slice, Sigma, Layers, Orbit, Hand, ZoomIn, Expand, Triangle, Disc, Filter, Link, Unlink, Construction, CornerRightDown, CornerLeftUp, Eye, Sparkles, Framer, Move3d, DraftingCompass, SigmaSquare, BoxSelect, GitBranchPlus, MinusSquare, Users, Share2, Scissors, Waves, PenTool, ListFilter, EyeOff, Grid, Dot, Maximize, Minimize, SplitSquareVertical, AlignHorizontalSpaceBetween } from 'lucide-react'; // Added icons
 
 const ToolPropertiesPanel: React.FC = () => {
   const { activeTool, drawingState, setDrawingState, measurementUnit, setMeasurementUnit, activePaintMaterialId, getMaterialById } = useScene();
@@ -123,7 +123,7 @@ const ToolPropertiesPanel: React.FC = () => {
                 id="circle-segments" 
                 type="number" 
                 min="3" max="128" step="1"
-                value={drawingState.polygonSides || (activeTool === 'circle' ? 32 : 24)} 
+                value={drawingState.polygonSides || (activeTool === 'circle' ? 32 : 24)} // Polygon sides used for circle segment count
                 onChange={(e) => setDrawingState({ polygonSides: parseInt(e.target.value) || (activeTool === 'circle' ? 32 : 24) })}
                 className="h-8 text-xs"
             />
@@ -218,9 +218,9 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'followme':
         return (
           <div className='space-y-1'>
-            <p className="text-xs text-muted-foreground italic">Follow Me (WIP)</p>
-            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Pick Path</Button>
-            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Pick Profile</Button>
+            <Label className="text-xs font-medium">Follow Me (WIP)</Label>
+            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><Spline size={12} className="mr-1"/> Pick Path</Button>
+            <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled><Square size={12} className="mr-1"/> Pick Profile</Button>
           </div>
         );
       case 'intersectFaces':
@@ -230,10 +230,10 @@ const ToolPropertiesPanel: React.FC = () => {
         return (
           <div className='space-y-2'>
             <Label className="text-xs font-medium">Intersect Faces (WIP)</Label>
-            <RadioGroup defaultValue="model" disabled>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="model" id="int-model"/><Label htmlFor="int-model" className="text-xs font-normal">With Model</Label></div>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="selection" id="int-selection"/><Label htmlFor="int-selection" className="text-xs font-normal">With Selection</Label></div>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="context" id="int-context"/><Label htmlFor="int-context" className="text-xs font-normal">With Context</Label></div>
+            <RadioGroup defaultValue={activeTool === 'intersectWithModel' ? 'model' : activeTool === 'intersectWithSelection' ? 'selection' : 'context'} disabled className="text-xs">
+              <div className="flex items-center space-x-2"><RadioGroupItem value="model" id="int-model"/><Label htmlFor="int-model" className="font-normal">With Model</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="selection" id="int-selection"/><Label htmlFor="int-selection" className="font-normal">With Selection</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="context" id="int-context"/><Label htmlFor="int-context" className="font-normal">With Context (All)</Label></div>
             </RadioGroup>
           </div>
         );
@@ -242,11 +242,15 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'solidSubtract':
       case 'solidIntersect':
       case 'solidTrim':
+        let currentSolidOp = activeTool === 'outerShell' ? 'outerShell' : 
+                             activeTool === 'solidUnion' ? 'union' :
+                             activeTool === 'solidSubtract' ? 'subtract' :
+                             activeTool === 'solidIntersect' ? 'intersect' : 'trim';
         return (
             <div className="space-y-2">
                  <Label className="text-xs font-medium">Solid Tools (WIP)</Label>
-                <Select disabled>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Operation" /></SelectTrigger>
+                <Select value={currentSolidOp} disabled>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="outerShell" className="text-xs flex items-center gap-1"><BoxSelect size={12}/> Outer Shell</SelectItem>
                     <SelectItem value="union" className="text-xs flex items-center gap-1"><GitBranchPlus size={12}/> Union</SelectItem>
@@ -255,7 +259,7 @@ const ToolPropertiesPanel: React.FC = () => {
                     <SelectItem value="trim" className="text-xs flex items-center gap-1"><Scissors size={12}/> Trim</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground italic">Select multiple objects to perform solid operations.</p>
+                <p className="text-xs text-muted-foreground italic">Select multiple solid groups/components to perform operations.</p>
             </div>
         );
       case 'softenEdges':
@@ -426,9 +430,9 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'zoomExtents':
       case 'lookAround':
       case 'walk':
-        return <p className="text-xs text-muted-foreground italic text-center py-2">Navigation tools use mouse controls. Some have specific modes (WIP).</p>;
+        return <p className="text-xs text-muted-foreground italic text-center py-2">Navigation tool selected. Use mouse controls in the viewport.</p>;
       default:
-        return <p className="text-xs text-muted-foreground italic text-center py-2">No specific properties for this tool or tool not selected.</p>;
+        return <p className="text-xs text-muted-foreground italic text-center py-2">No specific properties for this tool or no tool selected.</p>;
     }
   };
 
@@ -441,4 +445,3 @@ const ToolPropertiesPanel: React.FC = () => {
 
 export default ToolPropertiesPanel;
 
-    

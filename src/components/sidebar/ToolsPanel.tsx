@@ -12,8 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useScene } from "@/context/scene-context";
 import type { ToolType, PrimitiveType } from "@/types";
 import { 
-  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, Grid2X2, AreaChart, AlignHorizontalSpaceBetween, AlignVerticalSpaceBetween, StretchHorizontal, StretchVertical, AppWindow, Columns, Asterisk, Waves, Wind as WindIcon, CloudCog, Sparkles, ListFilter, Network, Puzzle, Rows, SigmaSquare, SlidersHorizontal, Variable, Zap, Anchor, Atom, BarChart, Bold, Bot, CircleDot, Code2, Coins, Component, ConciergeBell, Copyleft, Crop, Crosshair, Dices, Diff, Disc2, Disc3, Donut, ExpandIcon, ExternalLinkIcon, Fingerprint, Frame, Gem, GitCommit, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, HardDrive, Hash, Heading1, Heading2, HelpCircle, Highlighter, History, Hourglass, Indent, InfoIcon, Italic, IterationCcw, IterationCw, KanbanSquare, KeySquare, Languages, LayoutDashboard, Link2, ListChecks, ListMinus, ListOrdered, ListPlus, ListTree, LogIn, LogOutIcon, Mail, MapPinIcon, MenuSquare, Mic2, Minimize, MinusSquare, MoonStar, MousePointerClick, Music2, Navigation2, Option, PackageCheck, Percent, PilcrowSquare, PlayCircle, Podcast, Pointer, QuoteIcon, Rat, RectangleHorizontal, Repeat, Route, Rss, RulerIcon, Scaling, ScatterChart, SearchCode, ServerCog, ShapesIcon, ShieldAlert, ShoppingBasket, Snowflake, SortAsc, SortDesc, SpellCheck, SquareCode, StarHalf, Strikethrough, Subscript, Superscript, SwissFranc, Table2, TagIcon, TerminalSquare, TextCursorInput, TextSelect, ThermometerIcon, ThumbsDown, ThumbsUp, ToggleLeftIcon, ToggleRightIcon, Tool, TreesIcon, UnderlineIcon, UnfoldHorizontal, UnfoldVertical, Unlink2, UploadCloudIcon, Volume1, Volume2, VolumeX, Wallet, Webcam, Wifi, Wrench, YoutubeIcon,
-  BoxSelect // Added BoxSelect
+  MousePointer2, Move, RotateCcw, Maximize2, Construction, Box, Circle as LucideCircle, LayoutPanelLeft, Type as TextIcon, Square, PenTool, Spline, Eraser, ChevronsUpDown, PaintBucket, Copy, Ruler, Hand, Expand, Globe, Triangle, Disc, Hexagon, Minus, Edit3, ImageIcon, ZoomIn, Target, Settings2, Combine, Slice, Group, Layers, Orbit, GitBranchPlus, ChevronDown, Scissors, Eye as LookAroundIcon, Footprints, Users, Share2, CornerRightDown, CornerLeftUp, DraftingCompass, Move3d, Rotate3dIcon, Scale, Framer, GitMerge, Route, BoxSelect, ListFilter, EyeOff, Grid, Dot, SplitSquareVertical, AlignHorizontalSpaceBetween, SigmaSquare,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +38,12 @@ const ToolsPanel = () => {
       title: "Object Added",
       description: `${newObj.name} added and selected.`,
     });
-    setActiveTool('select'); 
+    // Drawing tools will remain active, selection/transform tools will take over for primitives
+    if (type !== 'cube' && type !== 'cylinder' && type !== 'plane' && type !== 'sphere' && type !== 'cone' && type !== 'torus' && type !== 'text') {
+        setActiveTool(type as ToolType); // e.g. if 'rectangle' was a primitive type
+    } else {
+        setActiveTool('select'); 
+    }
   };
   
   const handleAddTextPlaceholder = () => {
@@ -55,7 +59,7 @@ const ToolsPanel = () => {
     setActiveTool(toolId);
     toast({
       title: `${toolLabel} Selected`,
-      description: message || `The ${toolLabel.toLowerCase()} is now active. Check Tool Options panel.`,
+      description: message || `The ${toolLabel.toLowerCase()} tool is now active. Check Tool Properties panel on the right.`,
       duration: 3000,
     });
     setActiveFlyout(null); 
@@ -97,7 +101,7 @@ const ToolsPanel = () => {
             {id: 'pie', label: 'Pie', icon: GitBranchPlus, isWip: true, action: () => activateGenericTool('pie', 'Pie Tool', 'WIP')},
           ]
         }, 
-        { id: 'polygon', label: 'Polygon', icon: Hexagon, action: () => activateGenericTool('polygon', 'Polygon Tool', 'Click center, drag. Set sides in Options.')},
+        { id: 'polygon', label: 'Polygon', icon: Hexagon, action: () => activateGenericTool('polygon', 'Polygon Tool', 'Click center, drag. Set sides in Tool Properties.')},
         { id: 'freehand', label: 'Freehand', icon: Edit3, action: () => activateGenericTool('freehand', 'Freehand Tool', 'Click and drag to draw freehand lines.'), isWip: true },
       ]
     },
@@ -174,9 +178,8 @@ const ToolsPanel = () => {
             size="icon"
             className={`w-full flex flex-col items-center justify-center gap-1 p-1 border hover:bg-primary/20 focus:ring-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative ${isFlyoutItem ? 'h-12 text-[9px]' : 'h-14'}`}
             onClick={() => {
-              if (tool.isWip) {
+              if (tool.isWip && tool.id !== 'orbit' && tool.id !== 'pan' && tool.id !== 'zoomWindow' && tool.id !== 'lookAround' && tool.id !== 'walk') { // Allow WIP nav tools to be selected
                   toast({title: "Work in Progress", description: `${tool.label} tool is not fully functional yet.`, duration: 2000});
-                  // For WIP tools, we might still want to activate them to show their WIP tool properties
                   if (tool.id) setActiveTool(tool.id); 
                   return;
               }
@@ -223,3 +226,4 @@ const ToolsPanel = () => {
 };
 
 export default ToolsPanel;
+
