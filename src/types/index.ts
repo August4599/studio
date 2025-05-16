@@ -1,16 +1,43 @@
 
+
 export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 'cone' | 'torus' | 'polygon' | 'cadPlan' | 'circle'; 
 
 // Modifier Types - Conceptual Placeholders
 export type ModifierType = 
   | 'bevel' | 'subdivision' | 'solidify' | 'array' | 'mirror' | 'lattice' | 'boolean' | 'displacement'
-  | 'skin' | 'shell' | 'path_deform' | 'ffd' | 'cloth' | 'hair_fur'; // More conceptual modifiers
+  | 'skin' | 'shell' | 'path_deform' | 'ffd' | 'cloth' | 'hair_fur' | 'scatter' | 'instance' | 'volume_to_mesh' | 'merge_by_distance';
 
-// Inspired by PBR properties and V-Ray/D5 material systems
+// Material Types (Conceptual, inspired by V-Ray/D5/etc.)
+export type AdvancedMaterialType = 
+  | 'generic_pbr' // Default
+  | 'glass_refractive'
+  | 'water_liquid'
+  | 'foliage_two_sided'
+  | 'car_paint_clearcoat'
+  | 'cloth_sheen'
+  | 'leather_detailed'
+  | 'metal_anisotropic'
+  | 'plastic_sss_translucent'
+  | 'wood_textured'
+  | 'concrete_rough'
+  | 'emissive_light_source'
+  | 'velvet_fabric'
+  | 'skin_sss_detailed'
+  | 'hair_bsdf' // Advanced concept
+  | 'toon_stylized'; // Advanced concept
+
+// BRDF Types
+export type BRDFModelType = 'ggx' | 'phong' | 'blinn_phong' | 'ward' | 'cook_torrance' | 'beckmann';
+
+// UVW Mapping Types
+export type UVWMappingType = 'uv_channel' | 'box' | 'planar' | 'cylindrical' | 'spherical' | 'triplanar' | 'world_space_box';
+export type UVWProjectionAxis = 'x' | 'y' | 'z';
+
+
 export interface MaterialProperties {
   id: string;
   name?: string; 
-  materialType?: 'generic' | 'glass' | 'water' | 'foliage' | 'car_paint' | 'cloth' | 'leather' | 'metal' | 'plastic' | 'wood' | 'concrete' | 'emissive_light' | 'velvet' | 'sss' | 'vray_standard' | 'd5_standard'; // Conceptual SOTA types
+  materialType?: AdvancedMaterialType; 
 
   // Core PBR
   color: string; 
@@ -39,51 +66,66 @@ export interface MaterialProperties {
   refractionColor?: string; 
   refractionGlossiness?: number; 
   thinWalled?: boolean; 
+  transmission?: number; // For glass thickness effect
+  transmissionMap?: string; // Texture for transmission amount
 
   // Displacement / Height
   displacementMap?: string;
   displacementScale?: number;
   displacementBias?: number;
-  tessellationLevel?: number; // WIP for displacement quality
+  tessellationLevel?: number; 
   
-  // Advanced Surface
+  // Advanced Surface - Clearcoat
   clearcoat?: number; 
   clearcoatMap?: string;
   clearcoatRoughness?: number; 
   clearcoatRoughnessMap?: string;
   clearcoatNormalMap?: string; 
+  clearcoatIOR?: number; // WIP
   
+  // Advanced Surface - Sheen
   sheen?: number; 
   sheenColor?: string; 
   sheenColorMap?: string;
   sheenRoughness?: number; 
   sheenRoughnessMap?: string;
+  sheenTint?: string; // WIP
 
-  // Subsurface Scattering
+  // Subsurface Scattering (SSS)
   subsurfaceScattering?: number; 
   subsurfaceColor?: string; 
-  subsurfaceRadius?: [number, number, number]; // More detailed SSS
+  subsurfaceColorMap?: string; // Texture for SSS color
+  subsurfaceRadius?: [number, number, number]; 
+  subsurfaceRadiusMap?: string; // Texture for SSS radius
+  subsurfaceScale?: number; // WIP
 
   // Anisotropy
   anisotropy?: number; 
   anisotropyRotation?: number; 
   anisotropyMap?: string; 
+  anisotropyRotationMap?: string; // Texture for rotation direction
 
   // UVW Mapping 
-  uvwMappingType?: 'uv_channel' | 'box' | 'planar' | 'cylindrical' | 'spherical' | 'triplanar' | 'world_space_box'; 
+  uvwMappingType?: UVWMappingType; 
   uvTiling?: [number, number];
   uvOffset?: [number, number];
   uvRotation?: number; 
   uvChannel?: number; 
   uvRealWorldScale?: boolean; 
-  uvProjectionAxis?: 'x' | 'y' | 'z'; 
+  uvProjectionAxis?: UVWProjectionAxis; 
   uvBoxProjectionBlend?: number; 
-  uvFlip?: { u: boolean, v: boolean }; // WIP
+  uvFlip?: { u: boolean, v: boolean }; 
 
   twoSided?: boolean; 
-  brdfType?: 'ggx' | 'phong' | 'blinnphong' | 'ward' | 'microfacet_ggx' | 'cook_torrance'; // More BRDFs
-  translucency?: number; // WIP for thin materials like paper, leaves
-  translucencyColor?: string; // WIP
+  brdfType?: BRDFModelType; 
+  translucency?: number; // For thin materials like paper, leaves
+  translucencyColor?: string; 
+  translucencyMap?: string; // Texture for translucency amount
+  
+  textureBaking?: { // WIP Placeholder
+    bakeType?: 'diffuse' | 'normal' | 'ao';
+    resolution?: number;
+  };
 }
 
 export interface CadPlanLine {
@@ -112,11 +154,11 @@ export interface SceneObjectDimensions {
   fontSize?: number; 
 }
 
-export interface AppliedModifier { // WIP
+export interface AppliedModifier { 
   id: string;
   type: ModifierType;
   enabled: boolean;
-  properties: Record<string, any>; // Modifier-specific properties
+  properties: Record<string, any>; 
 }
 
 export interface SceneObject {
@@ -132,12 +174,12 @@ export interface SceneObject {
   planData?: CadPlanData; 
   locked?: boolean; 
   layerId?: string; 
-  modifiers?: AppliedModifier[]; // WIP
-  parentId?: string; // WIP
-  isGroup?: boolean; // WIP
-  isComponentDefinition?: boolean; // WIP
-  componentInstanceId?: string; // WIP for instances of components
-  customAttributes?: Record<string, any>; // WIP for user properties
+  modifiers?: AppliedModifier[]; 
+  parentId?: string; 
+  isGroup?: boolean; 
+  isComponentDefinition?: boolean; 
+  componentInstanceId?: string; 
+  customAttributes?: Record<string, any>; 
 }
 
 export interface AmbientLightProps {
@@ -145,7 +187,9 @@ export interface AmbientLightProps {
   intensity: number;
 }
 
-export type LightType = 'ambient' | 'directional' | 'point' | 'spot' | 'area' | 'skylight' | 'photometric' | 'sphere' | 'disk' | 'quad' | 'cylinder_light' | 'mesh_light'; // More types
+export type LightType = 
+  | 'ambient' | 'directional' | 'point' | 'spot' | 'area' 
+  | 'skylight' | 'photometric' | 'sphere' | 'disk' | 'quad' | 'cylinder_light' | 'mesh_light';
 
 export interface BaseLightProps {
   id: string;
@@ -158,9 +202,9 @@ export interface BaseLightProps {
   shadowBias?: number; 
   shadowRadius?: number; 
   shadowMapSize?: number; 
-  volumetricContribution?: number; // WIP for per-light volumetrics
-  linkedObjects?: string[]; // WIP for light linking
-  excludedObjects?: string[]; // WIP for light exclusion
+  volumetricContribution?: number; 
+  linkedObjects?: string[]; 
+  excludedObjects?: string[]; 
 }
 export interface DirectionalLightSceneProps extends BaseLightProps {
   type: 'directional';
@@ -175,6 +219,7 @@ export interface PointLightSceneProps extends BaseLightProps {
   position: [number, number, number];
   distance?: number; 
   decay?: number; 
+  radius?: number; // Physical light radius (for soft shadows)
 }
 
 export interface SpotLightSceneProps extends BaseLightProps {
@@ -185,6 +230,7 @@ export interface SpotLightSceneProps extends BaseLightProps {
   penumbra?: number; 
   distance?: number;
   decay?: number;
+  radius?: number; // Physical light radius
   iesProfile?: string; 
   barnDoors?: { top: number, bottom: number, left: number, right: number }; 
   aspectRatio?: number; 
@@ -220,8 +266,9 @@ export interface PhotometricLightSceneProps extends BaseLightProps {
 }
 export interface MeshLightSceneProps extends BaseLightProps {
   type: 'mesh_light';
-  meshObjectId?: string; // ID of the scene object to use as a light emitter
-  // Mesh light specific properties...
+  meshObjectId?: string; 
+  texture?: string; // WIP
+  multiplyByColor?: boolean; // WIP
 }
 
 
@@ -302,14 +349,14 @@ export type AppMode = 'modelling' | 'rendering';
 
 export type ViewPreset = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'perspective' | 'isoTopRight' | 'isoTopLeft'; 
 
-export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt' | 'vray_mock' | 'corona_mock' | 'unreal_pathtracer_mock' | 'd5_render_mock'; 
+export type RenderEngineType = 'cycles' | 'eevee' | 'path_traced_rt' | 'vray_mock' | 'corona_mock' | 'unreal_pathtracer_mock' | 'd5_render_mock' | 'arnold_mock'; 
 
-export type RenderOutputType = 'png' | 'jpeg' | 'exr' | 'tiff' | 'mp4' | 'mov' | 'avi';
+export type RenderOutputType = 'png' | 'jpeg' | 'exr' | 'tiff' | 'tga' | 'mp4' | 'mov' | 'avi';
 
 export type RenderPassType = 
   | 'beauty' | 'z_depth' | 'normal' | 'ao' | 'object_id' | 'material_id' 
   | 'cryptomatte_object' | 'cryptomatte_material' | 'cryptomatte_asset'
-  | 'reflection' | 'refraction' | 'diffuse_filter' | 'specular' | 'gi' | 'shadows' | 'velocity' | 'world_position';
+  | 'reflection' | 'refraction' | 'diffuse_filter' | 'specular' | 'gi' | 'shadows' | 'velocity' | 'world_position' | 'mist' | 'emission';
 
 export interface RenderSettings {
   engine: RenderEngineType;
@@ -322,12 +369,14 @@ export interface RenderSettings {
   pngBitDepth?: 8 | 16; 
   jpegQuality?: number; 
   exrDataType?: 'half' | 'float'; 
-  exrCompression?: 'none' | 'zip' | 'piz'; 
+  exrCompression?: 'none' | 'zip' | 'piz' | 'rle'; 
   
   samples?: number; 
   denoiser?: 'none' | 'optix' | 'oidn' | 'intel_openimage' | 'vray_default' | 'corona_highquality' | 'd5_default'; 
-  timeLimit?: number; 
+  denoiserStrength?: number; // WIP
+  timeLimit?: number; // in minutes
   noiseThreshold?: number; 
+  adaptiveSampling?: boolean; // WIP for Cycles-like
   adaptiveMinSamples?: number; // WIP
   adaptiveMaxSamples?: number; // WIP
   
@@ -344,22 +393,26 @@ export interface RenderSettings {
   colorManagement?: { 
     displayDevice: 'sRGB' | 'Rec.709' | 'ACEScg'; 
     viewTransform: 'Standard' | 'Filmic' | 'Raw' | 'ACES'; 
-    look?: 'None' | 'Medium Contrast' | 'High Contrast' | string; // string for custom LUT name
+    look?: 'None' | 'Medium Contrast' | 'High Contrast' | string; 
     exposure: number; 
     gamma: number; 
     lutFile?: string; 
   }; 
   
-  animationSettings?: { // WIP
-    frameRange?: string; 
+  animationSettings?: { 
+    frameRange?: string; // e.g., "1-100, 150, 200-210"
     frameStep?: number;
     fps?: number; 
-    videoCodec?: string; 
-    videoBitrate?: number; 
+    videoCodec?: 'h264' | 'prores' | 'h265_hevc' | 'vp9'; // Placeholder
+    videoContainer?: 'mp4' | 'mov' | 'mkv'; // Placeholder
+    videoBitrate?: number; // kbps
     audioPath?: string;
+    renderSequence?: boolean; // Render individual frames
+    imageSequenceFormat?: 'png' | 'jpeg' | 'exr' | 'tiff'; // For frame sequences
   };
   
-  distributedRendering?: { enabled: boolean; renderNodes: string[]; mode?: 'auto' | 'manual_select' }; // WIP
+  distributedRendering?: { enabled: boolean; renderNodes: string[]; mode?: 'auto' | 'manual_select' }; 
+  performance?: { threads?: number; useGpu?: boolean; gpuDevices?: string[] }; // WIP
 }
 
 export interface SceneLayer {
@@ -368,7 +421,7 @@ export interface SceneLayer {
   visible: boolean;
   locked: boolean;
   color?: string; 
-  objectCount?: number; // WIP: for displaying in UI
+  objectCount?: number; 
 }
 
 export const DEFAULT_LAYER_ID = 'default-layer-0';
@@ -387,7 +440,7 @@ export interface SavedSceneView {
   environmentOverrides?: Partial<EnvironmentSettings>; 
 }
 
-export type PhysicalSkyModel = 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural';
+export type PhysicalSkyModel = 'none' | 'hosek_wilkie' | 'preetham' | 'd5_procedural' | 'cie_clear' | 'cie_overcast';
 
 export interface EnvironmentSettings {
   backgroundMode: 'color' | 'gradient' | 'hdri' | 'physical_sky';
@@ -418,14 +471,19 @@ export interface EnvironmentSettings {
       latitude?: number,
       longitude?: number,
       timezone?: string; 
-      ozone?: number; // For atmospheric tint
+      ozone?: number; 
+      skyTint?: string; // WIP
+      horizonHeight?: number; // WIP
+      horizonBlur?: number; // WIP
   };
   groundPlane?: { 
     enabled: boolean;
     height: number;
     materialId?: string; 
     receiveShadows?: boolean;
-    size?: number; // WIP
+    size?: number; 
+    color?: string; // WIP
+    reflectivity?: number; // WIP
   };
   fog?: { 
       enabled: boolean, 
@@ -443,18 +501,21 @@ export interface EnvironmentSettings {
       scattering?: number; 
       anisotropy?: number; 
       maxDistance?: number; 
-      attenuationColor?: string; // WIP
+      attenuationColor?: string; 
+      lightContributionScale?: number; // WIP
   };
   atmosphere?: { 
       haze?: number; 
       ozone?: number; 
       skyTint?: string; 
       horizonBlur?: number; 
+      density?: number; // WIP for overall atmospheric density
+      scaleHeight?: number; // WIP
   };
   weatherEffects?: { 
-      rain?: { enabled: boolean; intensity: number; puddleAmount: number; rainStreaksOnGlass?: boolean; splashEffect?: boolean };
-      snow?: { enabled: boolean; accumulation: number; melting: number; snowflakes?: boolean; windInfluence?: number };
-      wind?: { enabled: boolean; speed: number; direction: number; affectFoliage?: boolean; affectParticles?: boolean }; 
+      rain?: { enabled: boolean; intensity: number; puddleAmount: number; rainStreaksOnGlass?: boolean; splashEffect?: boolean; speed?: number; };
+      snow?: { enabled: boolean; accumulation: number; melting: number; snowflakes?: boolean; windInfluence?: number; particleSize?: number; };
+      wind?: { enabled: boolean; speed: number; direction: number; affectFoliage?: boolean; affectParticles?: boolean; turbulence?: number; }; 
   }
 }
 
@@ -485,3 +546,65 @@ export interface SceneData {
 
 export const DEFAULT_MATERIAL_ID = 'default-material-archvision'; 
 export const DEFAULT_MATERIAL_NAME = 'ArchiVision Default';
+
+// Style Settings (Conceptual for StylesPanel)
+export interface EdgeStyleSettings {
+  showEdges: boolean;
+  edgeColor: string;
+  edgeWidth: number;
+  showProfiles: boolean;
+  profileColor: string;
+  profileWidth: number;
+  showBackEdges: boolean; // WIP
+  backEdgeColor: string; // WIP
+  showExtensions: boolean; // WIP
+  extensionLength: number; // WIP
+  showEndpoints: boolean; // WIP
+  endpointStyle: 'dot' | 'slash'; // WIP
+  depthCue: boolean;
+  depthCueStrength: number; // WIP
+  jitter: boolean;
+  jitterStrength: number; // WIP
+}
+
+export type FaceStyleType = 'shaded' | 'shaded_with_textures' | 'wireframe' | 'hidden_line' | 'monochrome' | 'xray' | 'color_by_layer';
+
+export interface FaceStyleSettings {
+  style: FaceStyleType;
+  frontColor: string; // For shaded/monochrome
+  backColor: string; // For shaded/monochrome
+  monochromeColor: string; // For monochrome style
+  xrayOpacity: number; // For X-Ray style
+  showTextures: boolean; // For 'shaded_with_textures'
+}
+
+export interface BackgroundStyleSettings {
+  useSky: boolean;
+  skyColor: string;
+  useGround: boolean;
+  groundColor: string;
+  useHorizonGradient: boolean; // WIP
+  horizonColor: string; // Top color for gradient or flat horizon
+  useEnvironmentImage: boolean; // WIP - for modelling backdrop
+  environmentImagePath?: string; // WIP
+  backgroundColor: string; // If not sky/ground/image
+}
+
+export interface ModellingAidsSettings {
+  displayGuidelines: boolean;
+  guidelineColor: string; // WIP
+  displaySectionFill: boolean;
+  sectionFillColor: string; // WIP
+  displaySectionLines: boolean;
+  sectionLineColor: string; // WIP
+  sectionLineWidth: number; // WIP
+  displayModelAxes: boolean;
+  axesOriginColor: string; // WIP
+}
+
+export interface StyleSettings {
+  edgeSettings: EdgeStyleSettings;
+  faceSettings: FaceStyleSettings;
+  backgroundSettings: BackgroundStyleSettings;
+  modellingAidsSettings: ModellingAidsSettings;
+}

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -13,9 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScene } from "@/context/scene-context";
-import type { MaterialProperties } from "@/types";
+import type { MaterialProperties, AdvancedMaterialType, UVWMappingType, BRDFModelType, UVWProjectionAxis } from "@/types";
 import { DEFAULT_MATERIAL_ID, DEFAULT_MATERIAL_NAME } from "@/types";
-import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush, Sparkles, Eye, Layers, ShieldCheck, Droplets, Diamond, GalleryThumbnails, Sun, Settings, RotateCcw, Move as MoveIcon, StretchHorizontal, Type, Box, Cylinder, Plane, Globe, Cone, Torus, Workflow, RefreshCcw, Save, Copy, ChevronsUpDown, Wand2Icon, Image as ImageIcon, GitBranchPlus, Droplet as DropletIcon, Wind as WindIcon } from "lucide-react"; 
+import { Palette, PlusCircle, Trash2, Edit3, UploadCloud, CheckCircle2, Paintbrush, Sparkles, Eye, Layers, ShieldCheck, Droplets, Diamond, GalleryThumbnails, Sun, Settings, RotateCcw, Move as MoveIcon, StretchHorizontal, Type, Box, Cylinder, Plane, Globe, Cone, Torus, Workflow, RefreshCcw, Save, Copy, ChevronsUpDown, Wand2Icon, Image as ImageIcon, GitBranchPlus, Droplet as DropletIcon, Wind as WindIcon, Columns, Palette as ColorPaletteIcon, DraftingCompass, AlignHorizontalSpaceAround } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -209,15 +210,15 @@ const MaterialEditorDialog: React.FC<{
     toast({title: "Material Saved", description: `Properties for "${editedMaterial.name}" updated.`});
   };
   
-  const defaultOpenAccordions = ['basic-props', 'texture-maps'];
+  const defaultOpenAccordions = ['basic-props', 'texture-maps', 'uvw-mapping'];
 
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl"> {/* Increased width */}
+      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl"> 
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Palette size={20}/> Edit Material: {editedMaterial.name || "Unnamed Material"}</DialogTitle>
-          <DialogDescription className="text-xs">Adjust PBR properties, textures, and advanced settings for the material.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><ColorPaletteIcon size={20}/> Edit Material: {editedMaterial.name || "Unnamed Material"}</DialogTitle>
+          <DialogDescription className="text-xs">Adjust PBR properties, textures, UVW mapping, and advanced settings for the material.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] md:max-h-[75vh] p-1 pr-3 -mr-2"> 
           <Accordion type="multiple" defaultValue={defaultOpenAccordions} className="w-full space-y-3 text-xs">
@@ -232,21 +233,25 @@ const MaterialEditorDialog: React.FC<{
                   <Input id="mat-name" value={editedMaterial.name || ""} onChange={(e) => handleChange('name', e.target.value)} className="col-span-3 h-9 text-sm" />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="mat-type" className="text-right">Type (WIP)</Label>
-                    <Select value={editedMaterial.materialType || 'generic'} onValueChange={(val) => handleChange('materialType', val as MaterialProperties['materialType'])} >
+                    <Label htmlFor="mat-type" className="text-right">Material Type (WIP)</Label>
+                    <Select value={editedMaterial.materialType || 'generic_pbr'} onValueChange={(val) => handleChange('materialType', val as AdvancedMaterialType)} >
                         <SelectTrigger id="mat-type" className="col-span-3 h-9 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="generic" className="text-sm flex items-center gap-2"><Workflow size={14}/> Generic PBR</SelectItem>
-                            <SelectItem value="glass" className="text-sm flex items-center gap-2"><Layers size={14}/> Glass (Refractive)</SelectItem>
-                            <SelectItem value="water" className="text-sm flex items-center gap-2"><DropletIcon size={14}/> Water</SelectItem>
-                            <SelectItem value="foliage" className="text-sm flex items-center gap-2"><ImageIcon size={14}/> Foliage (Two-Sided)</SelectItem>
-                            <SelectItem value="car_paint" className="text-sm flex items-center gap-2"><ShieldCheck size={14}/> Car Paint (Clearcoat)</SelectItem>
-                            <SelectItem value="cloth" className="text-sm flex items-center gap-2"><StretchHorizontal size={14}/> Cloth (Sheen)</SelectItem>
-                            <SelectItem value="emissive_light" className="text-sm flex items-center gap-2"><Sun size={14}/> Emissive Light</SelectItem>
-                            <SelectItem value="metal" className="text-sm flex items-center gap-2">Metal (Raw/Anisotropic)</SelectItem>
-                            <SelectItem value="plastic" className="text-sm flex items-center gap-2">Plastic</SelectItem>
-                            <SelectItem value="wood" className="text-sm flex items-center gap-2">Wood</SelectItem>
-                            <SelectItem value="concrete" className="text-sm flex items-center gap-2">Concrete</SelectItem>
+                            <SelectItem value="generic_pbr" className="text-sm flex items-center gap-2"><Workflow size={14}/> Generic PBR</SelectItem>
+                            <SelectItem value="glass_refractive" className="text-sm flex items-center gap-2"><Layers size={14}/> Glass (Refractive)</SelectItem>
+                            <SelectItem value="water_liquid" className="text-sm flex items-center gap-2"><DropletIcon size={14}/> Water / Liquid</SelectItem>
+                            <SelectItem value="foliage_two_sided" className="text-sm flex items-center gap-2"><ImageIcon size={14}/> Foliage (Two-Sided)</SelectItem>
+                            <SelectItem value="car_paint_clearcoat" className="text-sm flex items-center gap-2"><ShieldCheck size={14}/> Car Paint (Clearcoat)</SelectItem>
+                            <SelectItem value="cloth_sheen" className="text-sm flex items-center gap-2"><StretchHorizontal size={14}/> Cloth (Sheen)</SelectItem>
+                            <SelectItem value="emissive_light_source" className="text-sm flex items-center gap-2"><Sun size={14}/> Emissive Light</SelectItem>
+                            <SelectItem value="metal_anisotropic" className="text-sm flex items-center gap-2"><AlignHorizontalSpaceAround size={14}/> Metal (Anisotropic)</SelectItem>
+                            <SelectItem value="plastic_sss_translucent" className="text-sm flex items-center gap-2"><Box size={14}/> Plastic (SSS/Translucent)</SelectItem>
+                            <SelectItem value="wood_textured" className="text-sm flex items-center gap-2"><Columns size={14}/> Wood (Textured)</SelectItem>
+                            <SelectItem value="concrete_rough" className="text-sm flex items-center gap-2"><DraftingCompass size={14}/> Concrete (Rough)</SelectItem>
+                            <SelectItem value="velvet_fabric" className="text-sm flex items-center gap-2">Velvet Fabric</SelectItem>
+                            <SelectItem value="skin_sss_detailed" className="text-sm flex items-center gap-2">Skin (SSS)</SelectItem>
+                            <SelectItem value="hair_bsdf" className="text-sm flex items-center gap-2">Hair BSDF (WIP)</SelectItem>
+                            <SelectItem value="toon_stylized" className="text-sm flex items-center gap-2">Toon / Stylized (WIP)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -267,7 +272,7 @@ const MaterialEditorDialog: React.FC<{
 
             <AccordionItem value="texture-maps">
               <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
-                <GalleryThumbnails size={16} className="mr-2"/> Texture Maps &amp; UVW
+                <GalleryThumbnails size={16} className="mr-2"/> Texture Maps
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pt-3">
                 <TextureInput label="Albedo (Base Color) Map" currentUrl={editedMaterial.map} onTextureUpload={(dataUrl) => handleTextureUpload('map', dataUrl)} onTextureClear={() => handleTextureClear('map')} channel="albedo"/>
@@ -276,6 +281,10 @@ const MaterialEditorDialog: React.FC<{
                 <TextureInput label="Roughness Map" currentUrl={editedMaterial.roughnessMap} onTextureUpload={(dataUrl) => handleTextureUpload('roughnessMap', dataUrl)} onTextureClear={() => handleTextureClear('roughnessMap')} channel="roughness"/>
                 <TextureInput label="Metalness Map" currentUrl={editedMaterial.metalnessMap} onTextureUpload={(dataUrl) => handleTextureUpload('metalnessMap', dataUrl)} onTextureClear={() => handleTextureClear('metalnessMap')} channel="metalness"/>
                 <TextureInput label="Ambient Occlusion (AO) Map" currentUrl={editedMaterial.aoMap} onTextureUpload={(dataUrl) => handleTextureUpload('aoMap', dataUrl)} onTextureClear={() => handleTextureClear('aoMap')} channel="ambient occlusion"/>
+                <div className="space-y-1">
+                  <Label htmlFor="mat-aoIntensity">AO Intensity: {(editedMaterial.aoIntensity ?? 1.0).toFixed(2)}</Label>
+                  <Slider id="mat-aoIntensity" min={0} max={2} step={0.01} value={[editedMaterial.aoIntensity ?? 1.0]} onValueChange={(val) => handleSliderChange('aoIntensity', val)} disabled={!editedMaterial.aoMap} />
+                </div>
                 <TextureInput label="Displacement/Height Map" currentUrl={editedMaterial.displacementMap} onTextureUpload={(dataUrl) => handleTextureUpload('displacementMap', dataUrl)} onTextureClear={() => handleTextureClear('displacementMap')} channel="displacement"/>
                 <div className="space-y-1">
                     <Label htmlFor="mat-displacementScale">Displacement Scale: {(editedMaterial.displacementScale ?? 0.1).toFixed(3)}</Label>
@@ -285,36 +294,71 @@ const MaterialEditorDialog: React.FC<{
                     <Label htmlFor="mat-displacementBias">Displacement Bias: {(editedMaterial.displacementBias ?? 0).toFixed(3)}</Label>
                     <Slider id="mat-displacementBias" min={-1} max={1} step={0.001} value={[editedMaterial.displacementBias ?? 0]} onValueChange={(val) => handleSliderChange('displacementBias', val)} disabled={!editedMaterial.displacementMap}/>
                 </div>
-                
-                {/* UVW Mapping Section */}
-                <div className="border-t pt-3 mt-3 space-y-2">
-                    <Label className="font-medium">UVW Mapping (WIP)</Label>
-                     <Select value={editedMaterial.uvwMappingType || 'box'} onValueChange={val => handleChange('uvwMappingType', val as MaterialProperties['uvwMappingType'])} disabled>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="box" className="text-sm">Box Mapping</SelectItem>
-                            <SelectItem value="planar" className="text-sm">Planar Mapping</SelectItem>
-                            <SelectItem value="cylindrical" className="text-sm">Cylindrical Mapping</SelectItem>
-                            <SelectItem value="spherical" className="text-sm">Spherical Mapping</SelectItem>
-                            <SelectItem value="triplanar" className="text-sm">Triplanar (World Space)</SelectItem>
-                            <SelectItem value="channel" className="text-sm">UV Channel</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Vector2Input label="Tiling (U, V)" value={editedMaterial.uvTiling ?? [1,1]} onChange={(val) => handleVector2Change('uvTiling', val)} step={0.1} />
-                    <Vector2Input label="Offset (U, V)" value={editedMaterial.uvOffset ?? [0,0]} onChange={(val) => handleVector2Change('uvOffset', val)} step={0.05} />
-                    <div className="space-y-1">
-                        <Label htmlFor="mat-uvRotation">Rotation (°): {(editedMaterial.uvRotation ?? 0).toFixed(1)}</Label>
-                        <Slider id="mat-uvRotation" min={0} max={360} step={0.1} value={[editedMaterial.uvRotation ?? 0]} onValueChange={(val) => handleSliderChange('uvRotation', val)} />
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-tessellationLevel">Tessellation Level (WIP): {(editedMaterial.tessellationLevel ?? 0)}</Label>
+                    <Slider id="mat-tessellationLevel" min={0} max={16} step={1} value={[editedMaterial.tessellationLevel ?? 0]} onValueChange={(val) => handleSliderChange('tessellationLevel', val)} disabled={!editedMaterial.displacementMap}/>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+             <AccordionItem value="uvw-mapping">
+              <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
+                <MoveIcon size={16} className="mr-2"/> UVW Mapping & Tiling
+              </AccordionTrigger>
+              <AccordionContent className="space-y-3 pt-2">
+                 <Select value={editedMaterial.uvwMappingType || 'uv_channel'} onValueChange={val => handleChange('uvwMappingType', val as UVWMappingType)} disabled>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="uv_channel" className="text-sm">UV Channel</SelectItem>
+                        <SelectItem value="box" className="text-sm">Box Mapping</SelectItem>
+                        <SelectItem value="planar" className="text-sm">Planar Mapping</SelectItem>
+                        <SelectItem value="cylindrical" className="text-sm">Cylindrical Mapping</SelectItem>
+                        <SelectItem value="spherical" className="text-sm">Spherical Mapping</SelectItem>
+                        <SelectItem value="triplanar" className="text-sm">Triplanar (World Space)</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Vector2Input label="Tiling (U, V)" value={editedMaterial.uvTiling ?? [1,1]} onChange={(val) => handleVector2Change('uvTiling', val)} step={0.01} />
+                <Vector2Input label="Offset (U, V)" value={editedMaterial.uvOffset ?? [0,0]} onChange={(val) => handleVector2Change('uvOffset', val)} step={0.01} />
+                <div className="space-y-1">
+                    <Label htmlFor="mat-uvRotation">Rotation (°): {(editedMaterial.uvRotation ?? 0).toFixed(1)}</Label>
+                    <Slider id="mat-uvRotation" min={0} max={360} step={0.1} value={[editedMaterial.uvRotation ?? 0]} onValueChange={(val) => handleSliderChange('uvRotation', val)} />
+                </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="mat-uvRealWorldScale" checked={!!editedMaterial.uvRealWorldScale} onCheckedChange={checked => handleChange('uvRealWorldScale', !!checked)} disabled/>
+                        <Label htmlFor="mat-uvRealWorldScale" className="font-normal text-xs">Real-World Scale (WIP)</Label>
                     </div>
                     <div className="flex items-center justify-between">
-                         <Label htmlFor="mat-uvChannel" className="text-xs">UV Channel (WIP):</Label>
+                         <Label htmlFor="mat-uvChannel" className="text-xs">UV Channel:</Label>
                          <Input id="mat-uvChannel" type="number" min="0" max="15" step="1" defaultValue={editedMaterial.uvChannel || 0} className="h-7 w-16 text-xs" disabled/>
                     </div>
-                     <div className="flex items-center space-x-2">
-                        <Checkbox id="mat-realworldscale" checked={!!editedMaterial.uvRealWorldScale} onCheckedChange={checked => handleChange('uvRealWorldScale', !!checked)} disabled/>
-                        <Label htmlFor="mat-realworldscale" className="font-normal">Real-World Scale (WIP)</Label>
+                </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                         <Checkbox id="mat-uvFlipU" checked={!!editedMaterial.uvFlip?.u} onCheckedChange={checked => handleChange('uvFlip', {...editedMaterial.uvFlip, u: !!checked})} disabled/>
+                        <Label htmlFor="mat-uvFlipU" className="font-normal text-xs">Flip U (WIP)</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                         <Checkbox id="mat-uvFlipV" checked={!!editedMaterial.uvFlip?.v} onCheckedChange={checked => handleChange('uvFlip', {...editedMaterial.uvFlip, v: !!checked})} disabled/>
+                        <Label htmlFor="mat-uvFlipV" className="font-normal text-xs">Flip V (WIP)</Label>
                     </div>
                 </div>
+                {editedMaterial.uvwMappingType === 'planar' && (
+                    <Select value={editedMaterial.uvProjectionAxis || 'y'} onValueChange={val => handleChange('uvProjectionAxis', val as UVWProjectionAxis)} disabled>
+                        <SelectTrigger className="h-9 text-sm mt-2"><SelectValue placeholder="Projection Axis"/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="x" className="text-sm">X Axis</SelectItem>
+                            <SelectItem value="y" className="text-sm">Y Axis</SelectItem>
+                            <SelectItem value="z" className="text-sm">Z Axis</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )}
+                {(editedMaterial.uvwMappingType === 'box' || editedMaterial.uvwMappingType === 'triplanar') && (
+                    <div className="space-y-1 mt-2">
+                        <Label htmlFor="mat-uvBoxProjectionBlend">Projection Blend (WIP): {(editedMaterial.uvBoxProjectionBlend ?? 0).toFixed(2)}</Label>
+                        <Slider id="mat-uvBoxProjectionBlend" min={0} max={1} step={0.01} value={[editedMaterial.uvBoxProjectionBlend ?? 0]} onValueChange={(val) => handleSliderChange('uvBoxProjectionBlend', val)} disabled/>
+                    </div>
+                )}
               </AccordionContent>
             </AccordionItem>
 
@@ -349,28 +393,51 @@ const MaterialEditorDialog: React.FC<{
                     <Slider id="mat-opacity" min={0} max={1} step={0.01} value={[editedMaterial.opacity ?? 1]} onValueChange={(val) => handleSliderChange('opacity', val)} disabled={!editedMaterial.transparent}/>
                 </div>
                 <TextureInput label="Alpha/Opacity Map" currentUrl={editedMaterial.alphaMap} onTextureUpload={(dataUrl) => handleTextureUpload('alphaMap', dataUrl)} onTextureClear={() => handleTextureClear('alphaMap')} channel="opacity"/>
+                <Select value={editedMaterial.alphaMode || 'blend'} onValueChange={(val) => handleChange('alphaMode', val as MaterialProperties['alphaMode'])} disabled={!editedMaterial.transparent}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Alpha Mode"/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="opaque" className="text-sm">Opaque</SelectItem>
+                        <SelectItem value="blend" className="text-sm">Blend</SelectItem>
+                        <SelectItem value="mask" className="text-sm">Mask (Alpha Test)</SelectItem>
+                    </SelectContent>
+                </Select>
+                {editedMaterial.alphaMode === 'mask' && (
+                     <div className="space-y-1">
+                        <Label htmlFor="mat-alphaCutoff">Alpha Cutoff: {(editedMaterial.alphaCutoff ?? 0.5).toFixed(2)}</Label>
+                        <Slider id="mat-alphaCutoff" min={0} max={1} step={0.01} value={[editedMaterial.alphaCutoff ?? 0.5]} onValueChange={(val) => handleSliderChange('alphaCutoff', val)} />
+                    </div>
+                )}
                  <div className="space-y-1">
                     <Label htmlFor="mat-ior">IOR (Index of Refraction): {(editedMaterial.ior ?? 1.5).toFixed(2)}</Label>
                     <Slider id="mat-ior" min={1} max={2.5} step={0.01} value={[editedMaterial.ior ?? 1.5]} onValueChange={(val) => handleSliderChange('ior', val)} disabled={!editedMaterial.transparent}/>
                 </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="mat-refractionColor" className="text-right">Refraction Color (WIP)</Label>
+                    <Input id="mat-refractionColor" type="color" value={editedMaterial.refractionColor || '#FFFFFF'} onChange={(e) => handleChange('refractionColor', e.target.value)} className="col-span-3 h-9" disabled={!editedMaterial.transparent}/>
+                </div>
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-refractionGlossiness">Refraction Glossiness (WIP): {(editedMaterial.refractionGlossiness ?? 1).toFixed(2)}</Label>
+                    <Slider id="mat-refractionGlossiness" min={0} max={1} step={0.01} value={[editedMaterial.refractionGlossiness ?? 1]} onValueChange={(val) => handleSliderChange('refractionGlossiness', val)} disabled={!editedMaterial.transparent}/>
+                </div>
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-transmission">Transmission (Glass Thickness): {(editedMaterial.transmission ?? 0).toFixed(2)}</Label>
+                    <Slider id="mat-transmission" min={0} max={1} step={0.01} value={[editedMaterial.transmission ?? 0]} onValueChange={(val) => handleSliderChange('transmission', val)} disabled={!editedMaterial.transparent}/>
+                </div>
+                <TextureInput label="Transmission Map (WIP)" currentUrl={editedMaterial.transmissionMap} onTextureUpload={(dataUrl) => handleTextureUpload('transmissionMap', dataUrl)} onTextureClear={() => handleTextureClear('transmissionMap')} channel="transmission" disabled={!editedMaterial.transparent}/>
+                <div className="flex items-center space-x-2">
+                    <Checkbox id="mat-thinWalled" checked={!!editedMaterial.thinWalled} onCheckedChange={(checked) => handleChange('thinWalled', !!checked)} disabled={!editedMaterial.transparent}/>
+                    <Label htmlFor="mat-thinWalled" className="font-normal">Thin-Walled (Single-Sided Glass/Foliage)</Label>
+                </div>
                 <div className="flex items-center space-x-2">
                     <Checkbox id="mat-twoSided" checked={!!editedMaterial.twoSided} onCheckedChange={(checked) => handleChange('twoSided', !!checked)} />
-                    <Label htmlFor="mat-twoSided" className="font-normal">Two-Sided (for Foliage, Thin Glass)</Label>
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4"> {/* Refraction Color WIP */}
-                    <Label htmlFor="mat-refractionColor" className="text-right">Refraction Color (WIP)</Label>
-                    <Input id="mat-refractionColor" type="color" value={editedMaterial.refractionColor || '#FFFFFF'} onChange={(e) => handleChange('refractionColor', e.target.value)} className="col-span-3 h-9" disabled/>
-                </div>
-                 <div className="space-y-1"> {/* Refraction Glossiness WIP */}
-                    <Label htmlFor="mat-refractionGlossiness">Refraction Glossiness (WIP): {(editedMaterial.refractionGlossiness ?? 1).toFixed(2)}</Label>
-                    <Slider id="mat-refractionGlossiness" min={0} max={1} step={0.01} value={[editedMaterial.refractionGlossiness ?? 1]} onValueChange={(val) => handleSliderChange('refractionGlossiness', val)} disabled/>
+                    <Label htmlFor="mat-twoSided" className="font-normal">Render Two-Sided</Label>
                 </div>
               </AccordionContent>
             </AccordionItem>
             
             <AccordionItem value="clearcoat-sheen">
               <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
-                <ShieldCheck size={16} className="mr-2"/> Clearcoat &amp; Sheen (WIP)
+                <ShieldCheck size={16} className="mr-2"/> Clearcoat &amp; Sheen
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-2">
                 <Label className="font-medium">Clearcoat (Car Paint, Lacquer)</Label>
@@ -378,12 +445,17 @@ const MaterialEditorDialog: React.FC<{
                     <Label htmlFor="mat-clearcoat">Intensity: {(editedMaterial.clearcoat ?? 0).toFixed(2)}</Label>
                     <Slider id="mat-clearcoat" min={0} max={1} step={0.01} value={[editedMaterial.clearcoat ?? 0]} onValueChange={(val) => handleSliderChange('clearcoat', val)} />
                 </div>
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-clearcoatIOR">Clearcoat IOR (WIP): {(editedMaterial.clearcoatIOR ?? 1.5).toFixed(2)}</Label>
+                    <Slider id="mat-clearcoatIOR" min={1} max={2.5} step={0.01} value={[editedMaterial.clearcoatIOR ?? 1.5]} onValueChange={(val) => handleSliderChange('clearcoatIOR', val)} disabled={!editedMaterial.clearcoat || editedMaterial.clearcoat === 0}/>
+                </div>
                 <div className="space-y-1">
                     <Label htmlFor="mat-clearcoat-roughness">Roughness: {(editedMaterial.clearcoatRoughness ?? 0).toFixed(2)}</Label>
-                    <Slider id="mat-clearcoat-roughness" min={0} max={1} step={0.01} value={[editedMaterial.clearcoatRoughness ?? 0]} onValueChange={(val) => handleSliderChange('clearcoatRoughness', val)} />
+                    <Slider id="mat-clearcoat-roughness" min={0} max={1} step={0.01} value={[editedMaterial.clearcoatRoughness ?? 0]} onValueChange={(val) => handleSliderChange('clearcoatRoughness', val)} disabled={!editedMaterial.clearcoat || editedMaterial.clearcoat === 0}/>
                 </div>
-                <TextureInput label="Clearcoat Map" currentUrl={editedMaterial.clearcoatMap} onTextureUpload={(dataUrl) => handleTextureUpload('clearcoatMap', dataUrl)} onTextureClear={() => handleTextureClear('clearcoatMap')} channel="clearcoat" />
-                <TextureInput label="Clearcoat Normal Map" currentUrl={editedMaterial.clearcoatNormalMap} onTextureUpload={(dataUrl) => handleTextureUpload('clearcoatNormalMap', dataUrl)} onTextureClear={() => handleTextureClear('clearcoatNormalMap')} channel="clearcoat normal"/>
+                <TextureInput label="Clearcoat Map" currentUrl={editedMaterial.clearcoatMap} onTextureUpload={(dataUrl) => handleTextureUpload('clearcoatMap', dataUrl)} onTextureClear={() => handleTextureClear('clearcoatMap')} channel="clearcoat" disabled={!editedMaterial.clearcoat || editedMaterial.clearcoat === 0}/>
+                <TextureInput label="Clearcoat Roughness Map" currentUrl={editedMaterial.clearcoatRoughnessMap} onTextureUpload={(dataUrl) => handleTextureUpload('clearcoatRoughnessMap', dataUrl)} onTextureClear={() => handleTextureClear('clearcoatRoughnessMap')} channel="clearcoat roughness" disabled={!editedMaterial.clearcoat || editedMaterial.clearcoat === 0}/>
+                <TextureInput label="Clearcoat Normal Map" currentUrl={editedMaterial.clearcoatNormalMap} onTextureUpload={(dataUrl) => handleTextureUpload('clearcoatNormalMap', dataUrl)} onTextureClear={() => handleTextureClear('clearcoatNormalMap')} channel="clearcoat normal" disabled={!editedMaterial.clearcoat || editedMaterial.clearcoat === 0}/>
                 
                 <Label className="font-medium pt-2 border-t mt-2">Sheen (Cloth, Velvet)</Label>
                  <div className="space-y-1">
@@ -392,19 +464,24 @@ const MaterialEditorDialog: React.FC<{
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="mat-sheenColor" className="text-right">Sheen Color</Label>
-                    <Input id="mat-sheenColor" type="color" value={editedMaterial.sheenColor || '#FFFFFF'} onChange={(e) => handleChange('sheenColor', e.target.value)} className="col-span-3 h-9" />
+                    <Input id="mat-sheenColor" type="color" value={editedMaterial.sheenColor || '#FFFFFF'} onChange={(e) => handleChange('sheenColor', e.target.value)} className="col-span-3 h-9" disabled={!editedMaterial.sheen || editedMaterial.sheen === 0}/>
                 </div>
-                <TextureInput label="Sheen Color Map" currentUrl={editedMaterial.sheenColorMap} onTextureUpload={(dataUrl) => handleTextureUpload('sheenColorMap', dataUrl)} onTextureClear={() => handleTextureClear('sheenColorMap')} channel="sheen" />
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="mat-sheenTint" className="text-right">Sheen Tint (WIP)</Label>
+                    <Input id="mat-sheenTint" type="color" value={editedMaterial.sheenTint || '#FFFFFF'} onChange={(e) => handleChange('sheenTint', e.target.value)} className="col-span-3 h-9" disabled={!editedMaterial.sheen || editedMaterial.sheen === 0}/>
+                </div>
+                <TextureInput label="Sheen Color Map" currentUrl={editedMaterial.sheenColorMap} onTextureUpload={(dataUrl) => handleTextureUpload('sheenColorMap', dataUrl)} onTextureClear={() => handleTextureClear('sheenColorMap')} channel="sheen" disabled={!editedMaterial.sheen || editedMaterial.sheen === 0}/>
                  <div className="space-y-1">
                     <Label htmlFor="mat-sheenRoughness">Sheen Roughness: {(editedMaterial.sheenRoughness ?? 0.3).toFixed(2)}</Label>
-                    <Slider id="mat-sheenRoughness" min={0} max={1} step={0.01} value={[editedMaterial.sheenRoughness ?? 0.3]} onValueChange={(val) => handleSliderChange('sheenRoughness', val)} />
+                    <Slider id="mat-sheenRoughness" min={0} max={1} step={0.01} value={[editedMaterial.sheenRoughness ?? 0.3]} onValueChange={(val) => handleSliderChange('sheenRoughness', val)} disabled={!editedMaterial.sheen || editedMaterial.sheen === 0}/>
                 </div>
+                <TextureInput label="Sheen Roughness Map" currentUrl={editedMaterial.sheenRoughnessMap} onTextureUpload={(dataUrl) => handleTextureUpload('sheenRoughnessMap', dataUrl)} onTextureClear={() => handleTextureClear('sheenRoughnessMap')} channel="sheen roughness" disabled={!editedMaterial.sheen || editedMaterial.sheen === 0}/>
               </AccordionContent>
             </AccordionItem>
 
              <AccordionItem value="sss-anisotropy">
               <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
-                <Droplets size={16} className="mr-2"/> SSS &amp; Anisotropy (WIP)
+                <Droplets size={16} className="mr-2"/> SSS &amp; Anisotropy
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-2">
                 <Label className="font-medium">Subsurface Scattering (Skin, Wax)</Label>
@@ -413,9 +490,18 @@ const MaterialEditorDialog: React.FC<{
                     <Slider id="mat-sss" min={0} max={1} step={0.01} value={[editedMaterial.subsurfaceScattering ?? 0]} onValueChange={(val) => handleSliderChange('subsurfaceScattering', val)} />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="mat-sssColor" className="text-right">SSS Radius Color</Label>
-                    <Input id="mat-sssColor" type="color" value={editedMaterial.subsurfaceColor || '#FFFFFF'} onChange={(e) => handleChange('subsurfaceColor', e.target.value)} className="col-span-3 h-9" />
+                    <Label htmlFor="mat-sssColor" className="text-right">SSS Color</Label>
+                    <Input id="mat-sssColor" type="color" value={editedMaterial.subsurfaceColor || '#FFFFFF'} onChange={(e) => handleChange('subsurfaceColor', e.target.value)} className="col-span-3 h-9" disabled={!editedMaterial.subsurfaceScattering || editedMaterial.subsurfaceScattering === 0}/>
                 </div>
+                <TextureInput label="SSS Color Map" currentUrl={editedMaterial.subsurfaceColorMap} onTextureUpload={(dataUrl) => handleTextureUpload('subsurfaceColorMap', dataUrl)} onTextureClear={() => handleTextureClear('subsurfaceColorMap')} channel="sss color" disabled={!editedMaterial.subsurfaceScattering || editedMaterial.subsurfaceScattering === 0}/>
+                {/* SSS Radius Vector Input - WIP */}
+                 <div className="space-y-1">
+                    <Label className="text-xs">SSS Radius [R,G,B] (WIP): {`[${(editedMaterial.subsurfaceRadius?.[0] ?? 0).toFixed(2)}, ${(editedMaterial.subsurfaceRadius?.[1] ?? 0).toFixed(2)}, ${(editedMaterial.subsurfaceRadius?.[2] ?? 0).toFixed(2)}]`}</Label>
+                    <p className="text-xs text-muted-foreground">Complex radius control coming soon.</p>
+                </div>
+                <TextureInput label="SSS Radius Map (WIP)" currentUrl={editedMaterial.subsurfaceRadiusMap} onTextureUpload={(dataUrl) => handleTextureUpload('subsurfaceRadiusMap', dataUrl)} onTextureClear={() => handleTextureClear('subsurfaceRadiusMap')} channel="sss radius" disabled/>
+
+
                 <Label className="font-medium pt-2 border-t mt-2">Anisotropy (Brushed Metal)</Label>
                 <div className="space-y-1">
                     <Label htmlFor="mat-anisotropy">Intensity: {(editedMaterial.anisotropy ?? 0).toFixed(2)}</Label>
@@ -423,34 +509,44 @@ const MaterialEditorDialog: React.FC<{
                 </div>
                 <div className="space-y-1">
                     <Label htmlFor="mat-anisotropyRotation">Rotation (°): {(editedMaterial.anisotropyRotation ?? 0).toFixed(1)}</Label>
-                    <Slider id="mat-anisotropyRotation" min={0} max={360} step={0.1} value={[editedMaterial.anisotropyRotation ?? 0]} onValueChange={(val) => handleSliderChange('anisotropyRotation', val)} />
+                    <Slider id="mat-anisotropyRotation" min={0} max={360} step={0.1} value={[editedMaterial.anisotropyRotation ?? 0]} onValueChange={(val) => handleSliderChange('anisotropyRotation', val)} disabled={!editedMaterial.anisotropy || editedMaterial.anisotropy === 0}/>
                 </div>
-                <TextureInput label="Anisotropy Map" currentUrl={editedMaterial.anisotropyMap} onTextureUpload={(dataUrl) => handleTextureUpload('anisotropyMap', dataUrl)} onTextureClear={() => handleTextureClear('anisotropyMap')} channel="anisotropy" />
+                <TextureInput label="Anisotropy Map" currentUrl={editedMaterial.anisotropyMap} onTextureUpload={(dataUrl) => handleTextureUpload('anisotropyMap', dataUrl)} onTextureClear={() => handleTextureClear('anisotropyMap')} channel="anisotropy" disabled={!editedMaterial.anisotropy || editedMaterial.anisotropy === 0}/>
+                <TextureInput label="Anisotropy Rotation Map (WIP)" currentUrl={editedMaterial.anisotropyRotationMap} onTextureUpload={(dataUrl) => handleTextureUpload('anisotropyRotationMap', dataUrl)} onTextureClear={() => handleTextureClear('anisotropyRotationMap')} channel="anisotropy rotation" disabled/>
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="advanced-options">
               <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
-                <Settings size={16} className="mr-2"/> Advanced Options (WIP)
+                <Settings size={16} className="mr-2"/> Advanced Options
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-2">
                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="mat-brdf" className="text-right">BRDF Type</Label>
-                    <Select value={editedMaterial.brdfType || 'ggx'} onValueChange={(val) => handleChange('brdfType', val)} disabled>
+                    <Label htmlFor="mat-brdf" className="text-right">BRDF Type (WIP)</Label>
+                    <Select value={editedMaterial.brdfType || 'ggx'} onValueChange={(val) => handleChange('brdfType', val as BRDFModelType)} disabled>
                         <SelectTrigger id="mat-brdf" className="col-span-3 h-9 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ggx" className="text-sm">GGX (Default)</SelectItem>
+                            <SelectItem value="beckmann" className="text-sm">Beckmann</SelectItem>
                             <SelectItem value="phong" className="text-sm">Phong</SelectItem>
-                            <SelectItem value="blinnphong" className="text-sm">Blinn-Phong</SelectItem>
+                            <SelectItem value="blinn_phong" className="text-sm">Blinn-Phong</SelectItem>
                             <SelectItem value="ward" className="text-sm">Ward (Anisotropic)</SelectItem>
+                            <SelectItem value="cook_torrance" className="text-sm">Cook-Torrance</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Checkbox id="mat-useRealWorldScale" checked={!!editedMaterial.uvRealWorldScale} onCheckedChange={checked => handleChange('uvRealWorldScale', !!checked)} disabled/>
-                    <Label htmlFor="mat-useRealWorldScale" className="font-normal">Use Real-World Scale for Textures (WIP)</Label>
+                 <div className="space-y-1">
+                    <Label htmlFor="mat-translucency">Translucency (WIP): {(editedMaterial.translucency ?? 0).toFixed(2)}</Label>
+                    <Slider id="mat-translucency" min={0} max={1} step={0.01} value={[editedMaterial.translucency ?? 0]} onValueChange={(val) => handleSliderChange('translucency', val)} disabled/>
                 </div>
-                <p className="text-xs text-muted-foreground italic">More advanced options like translucency controls, bump mapping details, reflection/refraction depth etc. will appear here.</p>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="mat-translucencyColor" className="text-right">Translucency Color (WIP)</Label>
+                    <Input id="mat-translucencyColor" type="color" value={editedMaterial.translucencyColor || '#FFFFFF'} onChange={(e) => handleChange('translucencyColor', e.target.value)} className="col-span-3 h-9" disabled/>
+                </div>
+                <TextureInput label="Translucency Map (WIP)" currentUrl={editedMaterial.translucencyMap} onTextureUpload={(dataUrl) => handleTextureUpload('translucencyMap', dataUrl)} onTextureClear={() => handleTextureClear('translucencyMap')} channel="translucency" disabled/>
+                <div className="pt-2 border-t mt-2">
+                    <Button variant="outline" size="sm" className="w-full h-8 text-xs" disabled>Texture Baking Tools (WIP)...</Button>
+                </div>
               </AccordionContent>
             </AccordionItem>
 
@@ -638,10 +734,11 @@ const MaterialsPanelAccordion = () => {
         {activeTool === 'paint' && activePaintMaterialId && (
             <p className="text-xs text-primary text-center">Paint mode active. Click objects in scene to apply.</p>
         )}
-         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">WIP: Material library, advanced shaders, drag & drop.</p>
+         <p className="text-[10px] text-muted-foreground text-center pt-1 italic">Full material editor & library (WIP).</p>
       </AccordionContent>
     </AccordionItem>
   );
 };
 
 export default MaterialsPanelAccordion; 
+
