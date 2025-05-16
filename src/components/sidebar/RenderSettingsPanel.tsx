@@ -57,7 +57,7 @@ const RenderSettingsPanel = () => {
     'beauty', 'z_depth', 'normal', 'ao', 'object_id', 'material_id', 
     'cryptomatte_object', 'cryptomatte_material', 'cryptomatte_asset',
     'reflection', 'refraction', 'diffuse_filter', 'specular', 'gi', 'shadows', 
-    'velocity', 'world_position', 'mist', 'emission'
+    'velocity', 'world_position', 'mist', 'emission', 'denoised_beauty', 'lighting', 'subsurface', 'volume'
   ];
 
   return (
@@ -132,8 +132,35 @@ const RenderSettingsPanel = () => {
                         <SelectItem value="avi" className="text-xs">AVI (Video)</SelectItem>
                         </SelectContent>
                     </Select>
-                    {/* WIP: Format specific options */}
-                     <div className="text-xs text-muted-foreground italic">Format specific options (bit depth, quality, compression) WIP.</div>
+                    {renderSettings.outputFormat === 'png' && (
+                       <div className="pl-4 space-y-1 border-l ml-2 text-xs">
+                        <Label htmlFor="png-bit-depth">Bit Depth</Label>
+                        <Select value={renderSettings.pngBitDepth?.toString() || '8'} onValueChange={v=>handleSettingChange('pngBitDepth', parseInt(v))} disabled>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="8">8-bit</SelectItem><SelectItem value="16">16-bit</SelectItem></SelectContent>
+                        </Select>
+                       </div>
+                    )}
+                     {renderSettings.outputFormat === 'jpeg' && (
+                       <div className="pl-4 space-y-1 border-l ml-2 text-xs">
+                        <Label>Quality: {renderSettings.jpegQuality || 90}%</Label><Slider value={[renderSettings.jpegQuality || 90]} onValueChange={([v])=>handleSettingChange('jpegQuality',v)} min={10} max={100} step={1} disabled/>
+                       </div>
+                    )}
+                     {renderSettings.outputFormat === 'exr' && (
+                       <div className="pl-4 space-y-1 border-l ml-2 text-xs">
+                        <Label htmlFor="exr-data-type">Data Type</Label>
+                        <Select value={renderSettings.exrDataType || 'half'} onValueChange={v=>handleSettingChange('exrDataType', v as any)} disabled>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="half">Half (16-bit Float)</SelectItem><SelectItem value="float">Float (32-bit Float)</SelectItem></SelectContent>
+                        </Select>
+                        <Label htmlFor="exr-compression">Compression</Label>
+                        <Select value={renderSettings.exrCompression || 'zip'} onValueChange={v=>handleSettingChange('exrCompression', v as any)} disabled>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                            <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="zip">ZIP</SelectItem><SelectItem value="piz">PIZ</SelectItem><SelectItem value="rle">RLE</SelectItem></SelectContent>
+                        </Select>
+                       </div>
+                    )}
+
 
                     <Label htmlFor="output-path">Output Path (WIP)</Label>
                     <Input id="output-path" value={renderSettings.outputPath || ""} onChange={e => handleSettingChange('outputPath', e.target.value)} placeholder="e.g., C:/Renders/" className="h-8 text-xs" disabled/>
@@ -194,7 +221,13 @@ const RenderSettingsPanel = () => {
                     </Select>
                     <div className="flex items-center space-x-2"><Checkbox id="caustics" checked={!!renderSettings.caustics} onCheckedChange={c=>handleSettingChange('caustics', !!c)} disabled/><Label htmlFor="caustics" className="text-xs font-normal">Caustics</Label></div>
                     <Label>Max Bounces (Total, Diffuse, Glossy, etc.)</Label>
-                    <div className="p-2 border rounded bg-muted/30 text-muted-foreground">Details here...</div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Input type="number" placeholder="Total" value={renderSettings.maxBounces?.total || 8} onChange={e => handleDeepNestedSettingChange('renderSettings', 'maxBounces', 'total', parseInt(e.target.value))} className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Diffuse" value={renderSettings.maxBounces?.diffuse || 4} onChange={e => handleDeepNestedSettingChange('renderSettings', 'maxBounces', 'diffuse', parseInt(e.target.value))} className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Glossy" value={renderSettings.maxBounces?.glossy || 4} onChange={e => handleDeepNestedSettingChange('renderSettings', 'maxBounces', 'glossy', parseInt(e.target.value))} className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Transmission" value={renderSettings.maxBounces?.transmission || 12} onChange={e => handleDeepNestedSettingChange('renderSettings', 'maxBounces', 'transmission', parseInt(e.target.value))} className="h-7 text-xs" disabled/>
+                        <Input type="number" placeholder="Volume" value={renderSettings.maxBounces?.volume || 0} onChange={e => handleDeepNestedSettingChange('renderSettings', 'maxBounces', 'volume', parseInt(e.target.value))} className="h-7 text-xs" disabled/>
+                    </div>
                 </AccordionContent>
             </AccordionItem>
 
@@ -218,9 +251,9 @@ const RenderSettingsPanel = () => {
             <AccordionItem value="color-management">
                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2"><Palette size={14}/> Color Management (WIP)</AccordionTrigger>
                 <AccordionContent className="space-y-2 p-2 pt-1">
-                     <Label>Display Device</Label><Select value={renderSettings.colorManagement?.displayDevice || 'sRGB'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="sRGB">sRGB</SelectItem><SelectItem value="Rec.709">Rec.709</SelectItem><SelectItem value="ACEScg">ACEScg</SelectItem></SelectContent></Select>
-                     <Label>View Transform</Label><Select value={renderSettings.colorManagement?.viewTransform || 'Standard'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Standard">Standard</SelectItem><SelectItem value="Filmic">Filmic</SelectItem><SelectItem value="ACES">ACES</SelectItem></SelectContent></Select>
-                     <Label>Look</Label><Select value={renderSettings.colorManagement?.look || 'None'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="None">None</SelectItem><SelectItem value="Medium Contrast">Medium Contrast</SelectItem></SelectContent></Select>
+                     <Label>Display Device</Label><Select value={renderSettings.colorManagement?.displayDevice || 'sRGB'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="sRGB">sRGB</SelectItem><SelectItem value="Rec.709">Rec.709</SelectItem><SelectItem value="ACEScg">ACEScg</SelectItem><SelectItem value="P3-DCI">P3-DCI</SelectItem><SelectItem value="P3-Display">P3-Display</SelectItem></SelectContent></Select>
+                     <Label>View Transform</Label><Select value={renderSettings.colorManagement?.viewTransform || 'Standard'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Standard">Standard</SelectItem><SelectItem value="Filmic">Filmic</SelectItem><SelectItem value="ACES">ACES</SelectItem><SelectItem value="Raw">Raw</SelectItem><SelectItem value="Log">Log</SelectItem></SelectContent></Select>
+                     <Label>Look</Label><Select value={renderSettings.colorManagement?.look || 'None'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="None">None</SelectItem><SelectItem value="Medium Contrast">Medium Contrast</SelectItem><SelectItem value="High Contrast">High Contrast</SelectItem><SelectItem value="Custom LUT">Custom LUT</SelectItem></SelectContent></Select>
                      <Button variant="outline" size="xs" className="w-full h-7 text-[10px]" disabled>Load LUT...</Button>
                      <Label>Exposure: {renderSettings.colorManagement?.exposure || 0}</Label><Slider value={[renderSettings.colorManagement?.exposure || 0]} min={-5} max={5} step={0.1} disabled/>
                      <Label>Gamma: {renderSettings.colorManagement?.gamma || 2.2}</Label><Slider value={[renderSettings.colorManagement?.gamma || 2.2]} min={0.5} max={3.5} step={0.05} disabled/>
@@ -239,10 +272,25 @@ const RenderSettingsPanel = () => {
                     <Label htmlFor="anim-videocodec">Video Codec</Label>
                     <Select value={renderSettings.animationSettings?.videoCodec || 'h264'} disabled>
                         <SelectTrigger id="anim-videocodec" className="h-8 text-xs"><SelectValue/></SelectTrigger>
-                        <SelectContent><SelectItem value="h264">H.264</SelectItem><SelectItem value="prores">ProRes</SelectItem><SelectItem value="h265_hevc">H.265/HEVC</SelectItem></SelectContent>
+                        <SelectContent><SelectItem value="h264">H.264</SelectItem><SelectItem value="prores">ProRes</SelectItem><SelectItem value="h265_hevc">H.265/HEVC</SelectItem><SelectItem value="vp9">VP9</SelectItem><SelectItem value="dnxhr_concept">DNxHR (Concept)</SelectItem><SelectItem value="av1_concept">AV1 (Concept)</SelectItem></SelectContent>
+                    </Select>
+                     <Label htmlFor="anim-videocontainer">Video Container</Label>
+                    <Select value={renderSettings.animationSettings?.videoContainer || 'mp4'} disabled>
+                        <SelectTrigger id="anim-videocontainer" className="h-8 text-xs"><SelectValue/></SelectTrigger>
+                        <SelectContent><SelectItem value="mp4">MP4</SelectItem><SelectItem value="mov">MOV</SelectItem><SelectItem value="mkv">MKV</SelectItem><SelectItem value="webm_concept">WebM (Concept)</SelectItem></SelectContent>
                     </Select>
                     <Label htmlFor="anim-videobitrate">Video Bitrate (kbps)</Label><Input id="anim-videobitrate" type="number" value={renderSettings.animationSettings?.videoBitrate || 8000} className="h-8 text-xs" disabled/>
-                    <div className="flex items-center space-x-2"><Checkbox id="anim-rendersequence" checked={!!renderSettings.animationSettings?.renderSequence} disabled/><Label htmlFor="anim-rendersequence" className="text-xs font-normal">Render Image Sequence</Label></div>
+                     <Label htmlFor="anim-audio">Audio Path (WIP)</Label><Input id="anim-audio" placeholder="path/to/audio.wav" className="h-8 text-xs" disabled/>
+                    <div className="flex items-center space-x-2"><Checkbox id="anim-rendersequence" checked={!!renderSettings.animationSettings?.renderSequence} disabled/><Label htmlFor="anim-rendersequence" className="text-xs font-normal">Render Image Sequence Instead</Label></div>
+                    {renderSettings.animationSettings?.renderSequence && (
+                         <div className="pl-4 space-y-1 border-l ml-2 text-xs">
+                            <Label htmlFor="img-seq-format">Image Sequence Format</Label>
+                            <Select value={renderSettings.animationSettings?.imageSequenceFormat || 'png'} disabled>
+                                <SelectTrigger className="h-7 text-xs"><SelectValue/></SelectTrigger>
+                                <SelectContent><SelectItem value="png">PNG</SelectItem><SelectItem value="jpeg">JPEG</SelectItem><SelectItem value="exr">EXR</SelectItem><SelectItem value="tiff">TIFF</SelectItem><SelectItem value="tga">TGA</SelectItem></SelectContent>
+                            </Select>
+                         </div>
+                    )}
                 </AccordionContent>
             </AccordionItem>
             
@@ -252,9 +300,11 @@ const RenderSettingsPanel = () => {
                 <AccordionContent className="space-y-2 p-2 pt-1">
                      <div className="flex items-center space-x-2"><Checkbox id="distrib-render" checked={!!renderSettings.distributedRendering?.enabled} disabled/><Label htmlFor="distrib-render" className="text-xs font-normal">Distributed Rendering</Label></div>
                      <Input placeholder="Render Nodes (IPs, comma-sep)" className="h-7 text-xs" disabled/>
-                     <Label>Threads</Label><Select value={renderSettings.performance?.threads?.toString() || 'auto'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="auto">Auto</SelectItem><SelectItem value="4">4 Threads</SelectItem></SelectContent></Select>
+                     <Label>Threads</Label><Select value={renderSettings.performance?.threads?.toString() || 'auto'} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="auto">Auto</SelectItem><SelectItem value="4">4 Threads</SelectItem><SelectItem value="8">8 Threads</SelectItem><SelectItem value="16">16 Threads</SelectItem></SelectContent></Select>
                      <div className="flex items-center space-x-2"><Checkbox id="use-gpu" checked={!!renderSettings.performance?.useGpu} disabled/><Label htmlFor="use-gpu" className="text-xs font-normal">Use GPU Acceleration</Label></div>
                      <Input placeholder="GPU Devices (e.g., 0,1)" className="h-7 text-xs" disabled/>
+                     <Label>Bucket Size: {renderSettings.performance?.bucketSize || 64}</Label><Slider value={[renderSettings.performance?.bucketSize || 64]} min={16} max={256} step={16} disabled/>
+                     <div className="flex items-center space-x-2"><Checkbox id="prog-refine" checked={!!renderSettings.performance?.progressiveRefinement} disabled/><Label htmlFor="prog-refine" className="text-xs font-normal">Progressive Refinement</Label></div>
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
@@ -273,3 +323,4 @@ const RenderSettingsPanel = () => {
 };
 
 export default RenderSettingsPanel;
+

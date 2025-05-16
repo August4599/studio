@@ -189,6 +189,9 @@ const EnvironmentPanel = () => {
                         <Slider id="physky-groundalbedo" value={[environmentSettings.physicalSkySettings.groundAlbedo || 0.3]} onValueChange={([v])=>handleNestedSettingChange('physicalSkySettings', 'groundAlbedo',v)} min={0} max={1} step={0.01} disabled/>
                         <Label htmlFor="physky-ozone">Ozone: {(environmentSettings.physicalSkySettings.ozone || 0.35).toFixed(2)}</Label>
                         <Slider id="physky-ozone" value={[environmentSettings.physicalSkySettings.ozone || 0.35]} onValueChange={([v])=>handleNestedSettingChange('physicalSkySettings', 'ozone',v)} min={0} max={1} step={0.01} disabled/>
+                        <Label htmlFor="physky-skytint">Sky Tint</Label><Input type="color" id="physky-skytint" value={environmentSettings.physicalSkySettings.skyTint || '#FFFFFF'} onChange={e=>handleNestedSettingChange('physicalSkySettings','skyTint', e.target.value)} className="h-7 w-full" disabled/>
+                        <Label htmlFor="physky-horizonheight">Horizon Height: {(environmentSettings.physicalSkySettings.horizonHeight || 0).toFixed(2)}</Label><Slider id="physky-horizonheight" value={[environmentSettings.physicalSkySettings.horizonHeight || 0]} onValueChange={([v])=>handleNestedSettingChange('physicalSkySettings','horizonHeight',v)} min={-0.5} max={0.5} step={0.01} disabled/>
+                        <Label htmlFor="physky-horizonblur">Horizon Blur: {(environmentSettings.physicalSkySettings.horizonBlur || 0.1).toFixed(2)}</Label><Slider id="physky-horizonblur" value={[environmentSettings.physicalSkySettings.horizonBlur || 0.1]} onValueChange={([v])=>handleNestedSettingChange('physicalSkySettings','horizonBlur',v)} min={0} max={1} step={0.01} disabled/>
                         </>
                     )}
                 </AccordionContent>
@@ -212,6 +215,8 @@ const EnvironmentPanel = () => {
                          <Input id="ground-height" type="number" value={environmentSettings.groundPlane.height || 0} onChange={e=>handleNestedSettingChange('groundPlane','height', parseFloat(e.target.value))} className="h-7 text-xs" disabled/>
                          <Label htmlFor="ground-size">Size: {(environmentSettings.groundPlane.size || 100).toFixed(0)}</Label>
                          <Input id="ground-size" type="number" value={environmentSettings.groundPlane.size || 100} onChange={e=>handleNestedSettingChange('groundPlane','size', parseFloat(e.target.value))} className="h-7 text-xs" disabled/>
+                         <Label htmlFor="ground-color">Color</Label><Input type="color" id="ground-color" value={environmentSettings.groundPlane.color || '#888888'} onChange={e=>handleNestedSettingChange('groundPlane','color', e.target.value)} className="h-7 w-full" disabled/>
+                         <Label htmlFor="ground-reflectivity">Reflectivity: {(environmentSettings.groundPlane.reflectivity || 0.2).toFixed(2)}</Label><Slider id="ground-reflectivity" value={[environmentSettings.groundPlane.reflectivity || 0.2]} onValueChange={([v])=>handleNestedSettingChange('groundPlane','reflectivity',v)} min={0} max={1} step={0.01} disabled/>
                          <Label htmlFor="ground-material">Material (Select from scene - WIP)</Label>
                          <Select value={environmentSettings.groundPlane.materialId || ''} disabled><SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger></Select>
                          <div className="flex items-center space-x-2"><Checkbox id="ground-shadows" checked={!!environmentSettings.groundPlane.receiveShadows} onCheckedChange={c=>handleNestedSettingChange('groundPlane','receiveShadows', !!c)} disabled/><Label htmlFor="ground-shadows" className="font-normal text-xs">Receive Shadows</Label></div>
@@ -247,6 +252,8 @@ const EnvironmentPanel = () => {
                             )}
                             <Label htmlFor="vol-fog-start">Start Distance: {(environmentSettings.fog.startDistance || 10).toFixed(0)}</Label>
                             <Slider id="vol-fog-start" value={[environmentSettings.fog.startDistance || 10]} onValueChange={([v])=>handleNestedSettingChange('fog','startDistance',v)} min={0} max={1000} step={10} disabled/>
+                             <Label htmlFor="vol-fog-end">End Distance: {(environmentSettings.fog.endDistance || 1000).toFixed(0)}</Label>
+                            <Slider id="vol-fog-end" value={[environmentSettings.fog.endDistance || 1000]} onValueChange={([v])=>handleNestedSettingChange('fog','endDistance',v)} min={0} max={5000} step={50} disabled/>
                             <div className="flex items-center space-x-2"><Checkbox id="vol-fog-affectsky" checked={!!environmentSettings.fog.affectSky} onCheckedChange={c=>handleNestedSettingChange('fog','affectSky',!!c)} disabled/><Label htmlFor="vol-fog-affectsky" className="font-normal text-xs">Affect Sky</Label></div>
                         </div>
                     )}
@@ -262,6 +269,9 @@ const EnvironmentPanel = () => {
                             <Slider id="vol-lighting-scattering" value={[environmentSettings.volumetricLighting.scattering || 0.5]} onValueChange={([v])=>handleNestedSettingChange('volumetricLighting','scattering',v)} min={0} max={1} step={0.01} disabled/>
                              <Label htmlFor="vol-lighting-anisotropy">Anisotropy: {(environmentSettings.volumetricLighting.anisotropy || 0).toFixed(2)}</Label>
                             <Slider id="vol-lighting-anisotropy" value={[environmentSettings.volumetricLighting.anisotropy || 0]} onValueChange={([v])=>handleNestedSettingChange('volumetricLighting','anisotropy',v)} min={-1} max={1} step={0.01} disabled/>
+                            <Label htmlFor="vol-lighting-maxdist">Max Distance: {(environmentSettings.volumetricLighting.maxDistance || 500).toFixed(0)}</Label><Slider id="vol-lighting-maxdist" value={[environmentSettings.volumetricLighting.maxDistance || 500]} onValueChange={([v])=>handleNestedSettingChange('volumetricLighting','maxDistance',v)} min={10} max={2000} step={10} disabled/>
+                            <Label htmlFor="vol-lighting-attencolor">Attenuation Color</Label><Input type="color" id="vol-lighting-attencolor" value={environmentSettings.volumetricLighting.attenuationColor || '#FFFFFF'} onChange={e=>handleNestedSettingChange('volumetricLighting','attenuationColor', e.target.value)} className="h-7 w-full" disabled/>
+                            <Label htmlFor="vol-lighting-contrib">Light Contribution Scale: {(environmentSettings.volumetricLighting.lightContributionScale || 1).toFixed(2)}</Label><Slider id="vol-lighting-contrib" value={[environmentSettings.volumetricLighting.lightContributionScale || 1]} onValueChange={([v])=>handleNestedSettingChange('volumetricLighting','lightContributionScale',v)} min={0} max={5} step={0.05} disabled/>
                         </div>
                     )}
                     <div className="pt-1 border-t mt-2">
@@ -270,6 +280,8 @@ const EnvironmentPanel = () => {
                         <Slider id="atmos-haze" value={[environmentSettings.atmosphere?.haze || 0.1]} onValueChange={([v])=>handleNestedSettingChange('atmosphere','haze',v)} min={0} max={1} step={0.01} disabled/>
                         <Label htmlFor="atmos-ozone">Ozone (Physical Sky): {(environmentSettings.atmosphere?.ozone || 0.3).toFixed(2)}</Label>
                         <Slider id="atmos-ozone" value={[environmentSettings.atmosphere?.ozone || 0.3]} onValueChange={([v])=>handleNestedSettingChange('atmosphere','ozone',v)} min={0} max={1} step={0.01} disabled/>
+                         <Label htmlFor="atmos-density">Density: {(environmentSettings.atmosphere?.density || 1).toFixed(2)}</Label><Slider id="atmos-density" value={[environmentSettings.atmosphere?.density || 1]} onValueChange={([v])=>handleNestedSettingChange('atmosphere','density',v)} min={0} max={5} step={0.01} disabled/>
+                         <Label htmlFor="atmos-scaleheight">Scale Height (km): {(environmentSettings.atmosphere?.scaleHeight || 8).toFixed(1)}</Label><Slider id="atmos-scaleheight" value={[environmentSettings.atmosphere?.scaleHeight || 8]} onValueChange={([v])=>handleNestedSettingChange('atmosphere','scaleHeight',v)} min={1} max={20} step={0.5} disabled/>
                     </div>
                 </AccordionContent>
             </AccordionItem>
@@ -291,7 +303,9 @@ const EnvironmentPanel = () => {
                         <div className="pl-4 space-y-1 border-l ml-2">
                             <Label>Intensity: {(environmentSettings.weatherEffects.rain.intensity || 0.5).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.rain.intensity || 0.5]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','rain','intensity',v)} min={0} max={1} step={0.01} disabled/>
                             <Label>Puddle Amount: {(environmentSettings.weatherEffects.rain.puddleAmount || 0.2).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.rain.puddleAmount || 0.2]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','rain','puddleAmount',v)} min={0} max={1} step={0.01} disabled/>
+                            <Label>Speed: {(environmentSettings.weatherEffects.rain.speed || 1).toFixed(1)}</Label><Slider value={[environmentSettings.weatherEffects.rain.speed || 1]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','rain','speed',v)} min={0.1} max={10} step={0.1} disabled/>
                              <div className="flex items-center space-x-2"><Checkbox id="rain-streaks" checked={!!environmentSettings.weatherEffects.rain.rainStreaksOnGlass} onCheckedChange={c=>handleDeepNestedSettingChange('weatherEffects','rain','rainStreaksOnGlass', !!c)} disabled/><Label htmlFor="rain-streaks" className="font-normal text-xs">Rain Streaks on Glass</Label></div>
+                             <div className="flex items-center space-x-2"><Checkbox id="rain-splash" checked={!!environmentSettings.weatherEffects.rain.splashEffect} onCheckedChange={c=>handleDeepNestedSettingChange('weatherEffects','rain','splashEffect', !!c)} disabled/><Label htmlFor="rain-splash" className="font-normal text-xs">Splash Effect</Label></div>
                         </div>
                      )}
                     {/* Snow */}
@@ -303,6 +317,9 @@ const EnvironmentPanel = () => {
                         <div className="pl-4 space-y-1 border-l ml-2">
                             <Label>Accumulation: {(environmentSettings.weatherEffects.snow.accumulation || 0.1).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.snow.accumulation || 0.1]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','snow','accumulation',v)} min={0} max={1} step={0.01} disabled/>
                             <Label>Melting: {(environmentSettings.weatherEffects.snow.melting || 0.1).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.snow.melting || 0.1]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','snow','melting',v)} min={0} max={1} step={0.01} disabled/>
+                            <Label>Particle Size: {(environmentSettings.weatherEffects.snow.particleSize || 0.05).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.snow.particleSize || 0.05]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','snow','particleSize',v)} min={0.01} max={0.2} step={0.01} disabled/>
+                             <div className="flex items-center space-x-2"><Checkbox id="snow-flakes" checked={!!environmentSettings.weatherEffects.snow.snowflakes} onCheckedChange={c=>handleDeepNestedSettingChange('weatherEffects','snow','snowflakes', !!c)} disabled/><Label htmlFor="snow-flakes" className="font-normal text-xs">Show Snowflakes</Label></div>
+                             <Label>Wind Influence: {(environmentSettings.weatherEffects.snow.windInfluence || 0.5).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.snow.windInfluence || 0.5]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','snow','windInfluence',v)} min={0} max={1} step={0.01} disabled/>
                         </div>
                      )}
                       {/* Wind */}
@@ -314,7 +331,9 @@ const EnvironmentPanel = () => {
                         <div className="pl-4 space-y-1 border-l ml-2">
                             <Label>Speed: {(environmentSettings.weatherEffects.wind.speed || 5).toFixed(1)} m/s</Label><Slider value={[environmentSettings.weatherEffects.wind.speed || 5]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','wind','speed',v)} min={0} max={30} step={0.5} disabled/>
                             <Label>Direction: {(environmentSettings.weatherEffects.wind.direction || 0).toFixed(0)}°</Label><Slider value={[environmentSettings.weatherEffects.wind.direction || 0]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','wind','direction',v)} min={0} max={360} step={1} disabled/>
+                            <Label>Turbulence: {(environmentSettings.weatherEffects.wind.turbulence || 0.2).toFixed(2)}</Label><Slider value={[environmentSettings.weatherEffects.wind.turbulence || 0.2]} onValueChange={([v])=>handleDeepNestedSettingChange('weatherEffects','wind','turbulence',v)} min={0} max={1} step={0.01} disabled/>
                             <div className="flex items-center space-x-2"><Checkbox id="wind-foliage" checked={!!environmentSettings.weatherEffects.wind.affectFoliage} onCheckedChange={c=>handleDeepNestedSettingChange('weatherEffects','wind','affectFoliage', !!c)} disabled/><Label htmlFor="wind-foliage" className="font-normal text-xs">Affect Foliage</Label></div>
+                             <div className="flex items-center space-x-2"><Checkbox id="wind-particles" checked={!!environmentSettings.weatherEffects.wind.affectParticles} onCheckedChange={c=>handleDeepNestedSettingChange('weatherEffects','wind','affectParticles', !!c)} disabled/><Label htmlFor="wind-particles" className="font-normal text-xs">Affect Particles (e.g. rain/snow)</Label></div>
                         </div>
                      )}
                 </AccordionContent>
@@ -331,3 +350,4 @@ const EnvironmentPanel = () => {
 };
 
 export default EnvironmentPanel;
+

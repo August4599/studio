@@ -5,7 +5,7 @@ export type PrimitiveType = 'cube' | 'cylinder' | 'plane' | 'text' | 'sphere' | 
 export type ModifierType = 
   | 'bevel' | 'subdivision' | 'solidify' | 'array' | 'mirror' | 'lattice' | 'boolean' | 'displacement'
   | 'skin' | 'shell' | 'path_deform' | 'ffd' | 'cloth' | 'hair_fur' | 'scatter' | 'instance' | 'volume_to_mesh' | 'merge_by_distance'
-  | 'noise_modifier' | 'smooth_modifier' | 'uvw_map_modifier' | 'edit_poly_modifier' | 'curve_modifier' | 'shrinkwrap_modifier'; // Added more
+  | 'noise_modifier' | 'smooth_modifier' | 'uvw_map_modifier' | 'edit_poly_modifier' | 'curve_modifier' | 'shrinkwrap_modifier';
 
 // Material Types (Conceptual, inspired by V-Ray/D5/etc.)
 export type AdvancedMaterialType = 
@@ -364,7 +364,7 @@ export type RenderEngineType =
   | 'vray_concept' 
   | 'corona_concept' 
   | 'arnold_concept'
-  | 'd5_render_concept'; // Added D5
+  | 'd5_render_concept'; 
 
 export type RenderOutputType = 
   | 'png' | 'jpeg' 
@@ -376,7 +376,7 @@ export type RenderPassType =
   | 'cryptomatte_object' | 'cryptomatte_material' | 'cryptomatte_asset'
   | 'reflection' | 'refraction' | 'diffuse_filter' | 'specular' | 'gi' | 'shadows' 
   | 'velocity' | 'world_position' | 'mist' | 'emission'
-  | 'denoised_beauty' | 'lighting' | 'subsurface' | 'volume'; // Added more passes
+  | 'denoised_beauty' | 'lighting' | 'subsurface' | 'volume'; 
 
 export interface RenderSettings {
   engine: RenderEngineType;
@@ -576,7 +576,6 @@ export interface CameraSettings {
     minX: number; minY: number; 
     maxX: number; maxY: number; 
   };
-  // More concepts: Lens Distortion, Lens Flare settings (global override), Clipping Planes
   lensDistortion?: { enabled: boolean; k1?: number; k2?: number; k3?: number; p1?: number; p2?: number; };
   clippingPlanes?: { near?: number; far?: number; }; 
 }
