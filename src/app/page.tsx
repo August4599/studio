@@ -32,7 +32,7 @@ const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
 const COLLAPSED_NODE_EDITOR_PERCENTAGE = 7; // Approx height of the header bar
 
 const ArchiVisionLayout: React.FC = () => {
-  const { addObject, triggerZoomExtents, selectedObjectId, setActiveTool, activeTool, setDrawingState } = useScene();
+  const { addObject, triggerZoomExtents, selectedObjectId, removeObject: removeObjectFromContext, setActiveTool, activeTool, setDrawingState } = useScene();
   const { toast } = useToast();
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); // Default to collapsed
 
@@ -79,7 +79,18 @@ const ArchiVisionLayout: React.FC = () => {
             setActiveTool('select'); 
             setDrawingState({ isActive: false, startPoint: null, currentPoint: null, pushPullFaceInfo: null, measureDistance: null });
             toast({ title: "Tool Reset", description: "Switched to Select tool. Drawing cancelled." });
-            return; 
+            return;
+          case 'DELETE':
+            if (selectedObjectId) {
+              const removedObject = removeObjectFromContext(selectedObjectId); // Call the context function
+              if (removedObject) {
+                toast({ title: "Object Deleted", description: `${removedObject.name} removed from scene.` });
+              } else {
+                // This case should ideally not happen if selectedObjectId was valid
+                toast({ title: "Delete Error", description: "Selected object could not be found to delete.", variant: "destructive" });
+              }
+            }
+            return;
         }
       }
 
@@ -117,7 +128,7 @@ const ArchiVisionLayout: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setActiveTool, addObject, toast, triggerZoomExtents, selectedObjectId, activeTool, setDrawingState]);
+  }, [setActiveTool, addObject, toast, triggerZoomExtents, selectedObjectId, activeTool, setDrawingState, removeObjectFromContext]);
 
 
   return (

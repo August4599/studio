@@ -26,6 +26,10 @@ const SceneViewer: React.FC = () => {
   const [measureDisplay, setMeasureDisplay] = useState<{ x: number; y: number; text: string } | null>(null);
   const lastCompletedMeasureLineRef = useRef<THREE.Line | null>(null);
   const lastCompletedMeasureDisplayTextRef = useRef<HTMLDivElement | null>(null);
+  const [constrainedAxis, setConstrainedAxis] = useState<"X" | "Y" | "Z" | null>(null);
+  const [isShiftPressed, setIsShiftPressed] = useState<boolean>(false); // For rotation snap and uniform scale
+  const initialScaleRef = useRef<THREE.Vector3 | null>(null); // For uniform scaling
+  const transformModeRef = useRef<'translate' | 'rotate' | 'scale' | null>(null); // To track current transform mode for event handlers
 
   const modellingBasicMaterialRef = useRef(new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide })); // White for modelling
   const modellingEdgeMaterialRef = useRef(new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1.5 })); // Black edges
@@ -33,7 +37,7 @@ const SceneViewer: React.FC = () => {
   const { toast } = useToast();
   
   const { 
-    objects: sceneContextObjects, 
+    objects: sceneContextObjects,
     ambientLight: ambientLightProps, 
     directionalLight: directionalLightProps,
     otherLights,
@@ -47,15 +51,17 @@ const SceneViewer: React.FC = () => {
     setActiveTool,
     drawingState,
     setDrawingState,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     measurementUnit,
     addObject,
     requestedViewPreset,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setCameraViewPreset,
     zoomExtentsTrigger,
     setZoomExtentsTriggered,
     cameraFov, 
     worldBackgroundColor,
-    appMode, 
+    appMode,
   } = useScene();
 
   const raycaster = useRef(new THREE.Raycaster());
@@ -149,7 +155,80 @@ const SceneViewer: React.FC = () => {
     const transformControls = new TransformControls(camera, renderer.domElement);
     transformControls.addEventListener('dragging-changed', (event) => {
       orbitControls.enabled = !event.value;
+      if (!event.value) { // Drag ended
+        if (transformModeRef.current === 'translate') {
+          setConstrainedAxis(null); 
+          if (transformControlsRef.current) transformControlsRef.current.axis = null;
+        } else if (transformModeRef.current === 'scale') {
+          initialScaleRef.current = null; // Clear initial scale on drag end
+          // isShiftPressed is handled by global keyup
+        }
+        // For rotate, isShiftPressed is handled by global keyup
+      } else { // Drag started
+        if (transformModeRef.current === 'scale' && transformControls.object) {
+          initialScaleRef.current = transformControls.object.scale.clone();
+        }
+      }
     });
+
+    transformControls.addEventListener('objectChange', () => {
+        const tc = transformControlsRef.current;
+        if (tc && tc.object && transformModeRef.current === 'scale' && isShiftPressed && initialScaleRef.current) {
+            const object = tc.object;
+            const currentScale = object.scale;
+            const initialScale = initialScaleRef.current;
+            const activeHandleAxis = tc.axis; // "X", "Y", "Z", "XY", "YZ", "XZ", "XYZ"
+
+            // Only apply custom uniform scaling logic if a single axis handle is being dragged
+            if (activeHandleAxis === 'X' || activeHandleAxis === 'Y' || activeHandleAxis === 'Z') {
+                let scaleFactor = 1;
+                let mainAxisInitialScale = 1;
+                let mainAxisCurrentScale = 1;
+
+                if (activeHandleAxis === 'X') {
+                    mainAxisInitialScale = initialScale.x;
+                    mainAxisCurrentScale = currentScale.x;
+                } else if (activeHandleAxis === 'Y') {
+                    mainAxisInitialScale = initialScale.y;
+                    mainAxisCurrentScale = currentScale.y;
+                } else { // activeHandleAxis === 'Z'
+                    mainAxisInitialScale = initialScale.z;
+                    mainAxisCurrentScale = currentScale.z;
+                }
+
+                if (mainAxisInitialScale !== 0 && mainAxisCurrentScale !== mainAxisInitialScale) {
+                    scaleFactor = mainAxisCurrentScale / mainAxisInitialScale;
+                } else if (mainAxisInitialScale === 0 && mainAxisCurrentScale !== 0){
+                    // If initial scale on this axis was 0, any change is infinite factor.
+                    // This scenario is tricky. A small initial epsilon could be used,
+                    // or we could decide uniform scaling from a 0-scaled axis isn't well-defined.
+                    // For now, let's try to infer a factor if other axes were not zero.
+                    // This part remains complex if we truly want to support uniform scaling from a plane's edge.
+                    // A simpler approach might be to disallow this specific override if initialScale on the active axis is 0.
+                    // Or, if other axes had a common scale, use that.
+                    // For now, let's assume the scale factor is based on the visual change from a near-zero point.
+                    // This might be better handled by the user using the central "XYZ" handle for planes.
+                    // Let's make the factor based on a small delta if initial was 0.
+                     scaleFactor = mainAxisCurrentScale / (initialScaleRef.current?.x === 0 && activeHandleAxis === 'X' ? 0.001 : mainAxisInitialScale || 0.001);
+
+                }
+
+
+                if (scaleFactor !== 1) {
+                    // Apply uniform scale based on the initial scale of other axes and the factor from the active axis
+                    // This preserves the "shape" defined by initialScale
+                    object.scale.set(
+                        initialScale.x * scaleFactor,
+                        initialScale.y * scaleFactor,
+                        initialScale.z * scaleFactor
+                    );
+                }
+            }
+            // If activeHandleAxis is "XYZ", "XY", "YZ", "XZ", do nothing here.
+            // "XYZ" should be uniform by default. Planar handles scale non-uniformly in their plane.
+        }
+    });
+
     transformControls.addEventListener('mouseUp', () => {
       if (transformControls.object) { 
         const obj = transformControls.object; 
@@ -166,6 +245,11 @@ const SceneViewer: React.FC = () => {
           updateObject(obj.name, { position: newPosition, rotation: newRotation, scale: validatedScale });
         }
       }
+      if (transformModeRef.current === 'translate') {
+        setConstrainedAxis(null);
+        if (transformControlsRef.current) transformControlsRef.current.axis = null;
+      }
+      // initialScaleRef is cleared by dragging-changed
     });
     transformControls.enabled = false;
     transformControls.visible = false;
@@ -297,14 +381,24 @@ const SceneViewer: React.FC = () => {
     if (transformControlsRef.current?.dragging) return;
 
     const intersectionWithObject = getMouseIntersection(event);
-    const pointOnXZPlane = getMousePositionOnXZPlane(event);
-    let startPointForDrawingOrMeasure = intersectionWithObject?.point || pointOnXZPlane;
+    const pointOnXZPlane = getMousePositionOnXZPlane(event); // Guaranteed to be on XZ plane (y=0)
+    let startPointForDrawingOrMeasure;
+
+    if (activeTool === 'line' || activeTool === 'rectangle') { // For line and rectangle tools, always use XZ plane
+        startPointForDrawingOrMeasure = pointOnXZPlane;
+    } else { // For other drawing tools, prefer intersection, fallback to XZ plane
+        startPointForDrawingOrMeasure = intersectionWithObject?.point || pointOnXZPlane;
+    }
 
 
     if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'polygon' || activeTool === 'line' || activeTool === 'freehand' || activeTool === 'arc') {
       if (startPointForDrawingOrMeasure && sceneRef.current) {
+         // Ensure Y is 0 for XZ plane tools if somehow not already
+        const enforcedStartY = (activeTool === 'line' || activeTool === 'rectangle') ? 0 : startPointForDrawingOrMeasure.y;
+        const startCoords = [startPointForDrawingOrMeasure.x, enforcedStartY, startPointForDrawingOrMeasure.z] as [number,number,number];
+
         if (!drawingState.isActive || drawingState.tool !== activeTool) { // Start new drawing
-            setDrawingState({ isActive: true, startPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], currentPoint: startPointForDrawingOrMeasure.toArray() as [number,number,number], tool: activeTool as DrawingState['tool'] });
+            setDrawingState({ isActive: true, startPoint: startCoords, currentPoint: startCoords, tool: activeTool as DrawingState['tool'] });
             if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
             if (tempDrawingMeshRef.current) {
@@ -444,16 +538,26 @@ const SceneViewer: React.FC = () => {
   }, [activeTool, getMouseIntersection, getMousePositionOnXZPlane, setDrawingState, drawingState, toast, sceneContextObjects, selectObject, measurementUnit, clearLastMeasurement]);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
-    const intersectionWithObject = getMouseIntersection(event);
-    const pointOnXZPlane = getMousePositionOnXZPlane(event);
-    let currentMovePoint = intersectionWithObject?.point || pointOnXZPlane;
+    const intersectionWithObjectOnMove = getMouseIntersection(event);
+    const pointOnXZPlaneOnMove = getMousePositionOnXZPlane(event);
+    let currentMovePoint;
+
+    if ((drawingState.tool === 'line' || drawingState.tool === 'rectangle') && drawingState.isActive) { // For line and rectangle tools, always use XZ plane during move
+        currentMovePoint = pointOnXZPlaneOnMove;
+    } else { // For other drawing tools, prefer intersection, fallback to XZ plane
+        currentMovePoint = intersectionWithObjectOnMove?.point || pointOnXZPlaneOnMove;
+    }
 
 
-    if (drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(activeTool || '')) {
+    if (drawingState.isActive && drawingState.startPoint && sceneRef.current && tempDrawingMeshRef.current && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(drawingState.tool || '')) {
       if (currentMovePoint) {
-        setDrawingState({ currentPoint: currentMovePoint.toArray() as [number,number,number] });
-        const startVec = new THREE.Vector3().fromArray(drawingState.startPoint);
-        const endVec = currentMovePoint;
+        // Ensure Y is 0 for XZ plane tools if somehow not already
+        const enforcedCurrentY = (drawingState.tool === 'line' || drawingState.tool === 'rectangle') ? 0 : currentMovePoint.y;
+        const currentCoords = [currentMovePoint.x, enforcedCurrentY, currentMovePoint.z] as [number,number,number];
+        
+        setDrawingState({ currentPoint: currentCoords });
+        const startVec = new THREE.Vector3().fromArray(drawingState.startPoint); // Will have y=0 if tool is line/rect
+        const endVec = new THREE.Vector3().fromArray(currentCoords); // Use the y-enforced coords
         let points: number[] = [];
 
         if (activeTool === 'rectangle') {
@@ -560,34 +664,56 @@ const SceneViewer: React.FC = () => {
                 if (dimensionToModify) {
                     let currentDimValue: number;
                     if (dimensionToModify === 'radius') {
+                        // For cylinders/circles, pushPullAmount directly modifies radius if side is selected
+                        // or height if top/bottom is selected. Sign logic for radius might be different.
+                        // This section is primarily for cube, let's keep it focused.
+                        // TODO: Refine for cylinder/circle radius push/pull.
                         if (originalType === 'cylinder') currentDimValue = originalDimensions.radiusTop ?? originalDimensions.radiusBottom ?? 1;
-                        else currentDimValue = originalDimensions.radius ?? 1;
-                        const newRadius = Math.max(0.01, currentDimValue + pushPullAmount * sign); // Apply sign for radius change direction if needed
-                        if (originalType === 'cylinder') { newDimensions.radiusTop = newRadius; newDimensions.radiusBottom = newRadius; }
-                        else { newDimensions.radius = newRadius; }
-                    } else {
+                        else currentDimValue = originalDimensions.radius ?? 1; // For circle/polygon type
+                        
+                        // If local normal is mostly radial (not primarily Y), then it's a radius change.
+                        if (Math.abs(localFaceNormalVec.y) < 0.7) { // Heuristic for side face of cylinder/edge of circle
+                           const newRadius = Math.max(0.01, currentDimValue + pushPullAmount); // pushPullAmount is change in radius
+                           if (originalType === 'cylinder') { newDimensions.radiusTop = newRadius; newDimensions.radiusBottom = newRadius; }
+                           else { newDimensions.radius = newRadius; }
+                        } else { // Else it's a height change for cylinder (top/bottom face)
+                           currentDimValue = originalDimensions['height'] || 1;
+                           newDimensions['height'] = Math.max(0.01, currentDimValue + pushPullAmount);
+                        }
+                    } else { // Cube width, height, depth
                         currentDimValue = originalDimensions[dimensionToModify as 'width'|'height'|'depth'] || 1;
-                        newDimensions[dimensionToModify as 'width'|'height'|'depth'] = Math.max(0.01, currentDimValue + pushPullAmount * sign);
+                        // pushPullAmount is the change in dimension. Position offset handles the direction.
+                        newDimensions[dimensionToModify as 'width'|'height'|'depth'] = Math.max(0.01, currentDimValue + pushPullAmount);
                     }
                 }
                 const positionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2);
                 newPositionArray = new THREE.Vector3().fromArray(originalPosition).add(positionOffset).toArray() as [number,number,number];
             } else if (originalType === 'plane') {
-                newType = 'cube'; 
+                newType = 'cube';
+                const planeWidth = originalDimensions.width || 1;
+                const planeDepth = originalDimensions.height || 1; // Plane's "height" dimension is its depth on XZ
                 const extrusionHeight = Math.max(0.01, Math.abs(pushPullAmount)); 
+                
                 newDimensions = { 
-                    width: originalDimensions.width || 1, 
-                    depth: originalDimensions.height || 1, 
+                    width: planeWidth, 
+                    depth: planeDepth, 
                     height: extrusionHeight, 
                 };
                 const extrusionOffset = worldFaceNormalVec.clone().multiplyScalar(pushPullAmount / 2); 
                 newPositionArray = new THREE.Vector3().fromArray(originalPosition).add(extrusionOffset).toArray() as [number,number,number];
-                newRotationArray = [0,0,0]; // Reset rotation for extruded cube from plane
-            } else {
+                
+                // Rotation logic for plane to cube
+                if (Math.abs(originalRotation[0] - (-Math.PI/2)) < 0.01 && Math.abs(originalRotation[1]) < 0.01 && Math.abs(originalRotation[2]) < 0.01 && (Math.abs(worldFaceNormal[1]) > 0.99)) {
+                    newRotationArray = [0,0,0]; 
+                } else {
+                    newRotationArray = [...originalRotation] as [number,number,number];
+                }
+            } else { // Default if not cube, cylinder, polygon, circle, plane
                 newPositionArray = [...originalPosition] as [number,number,number];
             }
             
-            const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray, rotation: newRotationArray };
+            const updates: Partial<SceneObject> = { dimensions: newDimensions, position: newPositionArray };
+            if (newRotationArray !== undefined) updates.rotation = newRotationArray; // Only update rotation if it's determined
             if (newType !== originalType) updates.type = newType;
             updateObject(objectId, updates);
         }
@@ -601,36 +727,64 @@ const SceneViewer: React.FC = () => {
 
     if (drawingState.isActive && drawingState.startPoint && drawingState.currentPoint && ['rectangle', 'circle', 'polygon', 'line', 'freehand', 'arc'].includes(drawingState.tool || '')) {
       const startPointVec = new THREE.Vector3().fromArray(drawingState.startPoint);
-      const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint);
+      const endPointVec = new THREE.Vector3().fromArray(drawingState.currentPoint); // currentPoint is already on XZ plane if tool is 'line'
       const tool = drawingState.tool;
       let newObjProps: Partial<Omit<SceneObject, 'id' | 'type' | 'planData'>> = {};
       let primitiveType: PrimitiveType | null = null;
+      const lineRadius = 0.05; // Default radius for line cylinders
 
-      if (tool === 'rectangle') {
+      if (tool === 'line') {
+        const distance = startPointVec.distanceTo(endPointVec);
+        if (distance > 0.01) {
+            primitiveType = 'cylinder'; // Represent lines as cylinders
+            const midpoint = new THREE.Vector3().addVectors(startPointVec, endPointVec).multiplyScalar(0.5);
+            
+            const direction = new THREE.Vector3().subVectors(endPointVec, startPointVec).normalize();
+            const quaternion = new THREE.Quaternion();
+            // Cylinder's default axis is Y. We want to align it with 'direction'.
+            // THREE.CylinderGeometry is aligned along Y-axis.
+            const defaultCylinderUp = new THREE.Vector3(0, 1, 0);
+            quaternion.setFromUnitVectors(defaultCylinderUp, direction);
+            const euler = new THREE.Euler().setFromQuaternion(quaternion);
+
+            newObjProps = {
+                // name: "Line", // addObject will append a number if name is generic like "Cylinder"
+                position: [midpoint.x, lineRadius, midpoint.z], 
+                rotation: [euler.x, euler.y, euler.z],
+                dimensions: { 
+                    height: distance, 
+                    radiusTop: lineRadius, 
+                    radiusBottom: lineRadius, 
+                    radialSegments: 8 
+                },
+            };
+        }
+      } else if (tool === 'rectangle') {
         const rectWidth = Math.abs(endPointVec.x - startPointVec.x);
-        const rectDepth = Math.abs(endPointVec.z - startPointVec.z);
+        const rectDepth = Math.abs(endPointVec.z - startPointVec.z); // endPointVec.y and startPointVec.y are 0
         if (rectWidth > 0.01 && rectDepth > 0.01) { 
             primitiveType = 'plane';
             newObjProps = {
-                position: [(startPointVec.x + endPointVec.x) / 2, startPointVec.y, (startPointVec.z + endPointVec.z) / 2], 
+                name: "Rectangle", // addObject will append a number
+                position: [(startPointVec.x + endPointVec.x) / 2, 0, (startPointVec.z + endPointVec.z) / 2], // Y is 0
                 rotation: [-Math.PI / 2, 0, 0], 
-                dimensions: { width: rectWidth, height: rectDepth }, // Plane height is depth in XZ
+                dimensions: { width: rectWidth, height: rectDepth }, // Plane's height is depth in XZ
             };
         }
       } else if (tool === 'circle') {
           const radius = startPointVec.distanceTo(endPointVec);
           if (radius > 0.01) {
-              primitiveType = 'circle'; // Use 'circle' type
+              primitiveType = 'circle'; 
               newObjProps = {
                   position: [startPointVec.x, startPointVec.y, startPointVec.z], 
-                  rotation: [-Math.PI / 2, 0, 0], // Rotate to lie on XZ plane
-                  dimensions: { radius: radius, sides: 32 } // Sides for CircleGeometry
+                  rotation: [-Math.PI / 2, 0, 0], 
+                  dimensions: { radius: radius, sides: 32 } 
               };
           }
       } else if (tool === 'polygon') {
           const radius = startPointVec.distanceTo(endPointVec);
           if (radius > 0.01) {
-              primitiveType = 'polygon'; // Keep as polygon if sides != 32, or specific type needed
+              primitiveType = 'polygon'; 
               newObjProps = {
                   position: [startPointVec.x, startPointVec.y, startPointVec.z],
                   rotation: [-Math.PI/2, 0, 0], 
@@ -640,10 +794,18 @@ const SceneViewer: React.FC = () => {
       }
       
       if (primitiveType && newObjProps.dimensions) {
-        const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, { ...newObjProps, materialId: DEFAULT_MATERIAL_ID });
-        toast({ title: `${primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1)} Drawn`, description: `${newObj.name} added.` });
+        const finalProps = { ...newObjProps, materialId: DEFAULT_MATERIAL_ID };
+        // Let addObject handle name generation if newObjProps.name is set (e.g. "Rectangle", "Line")
+        // It will append numbers for uniqueness.
+        const newObj = addObject(primitiveType as Exclude<PrimitiveType, 'cadPlan'>, finalProps);
+        
+        let friendlyName = primitiveType.charAt(0).toUpperCase() + primitiveType.slice(1);
+        if (tool === 'line') friendlyName = 'Line';
+        else if (tool === 'rectangle') friendlyName = 'Rectangle';
+
+        toast({ title: `${friendlyName} Drawn`, description: `${newObj.name} added.` });
       }
-      // Reset drawing state for persistent tools, allowing immediate re-use
+      
       if (toolIsPersistent && drawingState.tool) {
         setDrawingState({ isActive: false, startPoint: null, currentPoint: null, tool: drawingState.tool });
       } else {
@@ -662,14 +824,24 @@ const SceneViewer: React.FC = () => {
         }
         return;
     } else if (activeTool === 'pushpull' && drawingState.isActive && drawingState.pushPullFaceInfo && drawingState.tool === 'pushpull') {
-        const { objectId, originalType } = drawingState.pushPullFaceInfo;
+        const { objectId, originalType, worldFaceNormal } = drawingState.pushPullFaceInfo;
         const finalObject = sceneContextObjects.find(o => o.id === objectId);
+        
+        let description = `${finalObject?.name || 'Object'} modified.`;
+        if (originalType === 'plane' && finalObject?.type === 'cube') {
+            description = `Plane extruded to ${finalObject?.name || 'a cube'}.`;
+        } else if (originalType === 'circle' && finalObject?.type === 'cylinder') {
+            description = `Circle extruded to ${finalObject?.name || 'a cylinder'}.`;
+        } else if (originalType === 'polygon' && finalObject?.type === 'cylinder') { // Assuming polygon also extrudes to cylinder
+             description = `Polygon extruded to ${finalObject?.name || 'a cylinder'}.`;
+        }
+
         toast({ 
             title: "Push/Pull Complete", 
-            description: `${finalObject?.name || 'Object'} modified. ${originalType === 'plane' && finalObject?.type === 'cube' ? 'Plane extruded to a cube.' : (originalType === 'circle' && finalObject?.type === 'cylinder' ? 'Circle extruded to a cylinder.' : '')}` 
+            description: description
         });
         if (toolIsPersistent) {
-            setDrawingState({ isActive: false, tool: activeTool as DrawingState['tool'], pushPullFaceInfo: null }); 
+            setDrawingState({ isActive: false, tool: activeTool as DrawingState['tool'], pushPullFaceInfo: null });
         } else {
             setDrawingState({ isActive: false, tool: null, pushPullFaceInfo: null });
             if (activeTool) setActiveTool(undefined);
@@ -738,13 +910,94 @@ const SceneViewer: React.FC = () => {
     currentMount.addEventListener('pointerdown', onPointerDown);
     currentMount.addEventListener('pointermove', onPointerMove);
     currentMount.addEventListener('pointerup', onPointerUp);
+    
+    // Keydown/keyup for axis constraints and rotation snap
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return; 
+      }
+
+      if (activeTool === 'move' && transformControlsRef.current?.dragging) {
+        const key = event.key.toUpperCase();
+        if (key === 'X' && constrainedAxis !== 'X') {
+          setConstrainedAxis('X');
+          if (transformControlsRef.current) transformControlsRef.current.axis = 'X';
+          event.preventDefault();
+        } else if (key === 'Y' && constrainedAxis !== 'Y') {
+          setConstrainedAxis('Y');
+          if (transformControlsRef.current) transformControlsRef.current.axis = 'Y';
+          event.preventDefault();
+        } else if (key === 'Z' && constrainedAxis !== 'Z') {
+          setConstrainedAxis('Z');
+          if (transformControlsRef.current) transformControlsRef.current.axis = 'Z';
+          event.preventDefault();
+        }
+      } else if ((activeTool === 'rotate' || activeTool === 'scale') && event.key === 'Shift' && !isShiftPressed) {
+        setIsShiftPressed(true);
+        if (transformControlsRef.current) {
+          if (activeTool === 'rotate') {
+            transformControlsRef.current.rotationSnap = Math.PI / 12; // 15 degrees
+          }
+          // For scale, shift state is used by 'objectChange' listener
+        }
+        event.preventDefault();
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return; 
+      }
+      const currentActiveTool = transformModeRef.current; // Use the tool active at key down/drag start
+
+      if (currentActiveTool === 'move' && constrainedAxis !== null) {
+        const key = event.key.toUpperCase();
+        if ((key === 'X' && constrainedAxis === 'X') || 
+            (key === 'Y' && constrainedAxis === 'Y') || 
+            (key === 'Z' && constrainedAxis === 'Z')) {
+          setConstrainedAxis(null);
+          if (transformControlsRef.current) transformControlsRef.current.axis = null; 
+          event.preventDefault();
+        }
+      } else if ((currentActiveTool === 'rotate' || currentActiveTool === 'scale') && event.key === 'Shift' && isShiftPressed) {
+        setIsShiftPressed(false);
+        if (transformControlsRef.current) {
+          if (currentActiveTool === 'rotate') {
+            transformControlsRef.current.rotationSnap = null;
+          }
+          // For scale, objectChange listener will stop reacting to isShiftPressed
+        }
+        event.preventDefault();
+      }
+      
+      // Fallbacks if keys are released when tool is no longer active or dragging
+      if (constrainedAxis !== null && (!transformControlsRef.current || !transformControlsRef.current.dragging)) { 
+        setConstrainedAxis(null);
+        if (transformControlsRef.current && transformControlsRef.current.object) {
+          transformControlsRef.current.axis = null;
+        }
+      }
+      if (isShiftPressed && activeTool !== 'rotate' && activeTool !== 'scale') {
+        setIsShiftPressed(false);
+        if (transformControlsRef.current) {
+            transformControlsRef.current.rotationSnap = null; // Reset just in case
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       currentMount.removeEventListener('pointerdown', onPointerDown);
       currentMount.removeEventListener('pointermove', onPointerMove);
       currentMount.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [onPointerDown, onPointerMove, onPointerUp]);
+  }, [onPointerDown, onPointerMove, onPointerUp, activeTool, constrainedAxis, isShiftPressed]);
 
 
   useEffect(() => {
@@ -758,18 +1011,48 @@ const SceneViewer: React.FC = () => {
       tc.attach(selectedThreeObject);
       tc.enabled = true;
       tc.visible = true;
+      
+      // Reset properties that might have been set by other tools or states
+      tc.axis = null; 
+      tc.rotationSnap = null;
+      // tc.translationSnap = null; 
+
+      transformModeRef.current = null; // Reset transform mode ref
+
       switch (activeTool) {
-        case 'move': tc.mode = 'translate'; break;
-        case 'rotate': tc.mode = 'rotate'; break;
-        case 'scale': tc.mode = 'scale'; break;
-        default: break; 
+        case 'move': 
+          tc.mode = 'translate';
+          tc.axis = constrainedAxis; 
+          transformModeRef.current = 'translate';
+          break;
+        case 'rotate': 
+          tc.mode = 'rotate';
+          tc.rotationSnap = isShiftPressed ? (Math.PI / 12) : null;
+          transformModeRef.current = 'rotate';
+          break; 
+        case 'scale': 
+          tc.mode = 'scale'; 
+          transformModeRef.current = 'scale';
+          // Uniform scaling with shift is handled by 'objectChange' + isShiftPressed state
+          break;
+        default: 
+          tc.mode = 'translate'; // Default to translate if something is off
+          break; 
       }
     } else {
       if(tc.object) tc.detach(); 
       tc.enabled = false;
       tc.visible = false;
+      transformModeRef.current = null;
+      // Clear states if controls are detached
+      if (constrainedAxis) setConstrainedAxis(null); 
+      if (isShiftPressed) setIsShiftPressed(false); 
+      // Ensure TC properties are reset if it was active
+      if (tc.axis) tc.axis = null;
+      if (tc.rotationSnap) tc.rotationSnap = null;
+      // if (tc.translationSnap) tc.translationSnap = null;
     }
-  }, [activeTool, selectedObjectId]);
+  }, [activeTool, selectedObjectId, constrainedAxis, isShiftPressed]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
@@ -1043,41 +1326,60 @@ const SceneViewer: React.FC = () => {
             } 
             // Highlighting logic for rendering mode (emissive - if applicable)
             else if (isMesh && child.material instanceof THREE.MeshStandardMaterial) {
-                if (child.userData.originalEmissive === undefined) { 
-                    child.userData.originalEmissive = child.material.emissive.getHex(); 
-                }
-                if (child.userData.originalEmissiveIntensity === undefined) {
-                    child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
-                }
+                const sceneObject = sceneContextObjects.find(o => o.id === child.name);
+                const originalMaterialProps = sceneObject ? getMaterialById(sceneObject.materialId) : undefined;
 
                 if ((isSelected && !isTransforming && !isPushPullTarget) || (isPushPullTarget && drawingState.isActive)) { 
-                    child.material.emissive.setHex(0xFF6666); // Lighter red for emissive selection
+                    if (child.userData.originalEmissiveHex === undefined) {
+                        child.userData.originalEmissiveHex = child.material.emissive.getHex();
+                    }
+                    if (child.userData.originalEmissiveIntensity === undefined) {
+                        child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
+                    }
+                    child.material.emissive.setHex(0xFF6666); 
                     child.material.emissiveIntensity = isPushPullTarget ? 0.9 : 0.7;
                 } else {
-                    const originalMaterial = getMaterialById(sceneContextObjects.find(o => o.id === child.name)?.materialId || DEFAULT_MATERIAL_ID);
-                    if (originalMaterial?.emissive && originalMaterial.emissive !== '#000000') {
-                        child.material.emissive.set(originalMaterial.emissive);
-                        child.material.emissiveIntensity = originalMaterial.emissiveIntensity ?? 0;
+                    if (child.userData.originalEmissiveHex !== undefined) {
+                        child.material.emissive.setHex(child.userData.originalEmissiveHex);
+                    } else if (originalMaterialProps?.emissive) {
+                        child.material.emissive.set(originalMaterialProps.emissive);
                     } else {
-                        child.material.emissive.setHex(child.userData.originalEmissive ?? 0x000000);
-                        child.material.emissiveIntensity = child.userData.originalEmissiveIntensity ?? 0;
+                        child.material.emissive.setHex(0x000000);
                     }
+
+                    if (child.userData.originalEmissiveIntensity !== undefined) {
+                        child.material.emissiveIntensity = child.userData.originalEmissiveIntensity;
+                    } else if (originalMaterialProps?.emissiveIntensity !== undefined) {
+                        child.material.emissiveIntensity = originalMaterialProps.emissiveIntensity;
+                    } else {
+                        child.material.emissiveIntensity = 0;
+                    }
+                    // Clear userData so it's re-cached on next selection, in case material changes
+                    child.userData.originalEmissiveHex = undefined;
+                    child.userData.originalEmissiveIntensity = undefined;
                 }
                 child.material.needsUpdate = true;
-            } else if (isGroup && child.userData.objectType === 'cadPlan' && isSelected && !isTransforming && appMode === 'rendering') { 
+            } else if (isGroup && child.userData.objectType === 'cadPlan' && appMode === 'rendering') { 
+                const sceneObject = sceneContextObjects.find(o => o.id === child.name);
+                const originalMaterialProps = sceneObject ? getMaterialById(sceneObject.materialId) : undefined;
+                const defaultCadColor = originalMaterialProps?.color ? new THREE.Color(originalMaterialProps.color).getHex() : 0x888888;
+
                 child.children.forEach(lineSegment => {
                     if (lineSegment instanceof THREE.LineSegments && lineSegment.material instanceof THREE.LineBasicMaterial) {
-                        if (lineSegment.userData.originalColor === undefined) {
-                             lineSegment.userData.originalColor = lineSegment.material.color.getHex();
+                        if (isSelected && !isTransforming) {
+                            if (lineSegment.userData.originalColorHex === undefined) {
+                                lineSegment.userData.originalColorHex = lineSegment.material.color.getHex();
+                            }
+                            lineSegment.material.color.setHex(0xFF6666);
+                        } else {
+                            if (lineSegment.userData.originalColorHex !== undefined) {
+                                lineSegment.material.color.setHex(lineSegment.userData.originalColorHex);
+                            } else {
+                                lineSegment.material.color.setHex(defaultCadColor);
+                            }
+                            // Clear userData so it's re-cached on next selection
+                            lineSegment.userData.originalColorHex = undefined;
                         }
-                        lineSegment.material.color.setHex(0xFF6666); 
-                        lineSegment.material.needsUpdate = true;
-                    }
-                });
-            } else if (isGroup && child.userData.objectType === 'cadPlan' && !isSelected && appMode === 'rendering') {
-                child.children.forEach(lineSegment => {
-                    if (lineSegment instanceof THREE.LineSegments && lineSegment.material instanceof THREE.LineBasicMaterial && lineSegment.userData.originalColor !== undefined) {
-                        lineSegment.material.color.setHex(lineSegment.userData.originalColor);
                         lineSegment.material.needsUpdate = true;
                     }
                 });
