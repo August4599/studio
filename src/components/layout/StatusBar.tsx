@@ -9,7 +9,7 @@ const StatusBar: React.FC = () => {
   const systemMessage = "Ready";
 
   return (
-    <div className="flex items-center justify-between border-t bg-card h-8 px-4 text-xs text-muted-foreground flex-none">
+    <div className="flex items-center justify-between border-t bg-card h-8 px-4 text-xs text-foreground flex-none">
       <div className="flex items-center gap-4">
         <span>{systemMessage}</span>
       </div>

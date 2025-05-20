@@ -2,12 +2,10 @@
 "use client";
 import React from 'react';
 import ToolsPanel from "./ToolsPanel"; 
-import ToolPropertiesPanel from './ToolPropertiesPanel';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion } from "@/components/ui/accordion";
-import { Construction, Settings2 } from 'lucide-react';
+import { Construction } from 'lucide-react';
 import { useScene } from '@/context/scene-context'; 
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
 const ToolsSidebar: React.FC = () => {
   const { appMode } = useScene(); 
