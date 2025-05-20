@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useScene } from "@/context/scene-context";
-import { BoxSelect, Palette, Globe, Video, Image as ImageIconLucide, Settings2, Layers3 as LayersIcon, Aperture, Shapes, Lightbulb, Trees, Puzzle, Film, Wand2, Clapperboard, SunMoon, SlidersHorizontal, Sigma, Edit, Sun, Droplet, Wind, Cloud, LayoutList } from "lucide-react";
+import { Palette, Video, Aperture, Lightbulb, Puzzle, Film, Wand2, SunMoon, SlidersHorizontal, Sigma, Edit, LayoutList } from "lucide-react";
 
 // Import all necessary panel components
 import ToolPropertiesPanel from "./ToolPropertiesPanel";

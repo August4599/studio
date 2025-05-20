@@ -1,14 +1,13 @@
 
 "use client";
 
-import React, { useState, useEffect }from 'react';
+import React, { useEffect }from 'react';
 import dynamic from 'next/dynamic';
 import { SceneProvider, useScene } from "@/context/scene-context";
 import { ProjectProvider, useProject } from "@/context/project-context";
 import MainToolbar from '@/components/layout/main-toolbar';
 import ToolsSidebar from '@/components/sidebar/ToolsSidebar';
 import RightInspectorPanel from '@/components/sidebar/RightInspectorPanel';
-import NodeEditorPanel from '@/components/layout/NodeEditorPanel';
 import StatusBar from '@/components/layout/StatusBar';
 import ViewportOverlayControls from '@/components/scene/ViewportOverlayControls';
 import ProjectDashboard from '@/components/project/project-dashboard';
@@ -17,7 +16,7 @@ import { Loader2 } from "lucide-react";
 import type { ToolType, PrimitiveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider } from "@/components/ui/sidebar"; // Removed unused Sidebar components from here
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
 const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
   ssr: false,
@@ -29,14 +28,9 @@ const SceneViewer = dynamic(() => import('@/components/scene/viewer'), {
   ),
 });
 
-const COLLAPSED_NODE_EDITOR_PERCENTAGE = 7; // Approx height of the header bar
-
 const ArchiVisionLayout: React.FC = () => {
   const { addObject, triggerZoomExtents, selectedObjectId, removeObject: removeObjectFromContext, setActiveTool, activeTool, setDrawingState } = useScene();
   const { toast } = useToast();
-  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false); // Default to collapsed
-
-  const toggleNodeEditor = () => setIsNodeEditorOpen(!isNodeEditorOpen);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -137,30 +131,11 @@ const ArchiVisionLayout: React.FC = () => {
       <div className="flex flex-row flex-grow overflow-hidden">
         <ToolsSidebar />
         <ResizablePanelGroup direction="vertical" className="flex-grow">
-          <ResizablePanel 
-            defaultSize={isNodeEditorOpen ? 65 : (100 - COLLAPSED_NODE_EDITOR_PERCENTAGE)} 
-            minSize={30}
-          >
+          <ResizablePanel defaultSize={100}>
             <div className="flex-grow relative h-full w-full">
               <SceneViewer />
               <ViewportOverlayControls />
             </div>
-          </ResizablePanel>
-          <ResizableHandle 
-            withHandle={isNodeEditorOpen} 
-            className={!isNodeEditorOpen ? "hidden" : ""} 
-          />
-          <ResizablePanel 
-            defaultSize={isNodeEditorOpen ? 35 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
-            minSize={isNodeEditorOpen ? 20 : COLLAPSED_NODE_EDITOR_PERCENTAGE} 
-            maxSize={isNodeEditorOpen ? 60 : COLLAPSED_NODE_EDITOR_PERCENTAGE}
-            collapsible={true} 
-            collapsedSize={COLLAPSED_NODE_EDITOR_PERCENTAGE}
-            onCollapse={() => setIsNodeEditorOpen(false)}
-            onExpand={() => setIsNodeEditorOpen(true)}
-            className="bg-card" // Add background to node editor panel parent
-          >
-            <NodeEditorPanel isOpen={isNodeEditorOpen} onToggle={toggleNodeEditor} />
           </ResizablePanel>
         </ResizablePanelGroup>
         <RightInspectorPanel />
