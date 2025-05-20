@@ -310,12 +310,25 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     }));
   }, []);
 
-  const removeObject = useCallback((id: string) => {
-    setSceneData(prev => ({
-      ...prev,
-      objects: prev.objects.filter(obj => obj.id !== id),
-      selectedObjectId: prev.selectedObjectId === id ? null : prev.selectedObjectId,
-    }));
+  const removeObject = useCallback((id: string): SceneObject | null => {
+    let removedObjectName: string | null = null;
+    let removedObject: SceneObject | null = null;
+    
+    setSceneData(prev => {
+      const objectToRemove = prev.objects.find(obj => obj.id === id);
+      if (objectToRemove) {
+        removedObject = objectToRemove;
+        removedObjectName = objectToRemove.name;
+      }
+
+      return {
+        ...prev,
+        objects: prev.objects.filter(obj => obj.id !== id),
+        selectedObjectId: prev.selectedObjectId === id ? null : prev.selectedObjectId,
+      };
+    });
+    // console.log(`Object ${removedObjectName || id} removed from context.`);
+    return removedObject;
   }, []);
 
   const selectObject = useCallback((id: string | null) => {
@@ -637,6 +650,11 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       
       let newSelectedObjectId = prev.selectedObjectId;
       if (!preserveSelection && tool !== 'select' && tool !== 'move' && tool !== 'rotate' && tool !== 'scale' && tool !== 'paint' && tool !== 'pushpull') {
+        newSelectedObjectId = null;
+      }
+
+      // If Escape is pressed (tool becomes 'select') and 'select' was already active with an object selected, deselect it.
+      if (tool === 'select' && prev.activeTool === 'select' && prev.selectedObjectId !== null) {
         newSelectedObjectId = null;
       }
       
