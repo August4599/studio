@@ -3,12 +3,21 @@
 
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from 'react';
-import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit, SceneLayer, CameraSettings, AnimationData, SavedSceneView, EnvironmentSettings, PostProcessingSettings } from '@/types';
+import type { SceneData, SceneObject, MaterialProperties, AmbientLightProps, DirectionalLightSceneProps, SceneLight, LightType, PrimitiveType, ToolType, AppMode, DrawingState, SceneObjectDimensions, PushPullFaceInfo, ViewPreset, CadPlanData, RenderSettings, MeasurementUnit, SceneLayer, CameraSettings, AnimationData, SavedSceneView, EnvironmentSettings, PostProcessingSettings, AppliedModifier, ModifierType } from '@/types';
 import { DEFAULT_MATERIAL_ID, DEFAULT_LAYER_ID, DEFAULT_LAYER_NAME } from '@/types';
 import { v4 as uuidv4 } from 'uuid'; 
 import { getDefaultSceneData } from '@/lib/project-manager'; 
 
-interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit' | 'layers' | 'activeLayerId' | 'cameraSettings' | 'savedCameras' | 'animationData' | 'environmentSettings' | 'postProcessingSettings' | 'savedViews'> {
+// Ensure SceneData in types/index.ts includes:
+// offsetDistance?: number;
+// offsetAllowOverlap?: boolean;
+// offsetBothSides?: boolean;
+// And DrawingState in types/index.ts includes:
+// offsetDistance?: number;
+// offsetAllowOverlap?: boolean;
+// offsetBothSides?: boolean;
+
+interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'appMode' | 'activePaintMaterialId' | 'drawingState' | 'otherLights' | 'requestedViewPreset' | 'zoomExtentsTrigger' | 'cameraFov' | 'worldBackgroundColor' | 'renderSettings' | 'measurementUnit' | 'layers' | 'activeLayerId' | 'cameraSettings' | 'savedCameras' | 'animationData' | 'environmentSettings' | 'postProcessingSettings' | 'savedViews' | 'offsetDistance' | 'offsetAllowOverlap' | 'offsetBothSides'> {
   objects: SceneObject[];
   materials: MaterialProperties[];
   otherLights: SceneLight[];
@@ -30,6 +39,9 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   environmentSettings: EnvironmentSettings;
   postProcessingSettings?: PostProcessingSettings;
   savedViews: SavedSceneView[];
+  offsetDistance: number;
+  offsetAllowOverlap: boolean;
+  offsetBothSides: boolean;
 
 
   setAppMode: (mode: AppMode) => void;
@@ -79,6 +91,16 @@ interface SceneContextType extends Omit<SceneData, 'objects' | 'materials' | 'ap
   updateCameraSettings: (settings: Partial<CameraSettings>) => void; // For scene/render camera
   updateEnvironmentSettings: (settings: Partial<EnvironmentSettings>) => void;
   updatePostProcessingSettings: (settings: Partial<PostProcessingSettings>) => void;
+  setOffsetDistance: (distance: number) => void;
+  setOffsetAllowOverlap: (allow: boolean) => void;
+  setOffsetBothSides: (bothSides: boolean) => void;
+
+  // Modifier actions
+  addModifierToObject: (objectId: string, modifierType: ModifierType) => void;
+  removeModifierFromObject: (objectId: string, modifierId: string) => void;
+  setModifierEnabled: (objectId: string, modifierId: string, enabled: boolean) => void;
+  renameModifier: (objectId: string, modifierId: string, newName: string) => void;
+  reorderModifier: (objectId: string, modifierId: string, direction: 'up' | 'down') => void;
 }
 
 const SceneContext = createContext<SceneContextType | undefined>(undefined);
@@ -103,6 +125,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       layers: data.layers && data.layers.length > 0 ? data.layers : defaultData.layers,
       activeLayerId: data.activeLayerId || defaultData.activeLayerId,
       savedViews: data.savedViews || defaultData.savedViews,
+      offsetDistance: data.offsetDistance ?? defaultData.offsetDistance ?? 0.1,
+      offsetAllowOverlap: data.offsetAllowOverlap ?? defaultData.offsetAllowOverlap ?? true,
+      offsetBothSides: data.offsetBothSides ?? defaultData.offsetBothSides ?? false,
      };
   });
 
@@ -133,6 +158,9 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
             layers: initialSceneOverride.layers && initialSceneOverride.layers.length > 0 ? initialSceneOverride.layers : (prev.layers ?? defaultData.layers),
             activeLayerId: initialSceneOverride.activeLayerId || prev.activeLayerId || defaultData.activeLayerId,
             savedViews: initialSceneOverride.savedViews || prev.savedViews || defaultData.savedViews,
+            offsetDistance: initialSceneOverride.offsetDistance ?? prev.offsetDistance ?? defaultData.offsetDistance ?? 0.1,
+            offsetAllowOverlap: initialSceneOverride.offsetAllowOverlap ?? prev.offsetAllowOverlap ?? defaultData.offsetAllowOverlap ?? true,
+            offsetBothSides: initialSceneOverride.offsetBothSides ?? prev.offsetBothSides ?? defaultData.offsetBothSides ?? false,
         }));
     }
   }, [initialSceneOverride]);
@@ -606,7 +634,8 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       objects, materials, ambientLight, directionalLight, otherLights,
       selectedObjectId, activeTool, activePaintMaterialId, appMode, drawingState, measurementUnit,
       requestedViewPreset, zoomExtentsTrigger, cameraFov, worldBackgroundColor, renderSettings,
-      layers, activeLayerId, cameraSettings, savedCameras, animationData, environmentSettings, postProcessingSettings, savedViews
+      layers, activeLayerId, cameraSettings, savedCameras, animationData, environmentSettings, postProcessingSettings, savedViews,
+      offsetDistance, offsetAllowOverlap, offsetBothSides
     } = sceneData;
     return { 
       objects, materials, ambientLight, directionalLight, otherLights: otherLights || [],
@@ -619,6 +648,7 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
       environmentSettings: environmentSettings || getDefaultSceneData().environmentSettings!,
       postProcessingSettings: postProcessingSettings || getDefaultSceneData().postProcessingSettings!,
       savedViews: savedViews || [],
+      offsetDistance, offsetAllowOverlap, offsetBothSides,
     };
   }, [sceneData]);
 
@@ -632,11 +662,27 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
         newActivePaintMaterialId = null; 
       }
       
-      const persistentTools: ToolType[] = ['rectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint'];
+      const persistentTools: ToolType[] = ['rectangle', 'rotatedRectangle', 'line', 'arc', 'tape', 'pushpull', 'circle', 'polygon', 'freehand', 'protractor', 'eraser', 'paint', 'softenEdges'];
       
       if (tool && persistentTools.includes(tool)) {
         newDrawingState.tool = tool as DrawingState['tool'];
-        if (tool === 'polygon') newDrawingState.polygonSides = prev.drawingState.polygonSides || 6;
+        if (tool === 'polygon') {
+          newDrawingState.polygonSides = prev.drawingState.polygonSides || 6;
+        } else if (tool === 'offset') {
+          // Initialize offset properties in drawingState from main scene state
+          newDrawingState.offsetDistance = prev.offsetDistance ?? 0.1;
+          newDrawingState.offsetAllowOverlap = prev.offsetAllowOverlap ?? true;
+          newDrawingState.offsetBothSides = prev.offsetBothSides ?? false;
+        } else if (tool === 'rotatedRectangle') {
+          newDrawingState.rectangleWidth = prev.drawingState.rectangleWidth ?? 1;
+          newDrawingState.rectangleHeight = prev.drawingState.rectangleHeight ?? 1;
+          newDrawingState.rectangleAngle = prev.drawingState.rectangleAngle ?? 0;
+          // Ensure other relevant drawing states like points are reset if necessary
+          // For now, relying on the general reset below if tool is not persistent or changes.
+        } else if (tool === 'softenEdges') {
+          newDrawingState.softenEdgesAngle = prev.drawingState.softenEdgesAngle ?? 20;
+          newDrawingState.softenCoplanar = prev.drawingState.softenCoplanar ?? true;
+        }
       } else {
          newDrawingState.tool = null;
          newDrawingState.isActive = false;
@@ -719,6 +765,107 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     setSceneData(prev => ({ ...prev, postProcessingSettings: { ...(prev.postProcessingSettings || getDefaultSceneData().postProcessingSettings!), ...settings } as PostProcessingSettings}));
   }, []);
 
+  const setOffsetDistance = useCallback((distance: number) => {
+    setSceneData(prev => ({ ...prev, offsetDistance: distance, drawingState: { ...prev.drawingState, offsetDistance: distance } }));
+  }, []);
+
+  const setOffsetAllowOverlap = useCallback((allow: boolean) => {
+    setSceneData(prev => ({ ...prev, offsetAllowOverlap: allow, drawingState: { ...prev.drawingState, offsetAllowOverlap: allow } }));
+  }, []);
+
+  const setOffsetBothSides = useCallback((bothSides: boolean) => {
+    setSceneData(prev => ({ ...prev, offsetBothSides: bothSides, drawingState: { ...prev.drawingState, offsetBothSides: bothSides } }));
+  }, []);
+
+  // Modifier Management Functions
+  const addModifierToObject = useCallback((objectId: string, modifierType: ModifierType) => {
+    setSceneData(prev => {
+      const updatedObjects = prev.objects.map(obj => {
+        if (obj.id === objectId) {
+          const newModifier: AppliedModifier = {
+            id: uuidv4(),
+            type: modifierType,
+            name: modifierType.charAt(0).toUpperCase() + modifierType.slice(1).replace(/_/g, ' '),
+            enabled: true,
+            showInViewport: true,
+            properties: {}, 
+          };
+          const newModifiers = [...(obj.modifiers || []), newModifier];
+          return { ...obj, modifiers: newModifiers };
+        }
+        return obj;
+      });
+      return { ...prev, objects: updatedObjects };
+    });
+  }, []);
+
+  const removeModifierFromObject = useCallback((objectId: string, modifierId: string) => {
+    setSceneData(prev => ({
+      ...prev,
+      objects: prev.objects.map(obj => {
+        if (obj.id === objectId) {
+          return { ...obj, modifiers: (obj.modifiers || []).filter(mod => mod.id !== modifierId) };
+        }
+        return obj;
+      }),
+    }));
+  }, []);
+
+  const setModifierEnabled = useCallback((objectId: string, modifierId: string, enabled: boolean) => {
+    setSceneData(prev => ({
+      ...prev,
+      objects: prev.objects.map(obj => {
+        if (obj.id === objectId) {
+          return {
+            ...obj,
+            modifiers: (obj.modifiers || []).map(mod => 
+              mod.id === modifierId ? { ...mod, enabled } : mod
+            ),
+          };
+        }
+        return obj;
+      }),
+    }));
+  }, []);
+
+  const renameModifier = useCallback((objectId: string, modifierId: string, newName: string) => {
+    setSceneData(prev => ({
+      ...prev,
+      objects: prev.objects.map(obj => {
+        if (obj.id === objectId) {
+          return {
+            ...obj,
+            modifiers: (obj.modifiers || []).map(mod =>
+              mod.id === modifierId ? { ...mod, name: newName } : mod
+            ),
+          };
+        }
+        return obj;
+      }),
+    }));
+  }, []);
+
+  const reorderModifier = useCallback((objectId: string, modifierId: string, direction: 'up' | 'down') => {
+    setSceneData(prev => {
+      const updatedObjects = prev.objects.map(obj => {
+        if (obj.id === objectId && obj.modifiers) {
+          const modifiers = [...obj.modifiers];
+          const index = modifiers.findIndex(mod => mod.id === modifierId);
+          if (index === -1) return obj;
+
+          if (direction === 'up' && index > 0) {
+            [modifiers[index - 1], modifiers[index]] = [modifiers[index], modifiers[index - 1]];
+          } else if (direction === 'down' && index < modifiers.length - 1) {
+            [modifiers[index + 1], modifiers[index]] = [modifiers[index], modifiers[index + 1]];
+          }
+          return { ...obj, modifiers };
+        }
+        return obj;
+      });
+      return { ...prev, objects: updatedObjects };
+    });
+  }, []);
+
   
   const contextValue = useMemo(() => ({
     ...sceneData,
@@ -776,7 +923,15 @@ export const SceneProvider: React.FC<{ children: React.ReactNode, initialSceneOv
     updateCameraSettings,
     updateEnvironmentSettings,
     updatePostProcessingSettings,
-  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, addLayer, updateLayer, removeLayer, setActiveLayerId, getLayerById, addSavedScene, updateSavedScene, removeSavedScene, applySavedScene, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings, updateCameraSettings, updateEnvironmentSettings, updatePostProcessingSettings]);
+    setOffsetDistance,
+    setOffsetAllowOverlap,
+    setOffsetBothSides,
+    addModifierToObject,
+    removeModifierFromObject,
+    setModifierEnabled,
+    renameModifier,
+    reorderModifier,
+  }), [sceneData, setAppMode, addObject, importCadPlan, updateObject, removeObject, selectObject, addMaterial, updateMaterial, removeMaterial, getMaterialById, updateAmbientLight, updateDirectionalLight, addLight, updateLight, removeLight, getLightById, addLayer, updateLayer, removeLayer, setActiveLayerId, getLayerById, addSavedScene, updateSavedScene, removeSavedScene, applySavedScene, loadScene, clearCurrentProjectScene, setActiveTool, setActivePaintMaterialId, setDrawingState, setMeasurementUnit, getCurrentSceneData, setCameraViewPreset, triggerZoomExtents, setZoomExtentsTriggered, setCameraFov, setWorldBackgroundColor, updateRenderSettings, updateCameraSettings, updateEnvironmentSettings, updatePostProcessingSettings, setOffsetDistance, setOffsetAllowOverlap, setOffsetBothSides, addModifierToObject, removeModifierFromObject, setModifierEnabled, renameModifier, reorderModifier]);
 
   return (
     <SceneContext.Provider value={contextValue}>

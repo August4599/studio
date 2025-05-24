@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useScene } from "@/context/scene-context";
 import type { SceneObject, ModifierType, AppliedModifier } from "@/types"; 
-import { SquarePen, Trash2, PlusCircle, Layers as LayersIcon, Lock, Unlock, Group, Ungroup, Sigma, Bevel, Shell, BoxSelect, Link, Copy, ExternalLink, Info, Rotate3d, ScaleIcon, MoveIcon as TransformMoveIcon, Grid3X3, ChevronsUpDown, ChevronDown, ChevronUp, Eye, EyeOff, CopyIcon, Replace } from "lucide-react"; 
+import { ALL_MODIFIER_TYPES } from "@/types"; // Import ALL_MODIFIER_TYPES
+import { SquarePen, Trash2, PlusCircle, Layers as LayersIcon, Lock, Unlock, Group, Ungroup, Sigma, Bevel, Shell, BoxSelect, Link, Copy, ExternalLink, Info, Rotate3d, ScaleIcon, MoveIcon as TransformMoveIcon, Grid3X3, ChevronsUpDown, ChevronDown, ChevronUp, Eye, EyeOff, CopyIcon, Replace, Edit2 } from "lucide-react"; // PlusCircle is already here
 import {
   Select,
   SelectContent,
@@ -104,8 +105,13 @@ const DimensionInput: React.FC<{
 
 
 const ObjectPropertiesPanel = () => {
-  const { selectedObjectId, objects, updateObject, removeObject, materials, getMaterialById, layers, activeLayerId } = useScene();
+  const { 
+    selectedObjectId, objects, updateObject, removeObject, materials, getMaterialById, layers, activeLayerId,
+    addModifierToObject, renameModifier, setModifierEnabled, reorderModifier, removeModifierFromObject 
+  } = useScene();
   const [selectedObject, setSelectedObject] = useState<SceneObject | null>(null);
+  const [newAttrKey, setNewAttrKey] = useState<string>("");
+  const [newAttrValue, setNewAttrValue] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -189,8 +195,8 @@ const ObjectPropertiesPanel = () => {
     }
   };
 
-  const modifierTypes: ModifierType[] = ['bevel', 'subdivision', 'solidify', 'array', 'mirror', 'lattice', 'boolean', 'displacement', 'skin', 'shell', 'path_deform', 'ffd', 'cloth', 'hair_fur', 'noise_modifier', 'smooth_modifier', 'uvw_map_modifier', 'edit_poly_modifier', 'curve_modifier', 'shrinkwrap_modifier'];
-
+  // const modifierTypes: ModifierType[] = ['bevel', 'subdivision', 'solidify', 'array', 'mirror', 'lattice', 'boolean', 'displacement', 'skin', 'shell', 'path_deform', 'ffd', 'cloth', 'hair_fur', 'noise_modifier', 'smooth_modifier', 'uvw_map_modifier', 'edit_poly_modifier', 'curve_modifier', 'shrinkwrap_modifier'];
+  // Replaced by ALL_MODIFIER_TYPES directly in the Select component
 
   if (!selectedObject) {
     return (
@@ -266,9 +272,85 @@ const ObjectPropertiesPanel = () => {
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs">Custom Attributes (WIP)</Label>
-                         <Textarea placeholder="Key: Value pairs (e.g., Price: 100)" className="h-16 text-xs" disabled/>
-                         <Button variant="outline" size="xs" className="h-6 text-[10px]" disabled>Add Attribute</Button>
+                        <Label className="text-xs font-medium">Custom Attributes</Label>
+                        {Object.entries(selectedObject.customAttributes || {}).map(([key, value]) => (
+                            <div key={key} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1 mb-1">
+                              <Input
+                                value={key}
+                                readOnly 
+                                className="h-7 text-xs bg-muted/50 border-none" 
+                                placeholder="Key"
+                              />
+                              <Input
+                                value={value as string} // Assuming string values for now
+                                onChange={(e) => {
+                                  if (selectedObject) {
+                                    const updatedAttributes = { ...selectedObject.customAttributes, [key]: e.target.value };
+                                    updateObject(selectedObject.id, { customAttributes: updatedAttributes });
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                    if (selectedObject && !isLocked) { // Only toast if not locked and object exists
+                                        toast({ title: "Attribute Updated", description: `Attribute '${key}' updated.`, duration: 2000 });
+                                    }
+                                }}
+                                className="h-7 text-xs"
+                                placeholder="Value"
+                                disabled={isLocked}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => {
+                                  if (selectedObject) {
+                                    const { [key]: _, ...remainingAttributes } = selectedObject.customAttributes || {};
+                                    updateObject(selectedObject.id, { customAttributes: remainingAttributes });
+                                    toast({ title: "Attribute Removed", description: `Attribute '${key}' removed.`, duration: 2000 });
+                                  }
+                                }}
+                                disabled={isLocked}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                        ))}
+                        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1 mt-2 pt-2 border-t">
+                          <Input
+                            placeholder="New Key"
+                            value={newAttrKey}
+                            onChange={(e) => setNewAttrKey(e.target.value)}
+                            className="h-7 text-xs"
+                            disabled={isLocked}
+                          />
+                          <Input
+                            placeholder="New Value"
+                            value={newAttrValue}
+                            onChange={(e) => setNewAttrValue(e.target.value)}
+                            className="h-7 text-xs"
+                            disabled={isLocked}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              if (selectedObject && newAttrKey.trim() !== "") {
+                                const updatedAttributes = { ...(selectedObject.customAttributes || {}), [newAttrKey.trim()]: newAttrValue };
+                                updateObject(selectedObject.id, { customAttributes: updatedAttributes });
+                                setNewAttrKey("");
+                                setNewAttrValue("");
+                                toast({ title: "Attribute Added", description: `Attribute '${newAttrKey.trim()}' added.`});
+                              } else {
+                                toast({ title: "Error", description: "Attribute key cannot be empty.", variant: "destructive"});
+                              }
+                            }}
+                            disabled={isLocked}
+                            title="Add Attribute"
+                          >
+                            <PlusCircle size={16} />
+                          </Button>
+                        </div>
                     </div>
                 </AccordionContent>
             </AccordionItem>
@@ -388,41 +470,78 @@ const ObjectPropertiesPanel = () => {
         <Accordion type="single" collapsible className="w-full border rounded-md">
             <AccordionItem value="item-modifiers">
                 <AccordionTrigger className="text-xs hover:no-underline px-2 py-2.5">
-                    <div className="flex items-center gap-1.5"><Sigma size={14}/> Modifier Stack (WIP)</div>
+                    <div className="flex items-center gap-1.5"><Sigma size={14}/> Modifier Stack</div>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-2 p-2 pt-1">
                     <ScrollArea className="h-[120px] border rounded-sm p-1 bg-muted/20">
                         {selectedObject.modifiers && selectedObject.modifiers.length > 0 ? (
                             selectedObject.modifiers.map((mod, index) => (
-                                <div key={mod.id} className="text-[10px] p-1.5 border-b flex justify-between items-center group hover:bg-muted/40">
-                                    <div className="flex items-center gap-1">
-                                      <Checkbox checked={mod.enabled} disabled className="h-3.5 w-3.5"/>
-                                      <Checkbox checked={mod.showInViewport} disabled className="h-3.5 w-3.5"/>
-                                      <span className="truncate">{mod.name || mod.type.charAt(0).toUpperCase() + mod.type.slice(1)}</span>
+                                <div key={mod.id} className="p-1.5 border-b flex flex-col group hover:bg-muted/40">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1.5">
+                                            <Checkbox 
+                                                id={`mod-enabled-${mod.id}`}
+                                                checked={mod.enabled} 
+                                                onCheckedChange={(checked) => {
+                                                    setModifierEnabled(selectedObject.id, mod.id, !!checked);
+                                                    toast({ title: !!checked ? "Modifier Enabled" : "Modifier Disabled", description: `'${mod.name}' is now ${!!checked ? 'enabled' : 'disabled'}.`, duration: 2000 });
+                                                }}
+                                                className="h-3.5 w-3.5"
+                                            />
+                                            <Input 
+                                                value={mod.name}
+                                                onChange={(e) => renameModifier(selectedObject.id, mod.id, e.target.value)}
+                                                onBlur={(e) => {
+                                                    toast({ title: "Modifier Renamed", description: `Modifier renamed to '${e.target.value}'.`, duration: 2000 });
+                                                }}
+                                                className="h-6 text-xs border-none focus:ring-1 focus:ring-primary bg-transparent p-0 flex-grow"
+                                                placeholder="Modifier Name"
+                                            />
+                                        </div>
+                                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                                reorderModifier(selectedObject.id, mod.id, 'up');
+                                                toast({ title: "Modifier Reordered", description: `'${mod.name}' moved up.`, duration: 1500 });
+                                            }} disabled={index === 0}><ChevronUp size={12}/></Button>
+                                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                                reorderModifier(selectedObject.id, mod.id, 'down');
+                                                toast({ title: "Modifier Reordered", description: `'${mod.name}' moved down.`, duration: 1500 });
+                                            }} disabled={index === (selectedObject.modifiers?.length ?? 0) - 1}><ChevronDown size={12}/></Button>
+                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => {
+                                                const oldName = mod.name;
+                                                removeModifierFromObject(selectedObject.id, mod.id);
+                                                toast({ title: "Modifier Removed", description: `'${oldName}' removed.`, duration: 2000 });
+                                            }}><Trash2 size={10}/></Button>
+                                        </div>
                                     </div>
-                                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled><ChevronUp size={10}/></Button>
-                                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled><ChevronDown size={10}/></Button>
-                                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled><CopyIcon size={10}/></Button>
-                                      <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" disabled><Trash2 size={10}/></Button>
-                                    </div>
+                                    <p className="text-muted-foreground text-[9px] leading-tight ml-5">Type: {mod.type.charAt(0).toUpperCase() + mod.type.slice(1).replace(/_/g, ' ')}</p>
                                 </div>
                             ))
                         ) : (
                             <p className="text-center text-muted-foreground text-[10px] py-2">No modifiers applied.</p>
                         )}
                     </ScrollArea>
-                    <Select disabled>
+                    <Select 
+                        onValueChange={(value) => { 
+                            if (selectedObject && value) { 
+                                const modifierType = value as ModifierType;
+                                addModifierToObject(selectedObject.id, modifierType); 
+                                const valueDisplayName = modifierType.charAt(0).toUpperCase() + modifierType.slice(1).replace(/_/g, ' ');
+                                toast({ title: "Modifier Added", description: `Modifier '${valueDisplayName}' added to ${selectedObject.name}.`, duration: 2000 });
+                            } 
+                        }}
+                        value="" // Keep it empty to allow re-selection of same value if needed, or manage selection state
+                    >
                         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Add Modifier"/></SelectTrigger>
                         <SelectContent>
-                            {modifierTypes.map(modType => (
+                            {ALL_MODIFIER_TYPES.map(modType => (
                                 <SelectItem key={modType} value={modType} className="text-xs">
                                     {modType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                     <p className="text-[10px] text-muted-foreground italic">Modifier stack and parameters are WIP.</p>
+                     <p className="text-[10px] text-muted-foreground italic">Modifier parameters and geometric effects are WIP.</p>
                 </AccordionContent>
             </AccordionItem>
         </Accordion>

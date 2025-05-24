@@ -99,15 +99,34 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'rotatedRectangle':
         return (
           <div className="space-y-2">
-            <Label className="text-xs font-medium">Dimensions (WIP)</Label>
+            <Label className="text-xs font-medium">Dimensions</Label>
              <div className="grid grid-cols-2 gap-1">
-                <Input type="number" placeholder="Width" className="h-7 text-xs" disabled/>
-                <Input type="number" placeholder="Height" className="h-7 text-xs" disabled/>
+                <Input 
+                  type="number" 
+                  placeholder="Edge 1 Length" 
+                  className="h-7 text-xs" 
+                  value={drawingState.rectangleWidth ?? ''}
+                  onChange={(e) => setDrawingState({ rectangleWidth: parseFloat(e.target.value) || 0 })}
+                />
+                <Input 
+                  type="number" 
+                  placeholder="Edge 2 Length" 
+                  className="h-7 text-xs" 
+                  value={drawingState.rectangleHeight ?? ''}
+                  onChange={(e) => setDrawingState({ rectangleHeight: parseFloat(e.target.value) || 0 })}
+                />
             </div>
             {activeTool === 'rotatedRectangle' && (
                 <>
-                <Label htmlFor="rect-angle" className="text-xs font-medium">Angle (WIP)</Label>
-                <Input id="rect-angle" type="number" placeholder="Rotation angle" className="h-7 text-xs" disabled/>
+                <Label htmlFor="rect-angle" className="text-xs font-medium">Angle (Degrees)</Label>
+                <Input 
+                  id="rect-angle" 
+                  type="number" 
+                  placeholder="Rotation angle" 
+                  className="h-7 text-xs" 
+                  value={drawingState.rectangleAngle ?? ''}
+                  onChange={(e) => setDrawingState({ rectangleAngle: parseFloat(e.target.value) || 0 })}
+                />
                 </>
             )}
           </div>
@@ -201,17 +220,43 @@ const ToolPropertiesPanel: React.FC = () => {
           </div>
         );
       case 'offset':
+        // Ensure drawingState includes offsetDistance, offsetAllowOverlap, offsetBothSides from scene-context
+        // Values will primarily be read from drawingState when tool is active.
+        // Fallback to scene context's general offset settings if needed (e.g., initial activation)
         return (
             <div className="space-y-2">
-                <Label htmlFor="offset-distance" className="text-xs font-medium">Distance (WIP)</Label>
-                <Input id="offset-distance" type="number" placeholder="Enter offset" className="h-8 text-xs" disabled/>
+                <Label htmlFor="offset-distance" className="text-xs font-medium">Offset Distance</Label>
+                <Input 
+                    id="offset-distance" 
+                    type="number" 
+                    placeholder="Enter offset" 
+                    className="h-8 text-xs" 
+                    value={drawingState.offsetDistance ?? scene.offsetDistance ?? 0.1}
+                    onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        scene.setOffsetDistance(isNaN(val) ? 0 : val); 
+                    }}
+                    step="0.01"
+                />
                  <div className="flex items-center space-x-2">
-                    <Checkbox id="offset-both-sides" disabled/>
-                    <Label htmlFor="offset-both-sides" className="text-xs font-normal text-muted-foreground">Offset Both Sides (WIP)</Label>
+                    <Checkbox 
+                        id="offset-both-sides"
+                        checked={drawingState.offsetBothSides ?? scene.offsetBothSides ?? false}
+                        onCheckedChange={(checked) => {
+                            scene.setOffsetBothSides(!!checked);
+                        }}
+                    />
+                    <Label htmlFor="offset-both-sides" className="text-xs font-normal text-muted-foreground">Offset Both Sides</Label>
                 </div>
                  <div className="flex items-center space-x-2">
-                    <Checkbox id="offset-allow-overlap" disabled/>
-                    <Label htmlFor="offset-allow-overlap" className="text-xs font-normal text-muted-foreground">Allow Overlap (WIP)</Label>
+                    <Checkbox
+                        id="offset-allow-overlap"
+                        checked={drawingState.offsetAllowOverlap ?? scene.offsetAllowOverlap ?? true}
+                        onCheckedChange={(checked) => {
+                            scene.setOffsetAllowOverlap(!!checked);
+                        }}
+                    />
+                    <Label htmlFor="offset-allow-overlap" className="text-xs font-normal text-muted-foreground">Allow Overlap</Label>
                 </div>
             </div>
         );
@@ -265,11 +310,24 @@ const ToolPropertiesPanel: React.FC = () => {
       case 'softenEdges':
           return (
             <div className="space-y-2">
-                <Label className="text-xs font-medium">Soften/Smooth Edges (WIP)</Label>
-                <Label htmlFor="soften-angle" className="text-xs">Angle: 20°</Label>
-                <Input id="soften-angle" type="range" min="0" max="180" step="1" defaultValue="20" className="h-8" disabled/>
+                <Label className="text-xs font-medium">Soften/Smooth Edges</Label>
+                <Label htmlFor="soften-angle" className="text-xs">Angle: {drawingState.softenEdgesAngle ?? 20}°</Label>
+                <Input 
+                  id="soften-angle" 
+                  type="range" 
+                  min="0" 
+                  max="180" 
+                  step="1" 
+                  value={drawingState.softenEdgesAngle ?? 20} 
+                  onChange={(e) => setDrawingState({ softenEdgesAngle: parseInt(e.target.value) || 0 })}
+                  className="h-8"
+                />
                 <div className="flex items-center space-x-2">
-                    <Checkbox id="soften-coplanar" disabled/>
+                    <Checkbox 
+                      id="soften-coplanar" 
+                      checked={drawingState.softenCoplanar ?? true}
+                      onCheckedChange={(checked) => setDrawingState({ softenCoplanar: !!checked })}
+                    />
                     <Label htmlFor="soften-coplanar" className="text-xs font-normal text-muted-foreground">Soften Coplanar</Label>
                 </div>
             </div>

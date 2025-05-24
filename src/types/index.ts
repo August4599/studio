@@ -7,6 +7,8 @@ export type ModifierType =
   | 'skin' | 'shell' | 'path_deform' | 'ffd' | 'cloth' | 'hair_fur' | 'scatter' | 'instance' | 'volume_to_mesh' | 'merge_by_distance'
   | 'noise_modifier' | 'smooth_modifier' | 'uvw_map_modifier' | 'edit_poly_modifier' | 'curve_modifier' | 'shrinkwrap_modifier';
 
+export const ALL_MODIFIER_TYPES: ModifierType[] = ['bevel', 'subdivision', 'solidify', 'array', 'mirror', 'lattice', 'boolean', 'displacement', 'skin', 'shell', 'path_deform', 'ffd', 'cloth', 'hair_fur', 'noise_modifier', 'smooth_modifier', 'uvw_map_modifier', 'edit_poly_modifier', 'curve_modifier', 'shrinkwrap_modifier'];
+
 // Material Types (Conceptual, inspired by V-Ray/D5/etc.)
 export type AdvancedMaterialType = 
   | 'generic_pbr' // Default
@@ -350,6 +352,17 @@ export interface DrawingState {
   measureDistance?: number | null; 
   pushPullFaceInfo?: PushPullFaceInfo | null;
   polygonSides?: number; 
+  // Properties for Rotated Rectangle tool
+  rectangleWidth?: number;
+  rectangleHeight?: number;
+  rectangleAngle?: number;
+  // Properties for Offset tool
+  offsetDistance?: number;
+  offsetAllowOverlap?: boolean;
+  offsetBothSides?: boolean;
+  // Properties for Soften Edges tool
+  softenEdgesAngle?: number;
+  softenCoplanar?: boolean;
 }
 
 
