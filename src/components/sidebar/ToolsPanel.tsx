@@ -89,7 +89,7 @@ const ToolsPanel = () => {
       tools: [
         { id: 'line', label: 'Line', icon: Minus, action: () => activateGenericTool('line', 'Line Tool', 'Click to define line segments.') }, 
         { id: 'rectangle', label: 'Rectangle', icon: Square, action: () => activateGenericTool('rectangle', 'Rectangle Tool') }, 
-        { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Framer, isWip: true, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'WIP: Define base, then angle and width.')},
+        { id: 'rotatedRectangle', label: 'Rotated Rect', icon: Framer, action: () => activateGenericTool('rotatedRectangle', 'Rotated Rectangle', 'Rotated Rectangle tool active. Define points in scene or set dimensions in Tool Properties.')},
         { id: 'circle', label: 'Circle', icon: LucideCircle, action: () => activateGenericTool('circle', 'Circle Tool', 'Click center, drag for radius.') }, 
         { 
           id: 'arc', label: 'Arc Tools', icon: Spline, action: () => toggleFlyout('arc'), isWip: true,
@@ -108,7 +108,7 @@ const ToolsPanel = () => {
       title: "Modification Tools",
       tools: [
         { id: 'pushpull', label: 'Push/Pull', icon: ChevronsUpDown, action: () => activateGenericTool('pushpull', 'Push/Pull Tool', 'Click a face and drag to extrude.') },
-        { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'Select faces/edges then click to offset.'), isWip: true }, 
+        { id: 'offset', label: 'Offset', icon: Copy, action: () => activateGenericTool('offset', 'Offset Tool', 'The Offset tool is now active. Adjust distance and options in the Tool Properties panel.') }, 
         { id: 'followme', label: 'Follow Me', icon: Target, action: () => activateGenericTool('followme', 'Follow Me Tool', 'Select path, then profile to extrude.'), isWip: true },
         { 
           id: 'intersectFaces', label: 'Intersect', icon: Combine, action: () => toggleFlyout('intersectFaces'), isWip: true,
@@ -128,7 +128,7 @@ const ToolsPanel = () => {
             {id: 'solidTrim', label: 'Trim', icon: Scissors, isWip: true, action: () => activateGenericTool('solidTrim', 'Solid Trim', 'WIP')},
           ]
         },
-        { id: 'softenEdges', label: 'Soften Edges', icon: Waves, isWip: true, action: () => activateGenericTool('softenEdges', 'Soften Edges', 'WIP: Select edges, adjust angle in options.')},
+        { id: 'softenEdges', label: 'Soften Edges', icon: Waves, action: () => activateGenericTool('softenEdges', 'Soften Edges', 'Soften Edges tool active. Adjust angle and options in Tool Properties panel.')},
       ]
     },
     {

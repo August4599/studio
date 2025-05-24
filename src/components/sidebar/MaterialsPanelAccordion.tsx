@@ -306,7 +306,7 @@ const MaterialEditorDialog: React.FC<{
                 <MoveIcon size={16} className="mr-2"/> UVW Mapping & Tiling
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-2">
-                 <Select value={editedMaterial.uvwMappingType || 'uv_channel'} onValueChange={val => handleChange('uvwMappingType', val as UVWMappingType)} disabled>
+                 <Select value={editedMaterial.uvwMappingType || 'uv_channel'} onValueChange={val => handleChange('uvwMappingType', val as UVWMappingType)}>
                     <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="uv_channel" className="text-sm">UV Channel</SelectItem>
@@ -325,26 +325,33 @@ const MaterialEditorDialog: React.FC<{
                 </div>
                  <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
-                        <Checkbox id="mat-uvRealWorldScale" checked={!!editedMaterial.uvRealWorldScale} onCheckedChange={checked => handleChange('uvRealWorldScale', !!checked)} disabled/>
-                        <Label htmlFor="mat-uvRealWorldScale" className="font-normal text-xs">Real-World Scale (WIP)</Label>
+                        <Checkbox id="mat-uvRealWorldScale" checked={!!editedMaterial.uvRealWorldScale} onCheckedChange={checked => handleChange('uvRealWorldScale', !!checked)} />
+                        <Label htmlFor="mat-uvRealWorldScale" className="font-normal text-xs">Real-World Scale</Label>
                     </div>
                     <div className="flex items-center justify-between">
                          <Label htmlFor="mat-uvChannel" className="text-xs">UV Channel:</Label>
-                         <Input id="mat-uvChannel" type="number" min="0" max="15" step="1" defaultValue={editedMaterial.uvChannel || 0} className="h-7 w-16 text-xs" disabled/>
+                         <Input 
+                            id="mat-uvChannel" 
+                            type="number" 
+                            min="0" max="15" step="1" 
+                            value={editedMaterial.uvChannel || 0} 
+                            onChange={(e) => handleChange('uvChannel', parseInt(e.target.value))}
+                            className="h-7 w-16 text-xs" 
+                         />
                     </div>
                 </div>
                  <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
-                         <Checkbox id="mat-uvFlipU" checked={!!editedMaterial.uvFlip?.u} onCheckedChange={checked => handleChange('uvFlip', {...editedMaterial.uvFlip, u: !!checked})} disabled/>
-                        <Label htmlFor="mat-uvFlipU" className="font-normal text-xs">Flip U (WIP)</Label>
+                         <Checkbox id="mat-uvFlipU" checked={!!editedMaterial.uvFlip?.u} onCheckedChange={checked => handleChange('uvFlip', {...editedMaterial.uvFlip, u: !!checked})} />
+                        <Label htmlFor="mat-uvFlipU" className="font-normal text-xs">Flip U</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                         <Checkbox id="mat-uvFlipV" checked={!!editedMaterial.uvFlip?.v} onCheckedChange={checked => handleChange('uvFlip', {...editedMaterial.uvFlip, v: !!checked})} disabled/>
-                        <Label htmlFor="mat-uvFlipV" className="font-normal text-xs">Flip V (WIP)</Label>
+                         <Checkbox id="mat-uvFlipV" checked={!!editedMaterial.uvFlip?.v} onCheckedChange={checked => handleChange('uvFlip', {...editedMaterial.uvFlip, v: !!checked})} />
+                        <Label htmlFor="mat-uvFlipV" className="font-normal text-xs">Flip V</Label>
                     </div>
                 </div>
                 {editedMaterial.uvwMappingType === 'planar' && (
-                    <Select value={editedMaterial.uvProjectionAxis || 'y'} onValueChange={val => handleChange('uvProjectionAxis', val as UVWProjectionAxis)} disabled>
+                    <Select value={editedMaterial.uvProjectionAxis || 'y'} onValueChange={val => handleChange('uvProjectionAxis', val as UVWProjectionAxis)}>
                         <SelectTrigger className="h-9 text-sm mt-2"><SelectValue placeholder="Projection Axis"/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="x" className="text-sm">X Axis</SelectItem>
@@ -355,8 +362,8 @@ const MaterialEditorDialog: React.FC<{
                 )}
                 {(editedMaterial.uvwMappingType === 'box' || editedMaterial.uvwMappingType === 'triplanar') && (
                     <div className="space-y-1 mt-2">
-                        <Label htmlFor="mat-uvBoxProjectionBlend">Projection Blend (WIP): {(editedMaterial.uvBoxProjectionBlend ?? 0).toFixed(2)}</Label>
-                        <Slider id="mat-uvBoxProjectionBlend" min={0} max={1} step={0.01} value={[editedMaterial.uvBoxProjectionBlend ?? 0]} onValueChange={(val) => handleSliderChange('uvBoxProjectionBlend', val)} disabled/>
+                        <Label htmlFor="mat-uvBoxProjectionBlend">Projection Blend: {(editedMaterial.uvBoxProjectionBlend ?? 0).toFixed(2)}</Label>
+                        <Slider id="mat-uvBoxProjectionBlend" min={0} max={1} step={0.01} value={[editedMaterial.uvBoxProjectionBlend ?? 0]} onValueChange={(val) => handleSliderChange('uvBoxProjectionBlend', val)} />
                     </div>
                 )}
               </AccordionContent>
